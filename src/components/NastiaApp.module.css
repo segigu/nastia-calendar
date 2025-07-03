@@ -197,6 +197,12 @@
   margin-bottom: 1.5rem;
 }
 
+/* Адаптируем сетку для 3 кнопок */
+.actionsGrid:has(.sync) {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
 .actionButton {
   display: flex;
   align-items: center;
@@ -418,4 +424,56 @@
   font-size: 0.875rem;
   margin: 0;
   font-style: italic;
+}
+
+.syncMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: #0369a1;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.actionButton.sync {
+  background-color: #10b981;
+  color: white;
+}
+
+.actionButton.sync:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.actionButton.sync:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Адаптивная сетка для кнопок */
+@media (max-width: 640px) {
+  .actionsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .actionButton.sync {
+    grid-column: 1 / -1;
+  }
 }

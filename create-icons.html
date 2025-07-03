@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Creator</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192" style="border: 1px solid black;"></canvas>
+    <canvas id="canvas512" width="512" height="512" style="border: 1px solid black;"></canvas>
+    <br>
+    <button onclick="downloadIcons()">Download Icons</button>
+
+    <script>
+        // Create 192x192 icon
+        const canvas192 = document.getElementById('canvas192');
+        const ctx192 = canvas192.getContext('2d');
+        
+        // Create 512x512 icon
+        const canvas512 = document.getElementById('canvas512');
+        const ctx512 = canvas512.getContext('2d');
+
+        function drawIcon(ctx, size) {
+            const scale = size / 192;
+            
+            // Background
+            ctx.fillStyle = '#F4C2A1';
+            const radius = 42 * scale;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, radius);
+            ctx.fill();
+            
+            // Text
+            ctx.fillStyle = '#4A4A4A';
+            ctx.font = `italic ${48 * scale}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Nastia', size/2, size * 0.68);
+            
+            // Heart
+            ctx.fillStyle = '#C75B7A';
+            const heartX = size * 0.69;
+            const heartY = size * 0.49;
+            const heartSize = 13.5 * scale;
+            
+            ctx.beginPath();
+            ctx.arc(heartX - heartSize/2, heartY, heartSize/2, 0, Math.PI * 2);
+            ctx.arc(heartX + heartSize/2, heartY, heartSize/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Heart bottom
+            ctx.beginPath();
+            ctx.moveTo(heartX, heartY + heartSize);
+            ctx.lineTo(heartX - heartSize, heartY);
+            ctx.lineTo(heartX + heartSize, heartY);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Draw icons
+        drawIcon(ctx192, 192);
+        drawIcon(ctx512, 512);
+
+        function downloadIcons() {
+            // Download 192x192
+            const link192 = document.createElement('a');
+            link192.download = 'logo192.png';
+            link192.href = canvas192.toDataURL();
+            link192.click();
+            
+            // Download 512x512
+            setTimeout(() => {
+                const link512 = document.createElement('a');
+                link512.download = 'logo512.png';
+                link512.href = canvas512.toDataURL();
+                link512.click();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

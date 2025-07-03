@@ -6,7 +6,8 @@ import {
   BarChart3, 
   Download,
   Upload,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { CycleData, NastiaData } from '../types';
 import { 
@@ -22,6 +23,8 @@ import {
   getDaysUntilNext 
 } from '../utils/cycleUtils';
 import { saveData, loadData, exportData, importData } from '../utils/storage';
+import { cloudSync } from '../utils/cloudSync';
+import CloudSettings from './CloudSettings';
 import styles from './NastiaApp.module.css';
 
 const ModernNastiaApp: React.FC = () => {
@@ -29,17 +32,64 @@ const ModernNastiaApp: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string>('');
 
   // Загрузка данных при запуске
   useEffect(() => {
-    const savedData = loadData();
-    if (savedData) {
-      setCycles(savedData.cycles);
-    }
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    try {
+      // Сначала пробуем загрузить из облака
+      if (cloudSync.isConfigured()) {
+        setIsSyncing(true);
+        setSyncMessage('Загрузка данных из облака...');
+        
+        const cloudData = await cloudSync.downloadFromCloud();
+        if (cloudData && cloudData.cycles.length > 0) {
+          setCycles(cloudData.cycles);
+          setSyncMessage('Данные загружены из облака');
+          // Сохраняем локально как резерв
+          saveData(cloudData);
+        } else {
+          // Если в облаке пусто, загружаем локальные данные
+          const localData = loadData();
+          if (localData) {
+            setCycles(localData.cycles);
+            // Если есть локальные данные, загружаем их в облако
+            if (localData.cycles.length > 0) {
+              await cloudSync.uploadToCloud(localData);
+              setSyncMessage('Локальные данные загружены в облако');
+            }
+          }
+        }
+      } else {
+        // Облачная синхронизация не настроена, загружаем локально
+        const localData = loadData();
+        if (localData) {
+          setCycles(localData.cycles);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      setSyncMessage('Ошибка загрузки из облака, используем локальные данные');
+      // Загружаем локальные данные как резерв
+      const localData = loadData();
+      if (localData) {
+        setCycles(localData.cycles);
+      }
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(''), 3000);
+    }
+  };
 
   // Сохранение данных при изменении
   useEffect(() => {
+    if (cycles.length === 0) return; // Не сохраняем пустые данные при инициализации
+
     const nastiaData: NastiaData = {
       cycles,
       settings: {
@@ -48,8 +98,49 @@ const ModernNastiaApp: React.FC = () => {
         notifications: true,
       },
     };
+    
+    // Сохраняем локально
     saveData(nastiaData);
+    
+    // Сохраняем в облако если настроено
+    if (cloudSync.isConfigured()) {
+      syncToCloud(nastiaData);
+    }
   }, [cycles]);
+
+  // Синхронизация с облаком
+  const syncToCloud = async (data: NastiaData) => {
+    try {
+      await cloudSync.uploadToCloud(data);
+    } catch (error) {
+      console.error('Error syncing to cloud:', error);
+    }
+  };
+
+  // Ручная синхронизация
+  const handleManualSync = async () => {
+    if (!cloudSync.isConfigured()) return;
+    
+    setIsSyncing(true);
+    setSyncMessage('Синхронизация...');
+    
+    try {
+      await loadInitialData();
+      setSyncMessage('Синхронизация завершена');
+    } catch (error) {
+      setSyncMessage('Ошибка синхронизации');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(''), 3000);
+    }
+  };
+
+  // Обработчик изменения настроек облака
+  const handleCloudConfigChanged = () => {
+    if (cloudSync.isConfigured()) {
+      loadInitialData();
+    }
+  };
 
   // Получение дней месяца для календаря
   const getMonthDays = (date: Date) => {
@@ -243,6 +334,20 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         </div>
 
+        {/* Облачная синхронизация */}
+        <CloudSettings 
+          cloudSync={cloudSync} 
+          onConfigChanged={handleCloudConfigChanged}
+        />
+
+        {/* Сообщение о синхронизации */}
+        {syncMessage && (
+          <div className={styles.syncMessage}>
+            {isSyncing && <RefreshCw size={16} className={styles.spinning} />}
+            <span>{syncMessage}</span>
+          </div>
+        )}
+
         {/* Действия */}
         <div className={styles.actionsGrid}>
           <button
@@ -259,6 +364,16 @@ const ModernNastiaApp: React.FC = () => {
             <Download size={20} className={styles.buttonIcon} />
             Экспорт
           </button>
+          {cloudSync.isConfigured() && (
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className={`${styles.actionButton} ${styles.sync}`}
+            >
+              <RefreshCw size={20} className={`${styles.buttonIcon} ${isSyncing ? styles.spinning : ''}`} />
+              Синхронизация
+            </button>
+          )}
         </div>
 
         {/* Импорт данных */}
