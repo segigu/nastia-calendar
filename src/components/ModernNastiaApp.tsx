@@ -358,6 +358,13 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Персональное сообщение */}
+      <div className={styles.footer}>
+        <p className={styles.footerText}>
+          Создано с ❤️ для Nastia
+        </p>
+      </div>
     </div>
   );
 };

@@ -405,3 +405,17 @@
 .modalButton.secondary:hover {
   background-color: #d1d5db;
 }
+
+.footer {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--nastia-light);
+}
+
+.footerText {
+  color: var(--gray-600);
+  font-size: 0.875rem;
+  margin: 0;
+  font-style: italic;
+}
