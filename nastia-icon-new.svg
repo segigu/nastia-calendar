@@ -1,0 +1,15 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with rounded corners -->
+  <rect width="192" height="192" rx="42" ry="42" fill="#F4C2A1"/>
+  
+  <!-- Nastia text -->
+  <text x="96" y="130" font-family="serif" font-size="48" font-style="italic" text-anchor="middle" fill="#4A4A4A" font-weight="normal">
+    Nastia
+  </text>
+  
+  <!-- Heart -->
+  <path d="M142 85c-3.5 0-6.7 1.4-9 3.7-2.3-2.3-5.5-3.7-9-3.7-7 0-12.7 5.7-12.7 12.7 0 7 5.7 12.7 12.7 12.7 3.5 0 6.7-1.4 9-3.7 2.3 2.3 5.5 3.7 9 3.7 7 0 12.7-5.7 12.7-12.7 0-7-5.7-12.7-12.7-12.7z" fill="#C75B7A"/>
+  
+  <!-- Better heart shape -->
+  <path d="M133 80c-5 0-9 2.5-11 6.5-2-4-6-6.5-11-6.5-7.5 0-13.5 6-13.5 13.5 0 9 7.5 16.5 24.5 30.5 17-14 24.5-21.5 24.5-30.5 0-7.5-6-13.5-13.5-13.5z" fill="#C75B7A"/>
+</svg>
