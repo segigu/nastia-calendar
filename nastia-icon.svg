@@ -1,0 +1,25 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB6C1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DDA0DD;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background rounded rectangle -->
+  <rect width="192" height="192" rx="42" ry="42" fill="url(#bg)" />
+  
+  <!-- Nastia text -->
+  <text x="96" y="115" font-family="Georgia, serif" font-size="42" font-style="italic" text-anchor="middle" fill="#4A4A4A">
+    Nastia
+  </text>
+  
+  <!-- Heart -->
+  <path d="M155 75c0-8.284-6.716-15-15-15-4.142 0-7.892 1.679-10.607 4.393L155 75z" fill="#C75B7A"/>
+  <path d="M140 64.393C137.285 61.679 133.535 60 129.393 60c-8.284 0-15 6.716-15 15l25.607-10.607z" fill="#C75B7A"/>
+  <path d="M155 75l-25.607 10.607c2.929 2.929 6.678 4.393 10.607 4.393 8.284 0 15-6.716 15-15z" fill="#C75B7A"/>
+  <path d="M129.393 90c-3.929 0-7.678-1.464-10.607-4.393L155 75c0 8.284-6.716 15-15 15-4.142 0-7.892-1.679-10.607-4.393z" fill="#C75B7A"/>
+  
+  <!-- Simplified heart shape -->
+  <path d="M140 60c-4.5 0-8.5 2-11 5.5-2.5-3.5-6.5-5.5-11-5.5-7 0-12.5 5.5-12.5 12.5 0 8 7 14.5 23.5 28.5 16.5-14 23.5-20.5 23.5-28.5 0-7-5.5-12.5-12.5-12.5z" fill="#C75B7A"/>
+</svg>
