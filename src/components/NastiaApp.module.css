@@ -1,0 +1,407 @@
+/* Стили для компонента NastiaApp */
+
+.container {
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.appWrapper {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.titleWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--nastia-dark);
+  margin-left: 0.5rem;
+}
+
+.subtitle {
+  color: var(--gray-600);
+  font-size: 1rem;
+}
+
+.card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statNumber {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--nastia-dark);
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.navButton {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.navButton:hover {
+  background-color: var(--nastia-light);
+}
+
+.monthTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--nastia-dark);
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.weekDay {
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-500);
+  padding: 0.5rem;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.dayCell {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+}
+
+.dayCell:hover {
+  background-color: var(--nastia-light);
+}
+
+.dayCell.invisible {
+  visibility: hidden;
+}
+
+.dayCell.today {
+  background-color: var(--nastia-dark);
+  color: white;
+  box-shadow: 0 0 0 2px var(--nastia-purple);
+}
+
+.dayCell.period {
+  background-color: var(--nastia-red);
+  color: white;
+}
+
+.dayCell.period:hover {
+  background-color: #ff5582;
+}
+
+.dayCell.predicted {
+  background-color: var(--nastia-pink);
+  color: var(--nastia-dark);
+}
+
+.dayCell.predicted:hover {
+  background-color: var(--nastia-purple);
+  color: white;
+}
+
+.legend {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+}
+
+.legendDot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  margin-right: 0.25rem;
+}
+
+.legendDot.period {
+  background-color: var(--nastia-red);
+}
+
+.legendDot.predicted {
+  background-color: var(--nastia-pink);
+}
+
+.legendDot.today {
+  background-color: var(--nastia-dark);
+}
+
+.actionsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.actionButton.primary {
+  background-color: var(--nastia-purple);
+  color: white;
+}
+
+.actionButton.primary:hover {
+  background-color: var(--nastia-dark);
+}
+
+.actionButton.secondary {
+  background-color: var(--nastia-pink);
+  color: white;
+}
+
+.actionButton.secondary:hover {
+  background-color: var(--nastia-purple);
+}
+
+.buttonIcon {
+  margin-right: 0.5rem;
+}
+
+.importArea {
+  border: 2px dashed #d1d5db;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  background-color: #f9fafb;
+  transition: background-color 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.importArea:hover {
+  background-color: #f3f4f6;
+}
+
+.importInput {
+  display: none;
+}
+
+.importIcon {
+  margin: 0 auto 0.5rem;
+  color: #9ca3af;
+}
+
+.importText {
+  color: var(--gray-600);
+}
+
+.statsDetails {
+  margin-bottom: 1.5rem;
+}
+
+.statsTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--nastia-dark);
+  margin-bottom: 1rem;
+}
+
+.statsItem {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.statsItem:last-child {
+  margin-bottom: 0;
+}
+
+.statsItemLabel {
+  color: var(--gray-600);
+}
+
+.statsItemValue {
+  font-weight: 600;
+}
+
+.cyclesList {
+  margin-bottom: 1.5rem;
+}
+
+.cycleItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: var(--nastia-light);
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cycleItem:last-child {
+  margin-bottom: 0;
+}
+
+.cycleInfo {
+  flex: 1;
+}
+
+.cycleDate {
+  font-weight: 500;
+  color: var(--nastia-dark);
+}
+
+.cycleNotes {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  margin-top: 0.25rem;
+}
+
+.cycleActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cycleActionButton {
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--gray-500);
+  transition: color 0.2s;
+}
+
+.cycleActionButton:hover {
+  color: var(--nastia-red);
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 24rem;
+  width: 100%;
+}
+
+.modalTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--nastia-dark);
+  margin-bottom: 1rem;
+}
+
+.modalText {
+  color: var(--gray-600);
+  margin-bottom: 1rem;
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.modalButton {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modalButton.primary {
+  background-color: var(--nastia-purple);
+  color: white;
+}
+
+.modalButton.primary:hover {
+  background-color: var(--nastia-dark);
+}
+
+.modalButton.secondary {
+  background-color: #e5e7eb;
+  color: var(--gray-700);
+}
+
+.modalButton.secondary:hover {
+  background-color: #d1d5db;
+}

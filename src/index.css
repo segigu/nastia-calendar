@@ -1,13 +1,28 @@
-body {
+/* Основные стили для приложения Nastia */
+
+* {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
+  min-height: 100vh;
+}
+
+/* Основные цвета для Nastia */
+:root {
+  --nastia-pink: #FFB6C1;
+  --nastia-purple: #DDA0DD;
+  --nastia-light: #FFF0F5;
+  --nastia-dark: #8B008B;
+  --nastia-red: #ff6b9d;
+  --gray-600: #6b7280;
+  --gray-700: #374151;
+  --gray-500: #6b7280;
 }
