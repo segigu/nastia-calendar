@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/nastia-calendar/static/css/main.02f53bc8.css",
+    "main.js": "/nastia-calendar/static/js/main.6dcd12b6.js",
+    "static/js/453.9004b74f.chunk.js": "/nastia-calendar/static/js/453.9004b74f.chunk.js",
+    "index.html": "/nastia-calendar/index.html",
+    "main.02f53bc8.css.map": "/nastia-calendar/static/css/main.02f53bc8.css.map",
+    "main.6dcd12b6.js.map": "/nastia-calendar/static/js/main.6dcd12b6.js.map",
+    "453.9004b74f.chunk.js.map": "/nastia-calendar/static/js/453.9004b74f.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.02f53bc8.css",
+    "static/js/main.6dcd12b6.js"
+  ]
+}
