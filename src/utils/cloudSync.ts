@@ -29,6 +29,11 @@ export class CloudSync {
         console.error('Error parsing cloud config:', e);
       }
     }
+    // Проверяем есть ли токен в localStorage
+    const savedToken = localStorage.getItem('nastia-github-token');
+    if (savedToken) {
+      return { token: savedToken, enabled: true };
+    }
     return { token: '', enabled: false };
   }
 

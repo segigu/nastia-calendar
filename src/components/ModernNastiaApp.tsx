@@ -4,10 +4,7 @@ import {
   ChevronRight, 
   Heart, 
   BarChart3, 
-  Download,
-  Upload,
-  Trash2,
-  RefreshCw
+  Trash2
 } from 'lucide-react';
 import { CycleData, NastiaData } from '../types';
 import { 
@@ -22,9 +19,8 @@ import {
   isPastPeriod, 
   getDaysUntilNext 
 } from '../utils/cycleUtils';
-import { saveData, loadData, exportData, importData } from '../utils/storage';
+import { saveData, loadData } from '../utils/storage';
 import { cloudSync } from '../utils/cloudSync';
-import CloudSettings from './CloudSettings';
 import styles from './NastiaApp.module.css';
 
 const ModernNastiaApp: React.FC = () => {
@@ -32,57 +28,60 @@ const ModernNastiaApp: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [showStats, setShowStats] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string>('');
 
   // Загрузка данных при запуске
   useEffect(() => {
+    // Проверяем URL параметры для автоматической настройки
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+      localStorage.setItem('nastia-github-token', token);
+      cloudSync.saveConfig({ token, enabled: true });
+      // Очищаем URL от параметров
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
     loadInitialData();
   }, []);
 
   const loadInitialData = async () => {
     try {
-      // Сначала пробуем загрузить из облака
+      // Автоматически настраиваем облачную синхронизацию
+      const cloudConfig = cloudSync.getConfig();
+      if (!cloudConfig.enabled && cloudConfig.token) {
+        cloudSync.saveConfig({ enabled: true, token: cloudConfig.token });
+      }
+
+      // Загружаем данные из облака или локально
       if (cloudSync.isConfigured()) {
-        setIsSyncing(true);
-        setSyncMessage('Загрузка данных из облака...');
-        
-        const cloudData = await cloudSync.downloadFromCloud();
-        if (cloudData && cloudData.cycles.length > 0) {
-          setCycles(cloudData.cycles);
-          setSyncMessage('Данные загружены из облака');
-          // Сохраняем локально как резерв
-          saveData(cloudData);
-        } else {
-          // Если в облаке пусто, загружаем локальные данные
-          const localData = loadData();
-          if (localData) {
-            setCycles(localData.cycles);
-            // Если есть локальные данные, загружаем их в облако
-            if (localData.cycles.length > 0) {
-              await cloudSync.uploadToCloud(localData);
-              setSyncMessage('Локальные данные загружены в облако');
-            }
+        try {
+          const cloudData = await cloudSync.downloadFromCloud();
+          if (cloudData && cloudData.cycles.length > 0) {
+            setCycles(cloudData.cycles);
+            // Сохраняем локально как резерв
+            saveData(cloudData);
+            return;
           }
+        } catch (error) {
+          console.error('Cloud load error:', error);
         }
-      } else {
-        // Облачная синхронизация не настроена, загружаем локально
-        const localData = loadData();
-        if (localData) {
-          setCycles(localData.cycles);
+      }
+
+      // Если облако недоступно или пусто, загружаем локальные данные
+      const localData = loadData();
+      if (localData) {
+        setCycles(localData.cycles);
+        // Если есть локальные данные и облако настроено, загружаем в облако
+        if (localData.cycles.length > 0 && cloudSync.isConfigured()) {
+          try {
+            await cloudSync.uploadToCloud(localData);
+          } catch (error) {
+            console.error('Cloud upload error:', error);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading initial data:', error);
-      setSyncMessage('Ошибка загрузки из облака, используем локальные данные');
-      // Загружаем локальные данные как резерв
-      const localData = loadData();
-      if (localData) {
-        setCycles(localData.cycles);
-      }
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncMessage(''), 3000);
     }
   };
 
@@ -102,43 +101,18 @@ const ModernNastiaApp: React.FC = () => {
     // Сохраняем локально
     saveData(nastiaData);
     
-    // Сохраняем в облако если настроено
+    // Автоматически сохраняем в облако
     if (cloudSync.isConfigured()) {
       syncToCloud(nastiaData);
     }
   }, [cycles]);
 
-  // Синхронизация с облаком
+  // Тихая синхронизация с облаком
   const syncToCloud = async (data: NastiaData) => {
     try {
       await cloudSync.uploadToCloud(data);
     } catch (error) {
       console.error('Error syncing to cloud:', error);
-    }
-  };
-
-  // Ручная синхронизация
-  const handleManualSync = async () => {
-    if (!cloudSync.isConfigured()) return;
-    
-    setIsSyncing(true);
-    setSyncMessage('Синхронизация...');
-    
-    try {
-      await loadInitialData();
-      setSyncMessage('Синхронизация завершена');
-    } catch (error) {
-      setSyncMessage('Ошибка синхронизации');
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncMessage(''), 3000);
-    }
-  };
-
-  // Обработчик изменения настроек облака
-  const handleCloudConfigChanged = () => {
-    if (cloudSync.isConfigured()) {
-      loadInitialData();
     }
   };
 
@@ -206,43 +180,6 @@ const ModernNastiaApp: React.FC = () => {
     return classes;
   };
 
-  // Экспорт данных
-  const handleExport = () => {
-    const nastiaData: NastiaData = {
-      cycles,
-      settings: {
-        averageCycleLength: 28,
-        periodLength: 5,
-        notifications: true,
-      },
-    };
-    const dataStr = exportData(nastiaData);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'nastia-data.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Импорт данных
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const jsonString = e.target?.result as string;
-          const importedData = importData(jsonString);
-          setCycles(importedData.cycles);
-        } catch (error) {
-          alert('Ошибка при импорте данных');
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
 
   const monthDays = getMonthDays(currentDate);
   const stats = calculateCycleStats(cycles);
@@ -334,20 +271,6 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Облачная синхронизация */}
-        <CloudSettings 
-          cloudSync={cloudSync} 
-          onConfigChanged={handleCloudConfigChanged}
-        />
-
-        {/* Сообщение о синхронизации */}
-        {syncMessage && (
-          <div className={styles.syncMessage}>
-            {isSyncing && <RefreshCw size={16} className={styles.spinning} />}
-            <span>{syncMessage}</span>
-          </div>
-        )}
-
         {/* Действия */}
         <div className={styles.actionsGrid}>
           <button
@@ -357,36 +280,7 @@ const ModernNastiaApp: React.FC = () => {
             <BarChart3 size={20} className={styles.buttonIcon} />
             Статистика
           </button>
-          <button
-            onClick={handleExport}
-            className={`${styles.actionButton} ${styles.secondary}`}
-          >
-            <Download size={20} className={styles.buttonIcon} />
-            Экспорт
-          </button>
-          {cloudSync.isConfigured() && (
-            <button
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className={`${styles.actionButton} ${styles.sync}`}
-            >
-              <RefreshCw size={20} className={`${styles.buttonIcon} ${isSyncing ? styles.spinning : ''}`} />
-              Синхронизация
-            </button>
-          )}
         </div>
-
-        {/* Импорт данных */}
-        <label className={styles.importArea}>
-          <Upload size={24} className={styles.importIcon} />
-          <span className={styles.importText}>Импорт данных</span>
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className={styles.importInput}
-          />
-        </label>
 
         {/* Детальная статистика */}
         {showStats && (
