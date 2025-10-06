@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Heart, 
-  BarChart3, 
-  Trash2
+import {
+  ChevronLeft,
+  ChevronRight,
+  BarChart3,
+  Trash2,
+  Settings,
+  Cloud,
+  CloudOff
 } from 'lucide-react';
 import { CycleData, NastiaData } from '../types';
 import { 
@@ -28,6 +30,10 @@ const ModernNastiaApp: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [githubToken, setGithubToken] = useState('');
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
   // Загрузка данных при запуске
   useEffect(() => {
@@ -40,7 +46,12 @@ const ModernNastiaApp: React.FC = () => {
       // Очищаем URL от параметров
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    
+
+    // Загружаем настройки облака
+    const cloudConfig = cloudSync.getConfig();
+    setGithubToken(cloudConfig.token);
+    setCloudEnabled(cloudConfig.enabled);
+
     loadInitialData();
   }, []);
 
@@ -110,9 +121,48 @@ const ModernNastiaApp: React.FC = () => {
   // Тихая синхронизация с облаком
   const syncToCloud = async (data: NastiaData) => {
     try {
+      setSyncStatus('syncing');
       await cloudSync.uploadToCloud(data);
+      setSyncStatus('success');
+      setTimeout(() => setSyncStatus('idle'), 2000);
     } catch (error) {
       console.error('Error syncing to cloud:', error);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
+  // Сохранение настроек облака
+  const saveCloudSettings = async () => {
+    try {
+      cloudSync.saveConfig({ token: githubToken, enabled: cloudEnabled });
+
+      if (cloudEnabled && githubToken) {
+        // Проверяем подключение
+        const isConnected = await cloudSync.testConnection();
+        if (isConnected) {
+          setSyncStatus('success');
+          // Синхронизируем текущие данные
+          const nastiaData: NastiaData = {
+            cycles,
+            settings: {
+              averageCycleLength: 28,
+              periodLength: 5,
+              notifications: true,
+            },
+          };
+          await syncToCloud(nastiaData);
+        } else {
+          setSyncStatus('error');
+          alert('Не удалось подключиться к GitHub. Проверьте токен.');
+        }
+      }
+
+      setShowSettings(false);
+    } catch (error) {
+      console.error('Error saving cloud settings:', error);
+      setSyncStatus('error');
+      alert('Ошибка при сохранении настроек');
     }
   };
 
@@ -191,8 +241,11 @@ const ModernNastiaApp: React.FC = () => {
         {/* Заголовок */}
         <div className={styles.header}>
           <div className={styles.titleWrapper}>
-            <Heart size={32} color="var(--nastia-dark)" />
-            <h1 className={styles.title}>Nastia</h1>
+            <img 
+              src="/nastia-calendar/nastia-original-logo.png" 
+              alt="Nastia" 
+              className={styles.logo}
+            />
           </div>
           <p className={styles.subtitle}>Персональный календарь</p>
         </div>
@@ -280,7 +333,38 @@ const ModernNastiaApp: React.FC = () => {
             <BarChart3 size={20} className={styles.buttonIcon} />
             Статистика
           </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className={`${styles.actionButton} ${styles.secondary}`}
+          >
+            <Settings size={20} className={styles.buttonIcon} />
+            Настройки
+          </button>
         </div>
+
+        {/* Индикатор синхронизации */}
+        {cloudEnabled && (
+          <div className={styles.syncIndicator}>
+            {syncStatus === 'syncing' && (
+              <div className={styles.syncStatus}>
+                <Cloud size={16} className={styles.syncIcon} />
+                <span>Синхронизация...</span>
+              </div>
+            )}
+            {syncStatus === 'success' && (
+              <div className={`${styles.syncStatus} ${styles.success}`}>
+                <Cloud size={16} className={styles.syncIcon} />
+                <span>Синхронизировано</span>
+              </div>
+            )}
+            {syncStatus === 'error' && (
+              <div className={`${styles.syncStatus} ${styles.error}`}>
+                <CloudOff size={16} className={styles.syncIcon} />
+                <span>Ошибка синхронизации</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Детальная статистика */}
         {showStats && (
@@ -359,6 +443,82 @@ const ModernNastiaApp: React.FC = () => {
               </button>
               <button
                 onClick={() => setSelectedDate(null)}
+                className={`${styles.modalButton} ${styles.secondary}`}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно настроек */}
+      {showSettings && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>
+              Настройки облачной синхронизации
+            </h3>
+
+            <div className={styles.settingsForm}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  <input
+                    type="checkbox"
+                    checked={cloudEnabled}
+                    onChange={(e) => setCloudEnabled(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  <span>Включить синхронизацию с GitHub</span>
+                </label>
+              </div>
+
+              {cloudEnabled && (
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    GitHub Personal Access Token
+                  </label>
+                  <input
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
+                    placeholder="ghp_xxxxxxxxxxxxxxxx"
+                    className={styles.formInput}
+                  />
+                  <p className={styles.formHint}>
+                    Создайте токен на{' '}
+                    <a
+                      href="https://github.com/settings/tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.link}
+                    >
+                      GitHub Settings
+                    </a>
+                    {' '}с правами <strong>repo</strong>
+                  </p>
+                </div>
+              )}
+
+              <div className={styles.formGroup}>
+                <p className={styles.formInfo}>
+                  {cloudEnabled
+                    ? '✓ Данные будут автоматически сохраняться в приватный репозиторий GitHub'
+                    : 'ℹ️ Данные будут храниться только локально в браузере'
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={saveCloudSettings}
+                className={`${styles.modalButton} ${styles.primary}`}
+              >
+                Сохранить
+              </button>
+              <button
+                onClick={() => setShowSettings(false)}
                 className={`${styles.modalButton} ${styles.secondary}`}
               >
                 Отмена
