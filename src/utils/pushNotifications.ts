@@ -152,12 +152,51 @@ export const getNotificationSettings = (): NotificationSettings => {
 
 // Тестовое уведомление
 export const sendTestNotification = async (): Promise<void> => {
-  const registration = await navigator.serviceWorker.ready;
-  await registration.showNotification('Nastia Calendar', {
-    body: 'Тестовое уведомление работает! 🎉',
-    icon: '/nastia-calendar/logo192.png',
-    badge: '/nastia-calendar/favicon.ico',
-    vibrate: [200, 100, 200],
-    tag: 'test-notification'
-  });
+  try {
+    console.log('Sending test notification...');
+    console.log('Notification permission:', Notification.permission);
+
+    if (Notification.permission !== 'granted') {
+      throw new Error('Notification permission not granted');
+    }
+
+    // Сначала пробуем простой Notification API (не требует Service Worker)
+    console.log('Creating simple notification...');
+    const notification = new Notification('Nastia Calendar', {
+      body: 'Тестовое уведомление работает! 🎉',
+      icon: '/nastia-calendar/logo192.png',
+      vibrate: [200, 100, 200]
+    });
+
+    console.log('Simple notification created:', notification);
+
+    // Потом пробуем через Service Worker с таймаутом
+    console.log('Waiting for Service Worker...');
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Service Worker timeout')), 3000)
+      );
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        timeoutPromise
+      ]) as ServiceWorkerRegistration;
+
+      console.log('Service Worker ready:', registration);
+
+      console.log('Showing SW notification...');
+      await registration.showNotification('Nastia Calendar (SW)', {
+        body: 'Уведомление через Service Worker',
+        icon: '/nastia-calendar/logo192.png',
+        vibrate: [200, 100, 200]
+      });
+      console.log('Service Worker notification sent successfully');
+    } catch (swError) {
+      console.warn('Service Worker notification failed:', swError);
+    }
+
+    console.log('Test notification sent successfully');
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    throw error;
+  }
 };

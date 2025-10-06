@@ -325,7 +325,13 @@ const ModernNastiaApp: React.FC = () => {
       alert('Сначала разрешите уведомления');
       return;
     }
-    await sendTestNotification();
+    try {
+      await sendTestNotification();
+      alert('Тестовое уведомление отправлено! Проверьте уведомления.');
+    } catch (error) {
+      console.error('Test notification failed:', error);
+      alert(`Ошибка: ${error instanceof Error ? error.message : 'Не удалось отправить уведомление'}`);
+    }
   };
 
   // Получение дней месяца для календаря
