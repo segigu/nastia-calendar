@@ -8,32 +8,58 @@ import {
   Cloud,
   CloudOff
 } from 'lucide-react';
-import { CycleData, NastiaData } from '../types';
+import { CycleData, NastiaData, DayData, PainLevel, MoodLevel } from '../types';
 import { 
   formatDate, 
   formatShortDate, 
   isToday, 
   getMonthYear 
 } from '../utils/dateUtils';
-import { 
-  calculateCycleStats, 
-  isPredictedPeriod, 
-  isPastPeriod, 
-  getDaysUntilNext 
+import {
+  calculateCycleStats,
+  isPredictedPeriod,
+  isPastPeriod,
+  getDaysUntilNext,
+  calculateFertileWindow,
+  isFertileDay,
+  isOvulationDay
 } from '../utils/cycleUtils';
 import { saveData, loadData } from '../utils/storage';
 import { cloudSync } from '../utils/cloudSync';
+import CycleLengthChart from './CycleLengthChart';
+import {
+  registerServiceWorker,
+  isNotificationSupported,
+  requestNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+  getNotificationSettings,
+  saveNotificationSettings,
+  sendTestNotification,
+  type NotificationSettings
+} from '../utils/pushNotifications';
 import styles from './NastiaApp.module.css';
 
 const ModernNastiaApp: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDayForSymptoms, setSelectedDayForSymptoms] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
-  const [showStats, setShowStats] = useState(false);
+  const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
   const [showSettings, setShowSettings] = useState(false);
   const [githubToken, setGithubToken] = useState('');
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+
+  // Состояние для редактирования симптомов
+  const [editingPainLevel, setEditingPainLevel] = useState<PainLevel>(0);
+  const [editingMood, setEditingMood] = useState<MoodLevel | null>(null);
+  const [editingNotes, setEditingNotes] = useState('');
+
+  // Состояние для уведомлений
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(getNotificationSettings());
+  const [notificationSupported, setNotificationSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   // Загрузка данных при запуске
   useEffect(() => {
@@ -52,8 +78,31 @@ const ModernNastiaApp: React.FC = () => {
     setGithubToken(cloudConfig.token);
     setCloudEnabled(cloudConfig.enabled);
 
+    // Инициализация Service Worker и уведомлений
+    initNotifications();
+
     loadInitialData();
   }, []);
+
+  // Инициализация уведомлений
+  const initNotifications = async () => {
+    // Проверяем поддержку
+    const supported = isNotificationSupported();
+    setNotificationSupported(supported);
+
+    if (!supported) {
+      console.log('Push notifications not supported');
+      return;
+    }
+
+    // Регистрируем Service Worker
+    await registerServiceWorker();
+
+    // Проверяем текущее разрешение
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -142,19 +191,43 @@ const ModernNastiaApp: React.FC = () => {
         const isConnected = await cloudSync.testConnection();
         if (isConnected) {
           setSyncStatus('success');
-          // Синхронизируем текущие данные
-          const nastiaData: NastiaData = {
-            cycles,
-            settings: {
-              averageCycleLength: 28,
-              periodLength: 5,
-              notifications: true,
-            },
-          };
-          await syncToCloud(nastiaData);
+
+          // Сначала пытаемся загрузить данные из облака
+          try {
+            const cloudData = await cloudSync.downloadFromCloud();
+            if (cloudData && cloudData.cycles.length > 0) {
+              // Если в облаке есть данные, загружаем их
+              // Конвертируем строки дат в Date объекты
+              const convertedCycles = cloudData.cycles.map((cycle: any) => ({
+                ...cycle,
+                startDate: new Date(cycle.startDate),
+                endDate: cycle.endDate ? new Date(cycle.endDate) : undefined,
+              }));
+              setCycles(convertedCycles);
+              saveData({ ...cloudData, cycles: convertedCycles });
+              alert(`Загружено ${cloudData.cycles.length} циклов из облака`);
+            } else if (cycles.length > 0) {
+              // Если в облаке пусто, но есть локальные данные - загружаем их в облако
+              const nastiaData: NastiaData = {
+                cycles,
+                settings: {
+                  averageCycleLength: 28,
+                  periodLength: 5,
+                  notifications: true,
+                },
+              };
+              await syncToCloud(nastiaData);
+              alert('Локальные данные загружены в облако');
+            }
+          } catch (cloudError) {
+            console.error('Error syncing with cloud:', cloudError);
+            setSyncStatus('error');
+            alert('Ошибка при синхронизации с облаком');
+          }
         } else {
           setSyncStatus('error');
           alert('Не удалось подключиться к GitHub. Проверьте токен.');
+          return;
         }
       }
 
@@ -213,20 +286,84 @@ const ModernNastiaApp: React.FC = () => {
     setCycles(cycles.filter(cycle => cycle.id !== cycleId));
   };
 
+  // Получение данных дня из циклов
+  const getDayData = (date: Date): DayData | null => {
+    const dateStr = date.toISOString().split('T')[0];
+    for (const cycle of cycles) {
+      if (cycle.days) {
+        const dayData = cycle.days.find(d => d.date === dateStr);
+        if (dayData) return dayData;
+      }
+    }
+    return null;
+  };
+
+  // Открытие модального окна для редактирования симптомов
+  const openDaySymptoms = (date: Date) => {
+    const dayData = getDayData(date);
+    setSelectedDayForSymptoms(date);
+    setEditingPainLevel(dayData?.painLevel || 0);
+    setEditingMood(dayData?.mood || null);
+    setEditingNotes(dayData?.notes || '');
+  };
+
+  // Сохранение симптомов дня
+  const saveDaySymptoms = () => {
+    if (!selectedDayForSymptoms) return;
+
+    const dateStr = selectedDayForSymptoms.toISOString().split('T')[0];
+    const newDayData: DayData = {
+      date: dateStr,
+      painLevel: editingPainLevel,
+      mood: editingMood || undefined,
+      notes: editingNotes || undefined,
+    };
+
+    // Находим цикл, к которому относится этот день
+    const updatedCycles = cycles.map(cycle => {
+      const cycleStart = new Date(cycle.startDate);
+      const cycleEnd = new Date(cycleStart);
+      cycleEnd.setDate(cycleStart.getDate() + 35); // Примерно 5 недель
+
+      if (selectedDayForSymptoms >= cycleStart && selectedDayForSymptoms <= cycleEnd) {
+        const existingDays = cycle.days || [];
+        const existingIndex = existingDays.findIndex(d => d.date === dateStr);
+
+        if (existingIndex >= 0) {
+          // Обновляем существующий день
+          const newDays = [...existingDays];
+          newDays[existingIndex] = newDayData;
+          return { ...cycle, days: newDays };
+        } else {
+          // Добавляем новый день
+          return { ...cycle, days: [...existingDays, newDayData] };
+        }
+      }
+      return cycle;
+    });
+
+    setCycles(updatedCycles);
+    setSelectedDayForSymptoms(null);
+  };
+
   // Получение CSS класса для дня
   const getDayClasses = (date: Date | null) => {
     if (!date) return `${styles.dayCell} ${styles.invisible}`;
-    
+
     let classes = styles.dayCell;
-    
+
     if (isToday(date)) {
       classes += ` ${styles.today}`;
     } else if (isPastPeriod(date, cycles)) {
       classes += ` ${styles.period}`;
     } else if (isPredictedPeriod(date, cycles)) {
       classes += ` ${styles.predicted}`;
+    } else if (isOvulationDay(date, cycles)) {
+      classes += ` ${styles.ovulation}`;
+    } else if (isFertileDay(date, cycles)) {
+      classes += ` ${styles.fertile}`;
     }
-    
+
     return classes;
   };
 
@@ -234,6 +371,7 @@ const ModernNastiaApp: React.FC = () => {
   const monthDays = getMonthDays(currentDate);
   const stats = calculateCycleStats(cycles);
   const daysUntilNext = getDaysUntilNext(cycles);
+  const fertileWindow = calculateFertileWindow(cycles);
 
   return (
     <div className={styles.container}>
@@ -250,7 +388,82 @@ const ModernNastiaApp: React.FC = () => {
           <p className={styles.subtitle}>Персональный календарь</p>
         </div>
 
-        {/* Статистика */}
+        {/* Insights панель */}
+        {cycles.length >= 2 && (
+          <div className={styles.card}>
+            <h3 className={styles.insightsTitle}>📊 Ваш паттерн</h3>
+
+            <div className={styles.insightsGrid}>
+              {/* Средняя длина и вариативность */}
+              <div className={styles.insightCard}>
+                <div className={styles.insightLabel}>Средний цикл (6 мес)</div>
+                <div className={styles.insightValue}>
+                  {stats.averageLength6Months} дней
+                  {stats.variability > 0 && (
+                    <span className={styles.insightVariability}>
+                      ±{stats.variability.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+                {stats.variability <= 2 && (
+                  <div className={styles.insightBadge + ' ' + styles.good}>Отличная стабильность</div>
+                )}
+                {stats.variability > 2 && stats.variability <= 5 && (
+                  <div className={styles.insightBadge + ' ' + styles.normal}>Норма</div>
+                )}
+                {stats.variability > 5 && (
+                  <div className={styles.insightBadge + ' ' + styles.warning}>Высокая вариативность</div>
+                )}
+              </div>
+
+              {/* Следующая менструация */}
+              <div className={styles.insightCard}>
+                <div className={styles.insightLabel}>Следующая менструация</div>
+                <div className={styles.insightValue}>
+                  {formatShortDate(stats.nextPrediction)}
+                  {stats.variability > 0 && (
+                    <span className={styles.insightRange}>
+                      ±{Math.ceil(stats.variability)} дня
+                    </span>
+                  )}
+                </div>
+                {stats.predictionConfidence > 0 && (
+                  <div className={styles.insightConfidence}>
+                    Уверенность: {stats.predictionConfidence}%
+                  </div>
+                )}
+              </div>
+
+              {/* Фертильное окно */}
+              {fertileWindow && (
+                <div className={styles.insightCard}>
+                  <div className={styles.insightLabel}>Фертильное окно</div>
+                  <div className={styles.insightValue}>
+                    {formatShortDate(fertileWindow.fertileStart)} - {formatShortDate(fertileWindow.ovulationDay)}
+                  </div>
+                  <div className={styles.insightSubtext}>
+                    Овуляция: {formatShortDate(fertileWindow.ovulationDay)}
+                  </div>
+                </div>
+              )}
+
+              {/* Тренд */}
+              {Math.abs(stats.trend) > 0.1 && (
+                <div className={styles.insightCard}>
+                  <div className={styles.insightLabel}>Тренд</div>
+                  <div className={styles.insightValue}>
+                    {stats.trend > 0 ? '📈 Увеличение' : '📉 Уменьшение'}
+                  </div>
+                  <div className={styles.insightSubtext}>
+                    {Math.abs(stats.trend).toFixed(1)} дня/цикл
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Краткая статистика */}
         <div className={styles.card}>
           <div className={styles.statsGrid}>
             <div className={styles.statItem}>
@@ -258,10 +471,15 @@ const ModernNastiaApp: React.FC = () => {
               <div className={styles.statLabel}>дней до следующего</div>
             </div>
             <div className={styles.statItem}>
-              <div className={styles.statNumber}>{stats.averageLength}</div>
-              <div className={styles.statLabel}>средний цикл</div>
+              <div className={styles.statNumber}>{stats.cycleCount}</div>
+              <div className={styles.statLabel}>циклов отмечено</div>
             </div>
           </div>
+
+          {/* График длины циклов */}
+          {cycles.length >= 2 && activeTab === 'calendar' && (
+            <CycleLengthChart cycles={cycles} />
+          )}
         </div>
 
         {/* Календарь */}
@@ -296,15 +514,34 @@ const ModernNastiaApp: React.FC = () => {
 
           {/* Дни месяца */}
           <div className={styles.calendarGrid}>
-            {monthDays.map((date, index) => (
-              <button
-                key={index}
-                className={getDayClasses(date)}
-                onClick={() => date && setSelectedDate(date)}
-              >
-                {date ? date.getDate() : ''}
-              </button>
-            ))}
+            {monthDays.map((date, index) => {
+              const dayData = date ? getDayData(date) : null;
+              return (
+                <button
+                  key={index}
+                  className={getDayClasses(date)}
+                  onClick={() => date && openDaySymptoms(date)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (date) setSelectedDate(date);
+                  }}
+                >
+                  <div className={styles.dayNumber}>{date ? date.getDate() : ''}</div>
+                  {dayData && (
+                    <div className={styles.dayIndicators}>
+                      {dayData.mood === 'good' && <span className={styles.moodIndicator}>😊</span>}
+                      {dayData.mood === 'neutral' && <span className={styles.moodIndicator}>😐</span>}
+                      {dayData.mood === 'bad' && <span className={styles.moodIndicator}>😞</span>}
+                      {dayData.painLevel && dayData.painLevel > 0 && (
+                        <span className={styles.painIndicator} style={{ opacity: dayData.painLevel / 5 }}>
+                          💢
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Легенда */}
@@ -318,27 +555,39 @@ const ModernNastiaApp: React.FC = () => {
               <span>Прогноз</span>
             </div>
             <div className={styles.legendItem}>
+              <div className={`${styles.legendDot} ${styles.ovulation}`}></div>
+              <span>Овуляция</span>
+            </div>
+            <div className={styles.legendItem}>
+              <div className={`${styles.legendDot} ${styles.fertile}`}></div>
+              <span>Фертильное окно</span>
+            </div>
+            <div className={styles.legendItem}>
               <div className={`${styles.legendDot} ${styles.today}`}></div>
               <span>Сегодня</span>
             </div>
           </div>
         </div>
 
-        {/* Действия */}
-        <div className={styles.actionsGrid}>
+        {/* Навигация по вкладкам */}
+        <div className={styles.tabNavigation}>
           <button
-            onClick={() => setShowStats(!showStats)}
-            className={`${styles.actionButton} ${styles.primary}`}
+            onClick={() => setActiveTab('calendar')}
+            className={`${styles.tabButton} ${activeTab === 'calendar' ? styles.active : ''}`}
           >
-            <BarChart3 size={20} className={styles.buttonIcon} />
-            Статистика
+            Календарь
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`${styles.tabButton} ${activeTab === 'history' ? styles.active : ''}`}
+          >
+            История ({cycles.length})
           </button>
           <button
             onClick={() => setShowSettings(true)}
-            className={`${styles.actionButton} ${styles.secondary}`}
+            className={styles.tabButton}
           >
-            <Settings size={20} className={styles.buttonIcon} />
-            Настройки
+            <Settings size={18} />
           </button>
         </div>
 
@@ -366,39 +615,13 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         )}
 
-        {/* Детальная статистика */}
-        {showStats && (
-          <div className={`${styles.card} ${styles.statsDetails}`}>
-            <h3 className={styles.statsTitle}>Статистика циклов</h3>
-            <div>
-              <div className={styles.statsItem}>
-                <span className={styles.statsItemLabel}>Всего циклов:</span>
-                <span className={styles.statsItemValue}>{stats.cycleCount}</span>
-              </div>
-              <div className={styles.statsItem}>
-                <span className={styles.statsItemLabel}>Средняя длина:</span>
-                <span className={styles.statsItemValue}>{stats.averageLength} дней</span>
-              </div>
-              <div className={styles.statsItem}>
-                <span className={styles.statsItemLabel}>Последний цикл:</span>
-                <span className={styles.statsItemValue}>{stats.lastCycleLength} дней</span>
-              </div>
-              <div className={styles.statsItem}>
-                <span className={styles.statsItemLabel}>Следующий прогноз:</span>
-                <span className={styles.statsItemValue}>{formatShortDate(stats.nextPrediction)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Список циклов */}
-        {cycles.length > 0 && (
+        {/* Вкладка: История всех циклов */}
+        {activeTab === 'history' && cycles.length > 0 && (
           <div className={`${styles.card} ${styles.cyclesList}`}>
-            <h3 className={styles.statsTitle}>Последние циклы</h3>
-            <div>
+            <h3 className={styles.statsTitle}>Все циклы ({cycles.length})</h3>
+            <div className={styles.cyclesListContainer}>
               {cycles
                 .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-                .slice(0, 5)
                 .map(cycle => (
                   <div key={cycle.id} className={styles.cycleItem}>
                     <div className={styles.cycleInfo}>
@@ -413,6 +636,7 @@ const ModernNastiaApp: React.FC = () => {
                       <button
                         onClick={() => deleteCycle(cycle.id)}
                         className={styles.cycleActionButton}
+                        title="Удалить цикл"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -422,9 +646,103 @@ const ModernNastiaApp: React.FC = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'history' && cycles.length === 0 && (
+          <div className={styles.card}>
+            <div className={styles.emptyState}>
+              <p>Нет записанных циклов</p>
+              <p className={styles.emptyStateHint}>
+                Перейдите на вкладку "Календарь" и нажмите на дату начала цикла
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Модальное окно для добавления цикла */}
+      {/* Модальное окно для редактирования дня и симптомов */}
+      {selectedDayForSymptoms && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>
+              {formatDate(selectedDayForSymptoms)}
+            </h3>
+
+            <div className={styles.symptomForm}>
+              {/* Уровень боли */}
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Уровень боли: {editingPainLevel > 0 ? editingPainLevel : 'нет'}
+                </label>
+                <div className={styles.painSlider}>
+                  {[0, 1, 2, 3, 4, 5].map(level => (
+                    <button
+                      key={level}
+                      onClick={() => setEditingPainLevel(level as PainLevel)}
+                      className={`${styles.painButton} ${editingPainLevel === level ? styles.active : ''}`}
+                    >
+                      {level === 0 ? '😊' : '💢'.repeat(level)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Настроение */}
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Настроение/Энергия</label>
+                <div className={styles.moodButtons}>
+                  <button
+                    onClick={() => setEditingMood('good')}
+                    className={`${styles.moodButton} ${editingMood === 'good' ? styles.active : ''}`}
+                  >
+                    😊 Хорошо
+                  </button>
+                  <button
+                    onClick={() => setEditingMood('neutral')}
+                    className={`${styles.moodButton} ${editingMood === 'neutral' ? styles.active : ''}`}
+                  >
+                    😐 Нормально
+                  </button>
+                  <button
+                    onClick={() => setEditingMood('bad')}
+                    className={`${styles.moodButton} ${editingMood === 'bad' ? styles.active : ''}`}
+                  >
+                    😞 Плохо
+                  </button>
+                </div>
+              </div>
+
+              {/* Заметки */}
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Заметки</label>
+                <textarea
+                  value={editingNotes}
+                  onChange={(e) => setEditingNotes(e.target.value)}
+                  placeholder="Дополнительные заметки..."
+                  className={styles.formTextarea}
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                onClick={saveDaySymptoms}
+                className={`${styles.modalButton} ${styles.primary}`}
+              >
+                Сохранить
+              </button>
+              <button
+                onClick={() => setSelectedDayForSymptoms(null)}
+                className={`${styles.modalButton} ${styles.secondary}`}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для добавления цикла (правый клик) */}
       {selectedDate && (
         <div className={styles.modal}>
           <div className={styles.modalContent}>

@@ -164,6 +164,34 @@
   color: white;
 }
 
+.dayCell.ovulation {
+  background-color: #10b981;
+  color: white;
+  font-weight: bold;
+  position: relative;
+}
+
+.dayCell.ovulation::after {
+  content: '🥚';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.6rem;
+}
+
+.dayCell.ovulation:hover {
+  background-color: #059669;
+}
+
+.dayCell.fertile {
+  background-color: #86efac;
+  color: #065f46;
+}
+
+.dayCell.fertile:hover {
+  background-color: #6ee7b7;
+}
+
 .legend {
   margin-top: 1rem;
   display: flex;
@@ -194,6 +222,14 @@
 
 .legendDot.today {
   background-color: var(--nastia-dark);
+}
+
+.legendDot.ovulation {
+  background-color: #10b981;
+}
+
+.legendDot.fertile {
+  background-color: #86efac;
 }
 
 .actionsGrid {
@@ -579,4 +615,270 @@
 
 .link:hover {
   color: var(--nastia-dark);
+}
+
+/* Стили для Insights панели */
+.insightsTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--nastia-dark);
+  margin-bottom: 1rem;
+}
+
+.insightsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.insightCard {
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef3f7 0%, #f3e8ff 100%);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(219, 112, 147, 0.1);
+}
+
+.insightLabel {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.insightValue {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--nastia-dark);
+  margin-bottom: 0.5rem;
+}
+
+.insightVariability {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  font-weight: normal;
+  margin-left: 0.25rem;
+}
+
+.insightRange {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  font-weight: normal;
+  margin-left: 0.25rem;
+}
+
+.insightBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.insightBadge.good {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.insightBadge.normal {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.insightBadge.warning {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.insightConfidence {
+  font-size: 0.75rem;
+  color: var(--nastia-purple);
+  font-weight: 500;
+}
+
+.insightSubtext {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+}
+
+@media (max-width: 640px) {
+  .insightsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Стили для вкладок */
+.tabNavigation {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--nastia-light);
+}
+
+.tabButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--gray-600);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.tabButton:hover {
+  color: var(--nastia-dark);
+  background: var(--nastia-light);
+}
+
+.tabButton.active {
+  color: var(--nastia-purple);
+  border-bottom-color: var(--nastia-purple);
+}
+
+.tabButton:last-child {
+  flex: 0;
+  min-width: 50px;
+}
+
+/* Стили для списка циклов */
+.cyclesListContainer {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.cyclesListContainer::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cyclesListContainer::-webkit-scrollbar-track {
+  background: var(--nastia-light);
+  border-radius: 4px;
+}
+
+.cyclesListContainer::-webkit-scrollbar-thumb {
+  background: var(--nastia-pink);
+  border-radius: 4px;
+}
+
+.cyclesListContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--nastia-purple);
+}
+
+/* Пустое состояние */
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: var(--gray-600);
+}
+
+.emptyState p:first-child {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.emptyStateHint {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+}
+
+/* Стили для отображения симптомов в календаре */
+.dayNumber {
+  font-size: 0.875rem;
+}
+
+.dayIndicators {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2px;
+  font-size: 0.6rem;
+}
+
+.moodIndicator, .painIndicator {
+  line-height: 1;
+}
+
+/* Стили для формы симптомов */
+.symptomForm {
+  margin: 1.5rem 0;
+}
+
+.painSlider {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.painButton {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: 2px solid var(--gray-200);
+  border-radius: 0.5rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.painButton:hover {
+  border-color: var(--nastia-pink);
+  background: var(--nastia-light);
+}
+
+.painButton.active {
+  border-color: var(--nastia-purple);
+  background: var(--nastia-purple);
+  color: white;
+}
+
+.moodButtons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.moodButton {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid var(--gray-200);
+  border-radius: 0.5rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.moodButton:hover {
+  border-color: var(--nastia-pink);
+  background: var(--nastia-light);
+}
+
+.moodButton.active {
+  border-color: var(--nastia-purple);
+  background: var(--nastia-purple);
+  color: white;
+}
+
+.formTextarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--gray-200);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.formTextarea:focus {
+  outline: none;
+  border-color: var(--nastia-primary);
 }
