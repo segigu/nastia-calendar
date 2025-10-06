@@ -10,6 +10,7 @@ export interface PushSubscriptionData {
     p256dh: string;
     auth: string;
   };
+  settings?: NotificationSettings;
 }
 
 export interface NotificationSettings {
@@ -91,7 +92,8 @@ export const subscribeToPush = async (): Promise<PushSubscriptionData | null> =>
       keys: {
         p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('p256dh')!)))),
         auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('auth')!))))
-      }
+      },
+      settings: getNotificationSettings()
     };
 
     // Сохраняем локально

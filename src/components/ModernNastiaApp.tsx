@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
-  BarChart3,
   Trash2,
   Settings,
   Cloud,
@@ -38,6 +37,7 @@ import {
   sendTestNotification,
   type NotificationSettings
 } from '../utils/pushNotifications';
+import { saveSubscription, removeSubscription } from '../utils/pushSubscriptionSync';
 import styles from './NastiaApp.module.css';
 
 const ModernNastiaApp: React.FC = () => {
@@ -237,6 +237,95 @@ const ModernNastiaApp: React.FC = () => {
       setSyncStatus('error');
       alert('Ошибка при сохранении настроек');
     }
+  };
+
+  // Обработчики для уведомлений
+  const handleEnableNotifications = async () => {
+    if (!notificationSupported) {
+      alert('Push-уведомления не поддерживаются в этом браузере');
+      return;
+    }
+
+    try {
+      const permission = await requestNotificationPermission();
+      setNotificationPermission(permission);
+
+      if (permission === 'granted') {
+        const subscription = await subscribeToPush();
+        if (subscription) {
+          // Сохраняем подписку в облако (если включена синхронизация)
+          if (cloudEnabled && githubToken) {
+            const saved = await saveSubscription(githubToken, subscription);
+            if (saved) {
+              console.log('Подписка сохранена в облако');
+            } else {
+              console.warn('Не удалось сохранить подписку в облако');
+            }
+          }
+          alert('Уведомления успешно включены');
+        }
+      } else {
+        alert('Необходимо разрешение на уведомления');
+      }
+    } catch (error) {
+      console.error('Error enabling notifications:', error);
+      alert('Ошибка при включении уведомлений');
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    try {
+      // Получаем текущую подписку перед отпиской
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription && cloudEnabled && githubToken) {
+        // Удаляем подписку из облака
+        await removeSubscription(githubToken, subscription.endpoint);
+      }
+
+      await unsubscribeFromPush();
+      alert('Уведомления отключены');
+    } catch (error) {
+      console.error('Error disabling notifications:', error);
+    }
+  };
+
+  const handleNotificationSettingsChange = async (key: keyof NotificationSettings, value: any) => {
+    const newSettings = { ...notificationSettings, [key]: value };
+    setNotificationSettings(newSettings);
+    saveNotificationSettings(newSettings);
+
+    // Обновляем подписку в облаке с новыми настройками
+    if (cloudEnabled && githubToken && notificationPermission === 'granted') {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+
+        if (subscription) {
+          const subscriptionData = {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('p256dh')!)))),
+              auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('auth')!))))
+            },
+            settings: newSettings
+          };
+
+          await saveSubscription(githubToken, subscriptionData);
+        }
+      } catch (error) {
+        console.error('Error updating subscription settings:', error);
+      }
+    }
+  };
+
+  const handleTestNotification = async () => {
+    if (notificationPermission !== 'granted') {
+      alert('Сначала разрешите уведомления');
+      return;
+    }
+    await sendTestNotification();
   };
 
   // Получение дней месяца для календаря
@@ -775,10 +864,15 @@ const ModernNastiaApp: React.FC = () => {
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h3 className={styles.modalTitle}>
-              Настройки облачной синхронизации
+              Настройки
             </h3>
 
             <div className={styles.settingsForm}>
+              {/* Секция облачной синхронизации */}
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--nastia-dark)' }}>
+                Облачная синхронизация
+              </h4>
+
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>
                   <input
@@ -826,6 +920,101 @@ const ModernNastiaApp: React.FC = () => {
                   }
                 </p>
               </div>
+
+              {/* Разделитель */}
+              <div style={{ borderTop: '1px solid #e5e7eb', margin: '1.5rem 0' }}></div>
+
+              {/* Секция уведомлений */}
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--nastia-dark)' }}>
+                Push-уведомления
+              </h4>
+
+              {!notificationSupported ? (
+                <p className={styles.formInfo}>
+                  ⚠️ Push-уведомления не поддерживаются в этом браузере
+                </p>
+              ) : (
+                <>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      <input
+                        type="checkbox"
+                        checked={notificationSettings.enabled}
+                        onChange={(e) => {
+                          handleNotificationSettingsChange('enabled', e.target.checked);
+                          if (e.target.checked) {
+                            handleEnableNotifications();
+                          } else {
+                            handleDisableNotifications();
+                          }
+                        }}
+                        className={styles.checkbox}
+                      />
+                      <span>Включить уведомления</span>
+                    </label>
+                  </div>
+
+                  {notificationPermission === 'denied' && (
+                    <p className={styles.formInfo} style={{ color: '#ef4444' }}>
+                      ⚠️ Уведомления заблокированы. Разрешите их в настройках браузера.
+                    </p>
+                  )}
+
+                  {notificationSettings.enabled && notificationPermission === 'granted' && (
+                    <>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>
+                          Уведомлять за дней до менструации
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="7"
+                          value={notificationSettings.daysBeforePeriod}
+                          onChange={(e) => handleNotificationSettingsChange('daysBeforePeriod', parseInt(e.target.value))}
+                          className={styles.formInput}
+                        />
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>
+                          Уведомлять за дней до овуляции
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="5"
+                          value={notificationSettings.daysBeforeOvulation}
+                          onChange={(e) => handleNotificationSettingsChange('daysBeforeOvulation', parseInt(e.target.value))}
+                          className={styles.formInput}
+                        />
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>
+                          <input
+                            type="checkbox"
+                            checked={notificationSettings.dailyReminder}
+                            onChange={(e) => handleNotificationSettingsChange('dailyReminder', e.target.checked)}
+                            className={styles.checkbox}
+                          />
+                          <span>Ежедневное напоминание</span>
+                        </label>
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <button
+                          onClick={handleTestNotification}
+                          className={`${styles.modalButton} ${styles.secondary}`}
+                          style={{ width: '100%' }}
+                        >
+                          Отправить тестовое уведомление
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
 
             <div className={styles.modalActions}>

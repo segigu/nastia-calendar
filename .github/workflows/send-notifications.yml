@@ -1,0 +1,198 @@
+name: Send Push Notifications
+
+on:
+  schedule:
+    # Запускать каждый день в 9:00 UTC (12:00 по Москве)
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Возможность запускать вручную
+
+jobs:
+  send-notifications:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install web-push node-fetch
+
+      - name: Send notifications
+        env:
+          GITHUB_TOKEN: ${{ secrets.NASTIA_DATA_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          node << 'EOF'
+          const webpush = require('web-push');
+          const fetch = require('node-fetch');
+
+          // Настройка VAPID
+          webpush.setVapidDetails(
+            'mailto:noreply@nastia-calendar.com',
+            process.env.VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY
+          );
+
+          async function main() {
+            try {
+              // Получаем имя пользователя GitHub
+              const userResponse = await fetch('https://api.github.com/user', {
+                headers: {
+                  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                  'Accept': 'application/vnd.github.v3+json',
+                },
+              });
+              const userData = await userResponse.json();
+              const username = userData.login;
+
+              // Получаем данные о циклах
+              const cyclesUrl = `https://api.github.com/repos/${username}/nastia-data/contents/nastia-data.json`;
+              const cyclesResponse = await fetch(cyclesUrl, {
+                headers: {
+                  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                  'Accept': 'application/vnd.github.v3+json',
+                },
+              });
+
+              if (!cyclesResponse.ok) {
+                console.log('No cycle data found');
+                return;
+              }
+
+              const cyclesData = await cyclesResponse.json();
+              const cyclesContent = Buffer.from(cyclesData.content, 'base64').toString();
+              const nastiaData = JSON.parse(cyclesContent);
+
+              // Получаем подписки
+              const subsUrl = `https://api.github.com/repos/${username}/nastia-data/contents/subscriptions.json`;
+              const subsResponse = await fetch(subsUrl, {
+                headers: {
+                  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                  'Accept': 'application/vnd.github.v3+json',
+                },
+              });
+
+              if (!subsResponse.ok) {
+                console.log('No subscriptions found');
+                return;
+              }
+
+              const subsData = await subsResponse.json();
+              const subsContent = Buffer.from(subsData.content, 'base64').toString();
+              const subscriptionsData = JSON.parse(subsContent);
+
+              // Вычисляем статистику циклов
+              const cycles = nastiaData.cycles.map(c => ({
+                ...c,
+                startDate: new Date(c.startDate),
+              }));
+
+              const sortedCycles = cycles.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+              if (sortedCycles.length === 0) {
+                console.log('No cycles to analyze');
+                return;
+              }
+
+              // Вычисляем длины циклов
+              const cycleLengths = [];
+              for (let i = 1; i < sortedCycles.length; i++) {
+                const length = Math.floor((sortedCycles[i].startDate - sortedCycles[i - 1].startDate) / (1000 * 60 * 60 * 24));
+                cycleLengths.push(length);
+              }
+
+              const averageLength = cycleLengths.length > 0
+                ? Math.round(cycleLengths.reduce((sum, l) => sum + l, 0) / cycleLengths.length)
+                : 28;
+
+              const lastCycleDate = sortedCycles[sortedCycles.length - 1].startDate;
+              const nextPrediction = new Date(lastCycleDate);
+              nextPrediction.setDate(nextPrediction.getDate() + averageLength);
+
+              const ovulationDate = new Date(nextPrediction);
+              ovulationDate.setDate(ovulationDate.getDate() - 14);
+
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              // Отправляем уведомления каждой подписке
+              const notifications = [];
+
+              for (const subscription of subscriptionsData.subscriptions) {
+                const settings = subscription.settings || {
+                  enabled: true,
+                  daysBeforePeriod: 3,
+                  daysBeforeOvulation: 1,
+                  dailyReminder: false,
+                };
+
+                if (!settings.enabled) continue;
+
+                const daysUntilPeriod = Math.floor((nextPrediction - today) / (1000 * 60 * 60 * 24));
+                const daysUntilOvulation = Math.floor((ovulationDate - today) / (1000 * 60 * 60 * 24));
+
+                let notificationBody = null;
+
+                // Уведомление о месячных
+                if (daysUntilPeriod === settings.daysBeforePeriod) {
+                  notificationBody = `Менструация ожидается через ${settings.daysBeforePeriod} ${getDaysWord(settings.daysBeforePeriod)}`;
+                } else if (daysUntilPeriod === 0) {
+                  notificationBody = 'Сегодня ожидается начало менструации';
+                }
+                // Уведомление об овуляции
+                else if (daysUntilOvulation === settings.daysBeforeOvulation) {
+                  notificationBody = `Овуляция ожидается через ${settings.daysBeforeOvulation} ${getDaysWord(settings.daysBeforeOvulation)}`;
+                } else if (daysUntilOvulation === 0) {
+                  notificationBody = 'Сегодня ожидается овуляция';
+                }
+                // Ежедневное напоминание
+                else if (settings.dailyReminder) {
+                  if (daysUntilPeriod > 0 && daysUntilPeriod <= 7) {
+                    notificationBody = `До менструации ${daysUntilPeriod} ${getDaysWord(daysUntilPeriod)}`;
+                  }
+                }
+
+                if (notificationBody) {
+                  const pushSubscription = {
+                    endpoint: subscription.endpoint,
+                    keys: subscription.keys,
+                  };
+
+                  const payload = JSON.stringify({
+                    title: 'Nastia Calendar',
+                    body: notificationBody,
+                  });
+
+                  try {
+                    await webpush.sendNotification(pushSubscription, payload);
+                    notifications.push({ endpoint: subscription.endpoint, status: 'sent' });
+                    console.log(`Notification sent to ${subscription.endpoint.slice(-20)}`);
+                  } catch (error) {
+                    notifications.push({ endpoint: subscription.endpoint, status: 'failed', error: error.message });
+                    console.error(`Failed to send to ${subscription.endpoint.slice(-20)}:`, error.message);
+                  }
+                }
+              }
+
+              console.log(`Total notifications sent: ${notifications.filter(n => n.status === 'sent').length}`);
+            } catch (error) {
+              console.error('Error in notification job:', error);
+              process.exit(1);
+            }
+          }
+
+          function getDaysWord(days) {
+            if (days === 1) return 'день';
+            if (days >= 2 && days <= 4) return 'дня';
+            return 'дней';
+          }
+
+          main();
+          EOF
