@@ -762,6 +762,15 @@
   padding: 0.5rem;
 }
 
+.syncIndicatorLeft {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
 .syncIconCorner {
   display: block;
   transition: all 0.3s;
@@ -874,7 +883,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  background: #f5f5f5;
+  background: #fff7f9;
   flex-shrink: 0;
 }
 
@@ -922,6 +931,72 @@
   line-height: 1.35rem;
 }
 
+.notificationsSkeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notificationSkeletonCard {
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(17, 24, 39, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.notificationSkeletonTitle,
+.notificationSkeletonLine,
+.notificationSkeletonMeta span {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.2) 0%,
+    rgba(148, 163, 184, 0.4) 50%,
+    rgba(148, 163, 184, 0.2) 100%
+  );
+  background-size: 200% 100%;
+  animation: notificationSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.notificationSkeletonTitle {
+  width: 60%;
+  height: 16px;
+}
+
+.notificationSkeletonLine {
+  width: 100%;
+  height: 12px;
+}
+
+.notificationSkeletonMeta {
+  display: flex;
+  gap: 1rem;
+}
+
+.notificationSkeletonMeta span:first-child {
+  width: 110px;
+}
+
+.notificationSkeletonMeta span:last-child {
+  width: 80px;
+}
+
+@keyframes notificationSkeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .notificationMeta {
   font-size: 0.8rem;
   color: rgba(17, 24, 39, 0.6);
@@ -930,11 +1005,61 @@
   gap: 0.5rem;
 }
 
+.notificationEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1.5rem;
+}
+
+.emptyStateImage {
+  width: 280px;
+  height: auto;
+  max-width: 80%;
+}
+
 .notificationEmpty {
-  margin-top: 2rem;
   text-align: center;
-  color: rgba(17, 24, 39, 0.6);
-  font-size: 0.95rem;
+  color: rgba(17, 24, 39, 0.7);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+.notificationErrorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: rgba(17, 24, 39, 0.75);
+  text-align: center;
+}
+
+.notificationErrorState p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notificationRetryButton {
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.notificationRetryButton:hover,
+.notificationRetryButton:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(17, 24, 39, 0.22);
+  background: #0f172a;
 }
 
 /* Стили для полноэкранного модального окна настроек */

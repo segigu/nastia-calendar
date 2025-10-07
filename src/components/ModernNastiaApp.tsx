@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Bell,
   ChevronLeft,
@@ -95,6 +95,8 @@ const ModernNastiaApp: React.FC = () => {
       .map(notification => ({ ...notification, read: Boolean(notification.read) }))
       .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
   );
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [readIds, setReadIds] = useState<Set<string>>(() => {
     const storedSet = loadReadSet();
     if (storedSet.size === 0) {
@@ -108,10 +110,18 @@ const ModernNastiaApp: React.FC = () => {
     return storedSet;
   });
   const readIdsRef = useRef(readIds);
+  const notificationsRequestSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     readIdsRef.current = readIds;
   }, [readIds]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setNotifications(prev => persistNotifications(prev));
@@ -131,11 +141,51 @@ const ModernNastiaApp: React.FC = () => {
     [notifications]
   );
 
-  const persistNotifications = (items: StoredNotification[]): StoredNotification[] => {
+  const persistNotifications = useCallback((items: StoredNotification[]): StoredNotification[] => {
     const limited = items.slice(0, MAX_STORED_NOTIFICATIONS);
     saveLocalNotifications(limited);
     return limited;
-  };
+  }, []);
+
+  const refreshRemoteNotifications = useCallback(async () => {
+    if (!githubToken) {
+      setNotificationsError('Добавьте GitHub токен, чтобы получать уведомления');
+      return;
+    }
+
+    const requestId = notificationsRequestSeqRef.current + 1;
+    notificationsRequestSeqRef.current = requestId;
+
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+
+    try {
+      const remoteNotifications = await fetchRemoteNotifications(githubToken);
+      if (!isMountedRef.current || notificationsRequestSeqRef.current !== requestId) {
+        return;
+      }
+
+      if (remoteNotifications.length > 0) {
+        setNotifications(prev => {
+          const merged = mergeNotifications(remoteNotifications, prev, readIdsRef.current);
+          return persistNotifications(merged);
+        });
+      } else {
+        setNotifications(prev => persistNotifications(prev));
+      }
+    } catch (error) {
+      console.error('Failed to refresh notifications from cloud:', error);
+      if (!isMountedRef.current || notificationsRequestSeqRef.current !== requestId) {
+        return;
+      }
+      setNotificationsError('Не удалось обновить уведомления');
+    } finally {
+      if (!isMountedRef.current || notificationsRequestSeqRef.current !== requestId) {
+        return;
+      }
+      setNotificationsLoading(false);
+    }
+  }, [githubToken, persistNotifications]);
 
   const markAllNotificationsAsRead = () => {
     if (notifications.length === 0) {
@@ -176,10 +226,12 @@ const ModernNastiaApp: React.FC = () => {
   const handleOpenNotifications = () => {
     markAllNotificationsAsRead();
     setShowNotifications(true);
+    void refreshRemoteNotifications();
   };
 
   const handleCloseNotifications = () => {
     setShowNotifications(false);
+    setNotificationsError(null);
   };
 
   // Загрузка данных при запуске
@@ -263,36 +315,25 @@ const ModernNastiaApp: React.FC = () => {
 
     let cancelled = false;
 
-    Promise.all([
-      fetchRemoteNotifications(githubToken).catch(error => {
-        console.error('Failed to load notifications from cloud:', error);
-        return [];
-      }),
-      fetchRemoteConfig(githubToken).catch(error => {
-        console.error('Failed to load remote config:', error);
-        return null;
-      }),
-    ]).then(([remoteNotifications, config]) => {
-      if (cancelled) {
-        return;
-      }
+    void refreshRemoteNotifications();
 
-      if (remoteNotifications.length > 0) {
-        setNotifications(prev => {
-          const merged = mergeNotifications(remoteNotifications, prev, readIdsRef.current);
-          return persistNotifications(merged);
-        });
-      }
-
-      if (config?.openAI?.apiKey) {
+    fetchRemoteConfig(githubToken)
+      .then(config => {
+        if (cancelled || !config?.openAI?.apiKey) {
+          return;
+        }
         setRemoteOpenAIKey(config.openAI.apiKey);
-      }
-    });
+      })
+      .catch(error => {
+        if (!cancelled) {
+          console.error('Failed to load remote config:', error);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [cloudEnabled, githubToken]);
+  }, [cloudEnabled, githubToken, refreshRemoteNotifications]);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
@@ -678,6 +719,20 @@ const ModernNastiaApp: React.FC = () => {
       <div className={styles.appWrapper}>
         {/* Заголовок */}
         <div className={styles.header}>
+          {cloudEnabled && (
+            <div className={styles.syncIndicatorLeft}>
+              {syncStatus === 'syncing' && (
+                <Cloud size={20} className={`${styles.syncIconCorner} ${styles.syncing}`} />
+              )}
+              {syncStatus === 'success' && (
+                <Cloud size={20} className={`${styles.syncIconCorner} ${styles.success}`} />
+              )}
+              {syncStatus === 'error' && (
+                <CloudOff size={20} className={`${styles.syncIconCorner} ${styles.error}`} />
+              )}
+            </div>
+          )}
+
           <div className={styles.titleWrapper}>
             <img
               src={nastiaLogo}
@@ -700,20 +755,6 @@ const ModernNastiaApp: React.FC = () => {
                 </span>
               )}
             </button>
-
-            {cloudEnabled && (
-              <div className={styles.syncIndicatorCorner}>
-                {syncStatus === 'syncing' && (
-                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.syncing}`} />
-                )}
-                {syncStatus === 'success' && (
-                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.success}`} />
-                )}
-                {syncStatus === 'error' && (
-                  <CloudOff size={20} className={`${styles.syncIconCorner} ${styles.error}`} />
-                )}
-              </div>
-            )}
           </div>
         </div>
 
@@ -966,10 +1007,44 @@ const ModernNastiaApp: React.FC = () => {
             </div>
 
             <div className={styles.notificationsBody}>
-              {notifications.length === 0 ? (
-                <p className={styles.notificationEmpty}>
-                  Пока никакой язвительной драмы — новых уведомлений нет.
-                </p>
+              {notificationsLoading ? (
+                <div className={styles.notificationsSkeletonList}>
+                  {[0, 1, 2].map(index => (
+                    <div key={index} className={styles.notificationSkeletonCard}>
+                      <div className={styles.notificationSkeletonTitle} />
+                      <div className={styles.notificationSkeletonLine} />
+                      <div className={styles.notificationSkeletonMeta}>
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : notificationsError ? (
+                <div className={styles.notificationErrorState}>
+                  <p>{notificationsError}</p>
+                  <button
+                    type="button"
+                    className={styles.notificationRetryButton}
+                    onClick={() => {
+                      setNotificationsError(null);
+                      void refreshRemoteNotifications();
+                    }}
+                  >
+                    Обновить
+                  </button>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className={styles.notificationEmptyState}>
+                  <img
+                    src={process.env.PUBLIC_URL + '/nastia-empty.png'}
+                    alt="Нет уведомлений"
+                    className={styles.emptyStateImage}
+                  />
+                  <p className={styles.notificationEmpty}>
+                    Пока никакой язвительной драмы — новых уведомлений нет.
+                  </p>
+                </div>
               ) : (
                 <div className={styles.notificationsList}>
                   {notifications.map(notification => (
@@ -1112,36 +1187,19 @@ const ModernNastiaApp: React.FC = () => {
                     placeholder="ghp_xxxxxxxxxxxxxxxx"
                     className={styles.formInput}
                   />
-                  <p className={styles.formHint}>
-                    Создайте токен на{' '}
-                    <a
-                      href="https://github.com/settings/tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.link}
-                    >
-                      GitHub Settings
-                    </a>
-                    {' '}с правами <strong>repo</strong>
-                  </p>
                 </div>
               )}
 
               <div className={styles.formGroup}>
                 <p className={styles.formInfo}>
-                  {cloudEnabled
-                    ? '✓ Данные будут автоматически сохраняться в приватный репозиторий GitHub'
-                    : 'ℹ️ Данные будут храниться только локально в браузере'
-                  }
+                  ✓ Данные будут автоматически сохраняться в приватный репозиторий GitHub
                 </p>
               </div>
 
               {cloudEnabled && (
                 <div className={styles.formGroup}>
                   <p className={styles.formInfo}>
-                    {remoteOpenAIKey
-                      ? '✓ OpenAI-ключ подтянут из GitHub Secrets — Настя придумала тексты заранее.'
-                      : '⚠️ OpenAI-ключ ещё не подтянут из GitHub. Проверьте секрет OPENAI_API_KEY в репозитории.'}
+                    ✓ OpenAI-ключ подтянут из GitHub Secrets — Настя придумала тексты заранее.
                   </p>
                 </div>
               )}
@@ -1186,12 +1244,6 @@ const ModernNastiaApp: React.FC = () => {
                     </p>
                   )}
 
-                  {notificationSettings.enabled && notificationPermission === 'granted' && (
-                    <p className={styles.formInfo}>
-                      Настя будет слать жёстко-саркастичные пуши: про фертильное окно, день овуляции,
-                      предменструальные качели и сам день Х.
-                    </p>
-                  )}
 
                   {notificationPermission === 'granted' && (
                     <div className={styles.formGroup}>
