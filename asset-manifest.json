@@ -1,17 +1,17 @@
 {
   "files": {
-    "main.css": "/nastia-calendar/static/css/main.7b978281.css",
-    "main.js": "/nastia-calendar/static/js/main.689cce02.js",
+    "main.css": "/nastia-calendar/static/css/main.9377b777.css",
+    "main.js": "/nastia-calendar/static/js/main.33ec99ff.js",
     "static/js/453.0396567c.chunk.js": "/nastia-calendar/static/js/453.0396567c.chunk.js",
     "static/media/nastia-header-logo.png": "/nastia-calendar/static/media/nastia-header-logo.4911b4f90e38cfdbbc4e.png",
     "service-worker.js": "/nastia-calendar/service-worker.js",
     "index.html": "/nastia-calendar/index.html",
-    "main.7b978281.css.map": "/nastia-calendar/static/css/main.7b978281.css.map",
-    "main.689cce02.js.map": "/nastia-calendar/static/js/main.689cce02.js.map",
+    "main.9377b777.css.map": "/nastia-calendar/static/css/main.9377b777.css.map",
+    "main.33ec99ff.js.map": "/nastia-calendar/static/js/main.33ec99ff.js.map",
     "453.0396567c.chunk.js.map": "/nastia-calendar/static/js/453.0396567c.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.7b978281.css",
-    "static/js/main.689cce02.js"
+    "static/css/main.9377b777.css",
+    "static/js/main.33ec99ff.js"
   ]
 }
