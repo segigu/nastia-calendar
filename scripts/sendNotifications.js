@@ -537,7 +537,9 @@ async function main() {
         sent += 1;
         console.log(`Notification (${type}) sent to ${subscription.endpoint.slice(-20)}`);
       } catch (error) {
-        console.error(`Failed to send to ${subscription.endpoint.slice(-20)}:`, error.message);
+        const status = error?.statusCode ?? error?.status ?? 'unknown-status';
+        const responseBody = error?.body ? error.body.toString() : undefined;
+        console.error(`Failed to send to ${subscription.endpoint.slice(-20)}:`, error.message, status, responseBody);
       }
     }
 
