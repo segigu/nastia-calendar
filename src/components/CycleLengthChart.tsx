@@ -40,10 +40,11 @@ const CycleLengthChart: React.FC<CycleLengthChartProps> = ({ cycles }) => {
   }
 
   // Подготавливаем данные для recharts
+  const normalBarColor = '#cbb6ff';
   const chartData = recentCycles.map(cycle => ({
     month: cycle.date.toLocaleDateString('ru-RU', { month: 'short' }),
     length: cycle.length,
-    fill: cycle.length >= 21 && cycle.length <= 35 ? '#d8b4fe' : '#f59e0b'
+    fill: cycle.length >= 21 && cycle.length <= 35 ? normalBarColor : '#f59e0b'
   }));
 
   // Вычисляем среднее
@@ -54,12 +55,17 @@ const CycleLengthChart: React.FC<CycleLengthChartProps> = ({ cycles }) => {
   const minValue = Math.min(...lengths) - 1;
   const maxValue = Math.max(...lengths) + 1;
 
+  // Вычисляем ширину для горизонтального скроллинга
+  const minWidth = Math.max(chartData.length * 60, 300); // минимум 60px на столбец
+
   return (
     <div className={styles.chartContainer}>
       <h3 className={styles.chartTitle}>Длина цикла по месяцам</h3>
 
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={chartData} margin={{ top: 20, right: 70, left: -10, bottom: 5 }}>
+      <div className={styles.chartScrollContainer}>
+        <div style={{ minWidth: `${minWidth}px`, width: '100%' }}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={chartData} margin={{ top: 20, right: 70, left: -10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis
             dataKey="month"
@@ -82,13 +88,13 @@ const CycleLengthChart: React.FC<CycleLengthChartProps> = ({ cycles }) => {
           />
           <ReferenceLine
             y={average}
-            stroke="#8b5cf6"
+            stroke="#9f3de6"
             strokeDasharray="5 5"
             strokeWidth={2}
             label={{
-              value: `среднее: ${average}`,
+              value: `ср.${average}`,
               position: 'right',
-              fill: '#8b5cf6',
+              fill: '#9f3de6',
               fontSize: 11,
               fontWeight: 600
             }}
@@ -103,6 +109,8 @@ const CycleLengthChart: React.FC<CycleLengthChartProps> = ({ cycles }) => {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+        </div>
+      </div>
 
       <div className={styles.chartLegend}>
         <div className={styles.legendItem}>

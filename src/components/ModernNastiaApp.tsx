@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+  Bell,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -7,12 +8,14 @@ import {
   Cloud,
   CloudOff
 } from 'lucide-react';
-import { CycleData, NastiaData, DayData, PainLevel, MoodLevel } from '../types';
-import { 
-  formatDate, 
-  formatShortDate, 
-  isToday, 
-  getMonthYear 
+import { CycleData, NastiaData, NotificationCategory, NotificationItem } from '../types';
+import nastiaLogo from '../assets/nastia-header-logo.png';
+import {
+  formatDate,
+  formatShortDate,
+  isToday,
+  getMonthYear,
+  diffInDays,
 } from '../utils/dateUtils';
 import {
   calculateCycleStats,
@@ -38,28 +41,146 @@ import {
   type NotificationSettings
 } from '../utils/pushNotifications';
 import { saveSubscription, removeSubscription } from '../utils/pushSubscriptionSync';
+import {
+  loadLocalNotifications,
+  saveLocalNotifications,
+  loadReadSet,
+  saveReadSet,
+  mergeNotifications,
+  markAllAsRead,
+  addSingleNotification,
+  type StoredNotification,
+} from '../utils/notificationsStorage';
+import { fetchRemoteNotifications } from '../utils/notificationsSync';
+import { fetchRemoteConfig } from '../utils/remoteConfig';
+import {
+  generatePeriodModalContent,
+  getFallbackPeriodContent,
+  type PeriodModalContent,
+} from '../utils/aiContent';
 import styles from './NastiaApp.module.css';
+
+const PRIMARY_USER_NAME = 'Настя';
+const MAX_STORED_NOTIFICATIONS = 200;
+
+const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
+  fertile_window: 'Фертильное окно',
+  ovulation_day: 'День овуляции',
+  period_forecast: 'Прогноз менструации',
+  period_start: 'День менструации',
+  generic: 'Напоминание',
+};
 
 const ModernNastiaApp: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedDayForSymptoms, setSelectedDayForSymptoms] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
   const [showSettings, setShowSettings] = useState(false);
   const [githubToken, setGithubToken] = useState('');
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-
-  // Состояние для редактирования симптомов
-  const [editingPainLevel, setEditingPainLevel] = useState<PainLevel>(0);
-  const [editingMood, setEditingMood] = useState<MoodLevel | null>(null);
-  const [editingNotes, setEditingNotes] = useState('');
+  const [remoteOpenAIKey, setRemoteOpenAIKey] = useState<string | null>(null);
+  const [periodContent, setPeriodContent] = useState<PeriodModalContent | null>(null);
+  const [periodContentStatus, setPeriodContentStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [periodContentError, setPeriodContentError] = useState<string | null>(null);
 
   // Состояние для уведомлений
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(getNotificationSettings());
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<StoredNotification[]>(() =>
+    loadLocalNotifications()
+      .map(notification => ({ ...notification, read: Boolean(notification.read) }))
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+  );
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    const storedSet = loadReadSet();
+    if (storedSet.size === 0) {
+      const locallyStored = loadLocalNotifications();
+      for (const entry of locallyStored) {
+        if (entry.read) {
+          storedSet.add(entry.id);
+        }
+      }
+    }
+    return storedSet;
+  });
+  const readIdsRef = useRef(readIds);
+
+  useEffect(() => {
+    readIdsRef.current = readIds;
+  }, [readIds]);
+
+  useEffect(() => {
+    setNotifications(prev => persistNotifications(prev));
+  }, []);
+
+  const fallbackPeriodContent = useMemo(
+    () => getFallbackPeriodContent(PRIMARY_USER_NAME),
+    [],
+  );
+
+  const renderedPeriodContent = periodContent ?? (periodContentStatus !== 'loading' ? fallbackPeriodContent : null);
+
+  const stats = useMemo(() => calculateCycleStats(cycles), [cycles]);
+  const nextPredictionDate = stats.nextPrediction;
+  const unreadCount = useMemo(
+    () => notifications.reduce((count, notification) => count + (notification.read ? 0 : 1), 0),
+    [notifications]
+  );
+
+  const persistNotifications = (items: StoredNotification[]): StoredNotification[] => {
+    const limited = items.slice(0, MAX_STORED_NOTIFICATIONS);
+    saveLocalNotifications(limited);
+    return limited;
+  };
+
+  const markAllNotificationsAsRead = () => {
+    if (notifications.length === 0) {
+      return;
+    }
+    const { updated, readSet } = markAllAsRead(notifications);
+    const persisted = persistNotifications(updated);
+    saveReadSet(readSet);
+    setNotifications(persisted);
+    setReadIds(new Set(readSet));
+  };
+
+  const normalizeNotificationType = (value?: string): NotificationCategory => {
+    if (value === 'fertile_window' || value === 'ovulation_day' || value === 'period_forecast' || value === 'period_start') {
+      return value;
+    }
+    return 'generic';
+  };
+
+  const formatNotificationTimestamp = (iso: string): string => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getNotificationTypeLabel = (type?: string): string => {
+    const normalized = normalizeNotificationType(type);
+    return NOTIFICATION_TYPE_LABELS[normalized];
+  };
+
+  const handleOpenNotifications = () => {
+    markAllNotificationsAsRead();
+    setShowNotifications(true);
+  };
+
+  const handleCloseNotifications = () => {
+    setShowNotifications(false);
+  };
 
   // Загрузка данных при запуске
   useEffect(() => {
@@ -82,6 +203,139 @@ const ModernNastiaApp: React.FC = () => {
     initNotifications();
 
     loadInitialData();
+  }, []);
+
+  // Подготавливаем текст модалки при выборе даты; ключ берём из GitHub-конфига или из env.
+  useEffect(() => {
+    if (!selectedDate) {
+      setPeriodContent(null);
+      setPeriodContentStatus('idle');
+      setPeriodContentError(null);
+      return;
+    }
+
+    // Ключ берём из локального поля или из билд-настройки. Если ключей нет — используем заранее заготовленный текст.
+    const activeApiKey = (remoteOpenAIKey ?? '').trim() || process.env.REACT_APP_OPENAI_API_KEY || '';
+
+    if (!activeApiKey) {
+      setPeriodContent(fallbackPeriodContent);
+      setPeriodContentStatus('idle');
+      setPeriodContentError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPeriodContentStatus('loading');
+    setPeriodContentError(null);
+    setPeriodContent(null);
+
+    generatePeriodModalContent({
+      userName: PRIMARY_USER_NAME,
+      cycleStartISODate: selectedDate.toISOString(),
+      signal: controller.signal,
+      apiKey: activeApiKey,
+    })
+      .then(content => {
+        setPeriodContent(content);
+        setPeriodContentStatus('idle');
+      })
+      .catch(error => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('Не удалось получить текст для модального окна', error);
+        setPeriodContent(fallbackPeriodContent);
+        setPeriodContentStatus('error');
+        setPeriodContentError(
+          'Похоже, Настенька не успела подготовить свежий текст. Показан запасной вариант.',
+        );
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedDate, remoteOpenAIKey, fallbackPeriodContent]);
+
+  useEffect(() => {
+    if (!githubToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all([
+      fetchRemoteNotifications(githubToken).catch(error => {
+        console.error('Failed to load notifications from cloud:', error);
+        return [];
+      }),
+      fetchRemoteConfig(githubToken).catch(error => {
+        console.error('Failed to load remote config:', error);
+        return null;
+      }),
+    ]).then(([remoteNotifications, config]) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (remoteNotifications.length > 0) {
+        setNotifications(prev => {
+          const merged = mergeNotifications(remoteNotifications, prev, readIdsRef.current);
+          return persistNotifications(merged);
+        });
+      }
+
+      if (config?.openAI?.apiKey) {
+        setRemoteOpenAIKey(config.openAI.apiKey);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudEnabled, githubToken]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.type !== 'nastia-notification' || !data.payload) {
+        return;
+      }
+
+      const payload = data.payload as {
+        id?: string;
+        title?: string;
+        body?: string;
+        type?: string;
+        sentAt?: string;
+      };
+
+      if (!payload.id) {
+        return;
+      }
+
+      const notification: NotificationItem = {
+        id: payload.id,
+        title: payload.title ?? 'Nastia Calendar',
+        body: payload.body ?? '',
+        sentAt: payload.sentAt ?? new Date().toISOString(),
+        type: normalizeNotificationType(payload.type),
+      };
+
+      setNotifications(prev => {
+        const updated = addSingleNotification(notification, prev, readIdsRef.current);
+        return persistNotifications(updated);
+      });
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleMessage);
+    };
   }, []);
 
   // Инициализация уведомлений
@@ -263,12 +517,17 @@ const ModernNastiaApp: React.FC = () => {
             }
           }
           alert('Уведомления успешно включены');
+        } else {
+          await updateNotificationSettings({ enabled: false });
+          alert('Не удалось создать подписку на уведомления');
         }
       } else {
         alert('Необходимо разрешение на уведомления');
+        await updateNotificationSettings({ enabled: false });
       }
     } catch (error) {
       console.error('Error enabling notifications:', error);
+      await updateNotificationSettings({ enabled: false });
       alert('Ошибка при включении уведомлений');
     }
   };
@@ -291,12 +550,10 @@ const ModernNastiaApp: React.FC = () => {
     }
   };
 
-  const handleNotificationSettingsChange = async (key: keyof NotificationSettings, value: any) => {
-    const newSettings = { ...notificationSettings, [key]: value };
-    setNotificationSettings(newSettings);
-    saveNotificationSettings(newSettings);
+  const updateNotificationSettings = async (settings: NotificationSettings) => {
+    setNotificationSettings(settings);
+    saveNotificationSettings(settings);
 
-    // Обновляем подписку в облаке с новыми настройками
     if (cloudEnabled && githubToken && notificationPermission === 'granted') {
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -309,7 +566,7 @@ const ModernNastiaApp: React.FC = () => {
               p256dh: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('p256dh')!)))),
               auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('auth')!))))
             },
-            settings: newSettings
+            settings,
           };
 
           await saveSubscription(githubToken, subscriptionData);
@@ -342,19 +599,21 @@ const ModernNastiaApp: React.FC = () => {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
+    // Преобразуем: воскресенье (0) становится 6, понедельник (1) становится 0, и т.д.
+    const adjustedStartingDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
 
     const days = [];
-    
-    // Добавляем пустые дни для выравнивания
-    for (let i = 0; i < startingDayOfWeek; i++) {
+
+    // Добавляем пустые дни для выравнивания (начиная с понедельника)
+    for (let i = 0; i < adjustedStartingDay; i++) {
       days.push(null);
     }
-    
+
     // Добавляем дни месяца
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
     }
-    
+
     return days;
   };
 
@@ -381,64 +640,9 @@ const ModernNastiaApp: React.FC = () => {
     setCycles(cycles.filter(cycle => cycle.id !== cycleId));
   };
 
-  // Получение данных дня из циклов
-  const getDayData = (date: Date): DayData | null => {
-    const dateStr = date.toISOString().split('T')[0];
-    for (const cycle of cycles) {
-      if (cycle.days) {
-        const dayData = cycle.days.find(d => d.date === dateStr);
-        if (dayData) return dayData;
-      }
-    }
-    return null;
-  };
-
-  // Открытие модального окна для редактирования симптомов
-  const openDaySymptoms = (date: Date) => {
-    const dayData = getDayData(date);
-    setSelectedDayForSymptoms(date);
-    setEditingPainLevel(dayData?.painLevel || 0);
-    setEditingMood(dayData?.mood || null);
-    setEditingNotes(dayData?.notes || '');
-  };
-
-  // Сохранение симптомов дня
-  const saveDaySymptoms = () => {
-    if (!selectedDayForSymptoms) return;
-
-    const dateStr = selectedDayForSymptoms.toISOString().split('T')[0];
-    const newDayData: DayData = {
-      date: dateStr,
-      painLevel: editingPainLevel,
-      mood: editingMood || undefined,
-      notes: editingNotes || undefined,
-    };
-
-    // Находим цикл, к которому относится этот день
-    const updatedCycles = cycles.map(cycle => {
-      const cycleStart = new Date(cycle.startDate);
-      const cycleEnd = new Date(cycleStart);
-      cycleEnd.setDate(cycleStart.getDate() + 35); // Примерно 5 недель
-
-      if (selectedDayForSymptoms >= cycleStart && selectedDayForSymptoms <= cycleEnd) {
-        const existingDays = cycle.days || [];
-        const existingIndex = existingDays.findIndex(d => d.date === dateStr);
-
-        if (existingIndex >= 0) {
-          // Обновляем существующий день
-          const newDays = [...existingDays];
-          newDays[existingIndex] = newDayData;
-          return { ...cycle, days: newDays };
-        } else {
-          // Добавляем новый день
-          return { ...cycle, days: [...existingDays, newDayData] };
-        }
-      }
-      return cycle;
-    });
-
-    setCycles(updatedCycles);
-    setSelectedDayForSymptoms(null);
+  // Обработчик клика на дату - открывает модальное окно для добавления начала менструации
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
   };
 
   // Получение CSS класса для дня
@@ -453,6 +657,9 @@ const ModernNastiaApp: React.FC = () => {
       classes += ` ${styles.period}`;
     } else if (isPredictedPeriod(date, cycles)) {
       classes += ` ${styles.predicted}`;
+      if (nextPredictionDate && diffInDays(date, nextPredictionDate) === 0) {
+        classes += ` ${styles.predictedFocus}`;
+      }
     } else if (isOvulationDay(date, cycles)) {
       classes += ` ${styles.ovulation}`;
     } else if (isFertileDay(date, cycles)) {
@@ -462,9 +669,7 @@ const ModernNastiaApp: React.FC = () => {
     return classes;
   };
 
-
   const monthDays = getMonthDays(currentDate);
-  const stats = calculateCycleStats(cycles);
   const daysUntilNext = getDaysUntilNext(cycles);
   const fertileWindow = calculateFertileWindow(cycles);
 
@@ -474,19 +679,140 @@ const ModernNastiaApp: React.FC = () => {
         {/* Заголовок */}
         <div className={styles.header}>
           <div className={styles.titleWrapper}>
-            <img 
-              src="/nastia-calendar/nastia-original-logo.png" 
-              alt="Nastia" 
+            <img
+              src={nastiaLogo}
+              alt="Nastia"
               className={styles.logo}
             />
           </div>
-          <p className={styles.subtitle}>Персональный календарь</p>
+
+          <div className={styles.headerCorner}>
+            <button
+              onClick={handleOpenNotifications}
+              className={styles.notificationBellButton}
+              type="button"
+              aria-label={unreadCount > 0 ? `Есть ${unreadCount} новых уведомлений` : 'Открыть уведомления'}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className={styles.notificationBadge}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {cloudEnabled && (
+              <div className={styles.syncIndicatorCorner}>
+                {syncStatus === 'syncing' && (
+                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.syncing}`} />
+                )}
+                {syncStatus === 'success' && (
+                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.success}`} />
+                )}
+                {syncStatus === 'error' && (
+                  <CloudOff size={20} className={`${styles.syncIconCorner} ${styles.error}`} />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Навигация по вкладкам */}
+        <div className={styles.tabNavigation}>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`${styles.tabButton} ${activeTab === 'calendar' ? styles.active : ''}`}
+          >
+            Календарь
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`${styles.tabButton} ${activeTab === 'history' ? styles.active : ''}`}
+          >
+            История ({cycles.length})
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className={styles.tabButton}
+          >
+            <Settings size={18} />
+          </button>
+        </div>
+
+        {/* Календарь */}
+        {activeTab === 'calendar' && (
+          <div className={styles.calendarPanel}>
+            {/* Навигация по месяцам */}
+            <div className={styles.calendarHeader}>
+              <button
+                onClick={() => changeMonth('prev')}
+                className={styles.navButton}
+              >
+                <ChevronLeft size={20} color="var(--nastia-dark)" />
+              </button>
+              <h2 className={styles.monthTitle}>
+                {getMonthYear(currentDate)}
+              </h2>
+              <button
+                onClick={() => changeMonth('next')}
+                className={styles.navButton}
+              >
+                <ChevronRight size={20} color="var(--nastia-dark)" />
+              </button>
+            </div>
+
+            {/* Дни недели */}
+            <div className={styles.weekDays}>
+              {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
+                <div key={day} className={styles.weekDay}>
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Дни месяца */}
+            <div className={styles.calendarGrid}>
+              {monthDays.map((date, index) => (
+                <button
+                  key={index}
+                  className={getDayClasses(date)}
+                  onClick={() => date && handleDateClick(date)}
+                >
+                  <div className={styles.dayNumber}>{date ? date.getDate() : ''}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Легенда */}
+            <div className={styles.legend}>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendDot} ${styles.period}`}></div>
+                <span>Период</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendDot} ${styles.predicted}`}></div>
+                <span>Прогноз</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendDot} ${styles.ovulation}`}></div>
+                <span>Овуляция</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendDot} ${styles.fertile}`}></div>
+                <span>Фертильное окно</span>
+              </div>
+              <div className={styles.legendItem}>
+                <div className={`${styles.legendDot} ${styles.today}`}></div>
+                <span>Сегодня</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Insights панель */}
-        {cycles.length >= 2 && (
-          <div className={styles.card}>
-            <h3 className={styles.insightsTitle}>📊 Ваш паттерн</h3>
+        {cycles.length >= 2 && activeTab === 'calendar' && (
+          <div className={styles.insightsCard}>
+            <h3 className={styles.insightsTitle}>⚡️ Твои показатели</h3>
 
             <div className={styles.insightsGrid}>
               {/* Средняя длина и вариативность */}
@@ -559,152 +885,23 @@ const ModernNastiaApp: React.FC = () => {
         )}
 
         {/* Краткая статистика */}
-        <div className={styles.card}>
-          <div className={styles.statsGrid}>
-            <div className={styles.statItem}>
-              <div className={styles.statNumber}>{daysUntilNext}</div>
-              <div className={styles.statLabel}>дней до следующего</div>
-            </div>
-            <div className={styles.statItem}>
-              <div className={styles.statNumber}>{stats.cycleCount}</div>
-              <div className={styles.statLabel}>циклов отмечено</div>
-            </div>
-          </div>
-
-          {/* График длины циклов */}
-          {cycles.length >= 2 && activeTab === 'calendar' && (
-            <CycleLengthChart cycles={cycles} />
-          )}
-        </div>
-
-        {/* Календарь */}
-        <div className={styles.card}>
-          {/* Навигация по месяцам */}
-          <div className={styles.calendarHeader}>
-            <button
-              onClick={() => changeMonth('prev')}
-              className={styles.navButton}
-            >
-              <ChevronLeft size={20} color="var(--nastia-dark)" />
-            </button>
-            <h2 className={styles.monthTitle}>
-              {getMonthYear(currentDate)}
-            </h2>
-            <button
-              onClick={() => changeMonth('next')}
-              className={styles.navButton}
-            >
-              <ChevronRight size={20} color="var(--nastia-dark)" />
-            </button>
-          </div>
-
-          {/* Дни недели */}
-          <div className={styles.weekDays}>
-            {['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map(day => (
-              <div key={day} className={styles.weekDay}>
-                {day}
+        {activeTab === 'calendar' && (
+          <div className={`${styles.card} ${styles.statsCard}`}>
+            <div className={styles.statsGrid}>
+              <div className={styles.statItem}>
+                <div className={styles.statNumber}>{daysUntilNext}</div>
+                <div className={styles.statLabel}>дней до следующего</div>
               </div>
-            ))}
-          </div>
-
-          {/* Дни месяца */}
-          <div className={styles.calendarGrid}>
-            {monthDays.map((date, index) => {
-              const dayData = date ? getDayData(date) : null;
-              return (
-                <button
-                  key={index}
-                  className={getDayClasses(date)}
-                  onClick={() => date && openDaySymptoms(date)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (date) setSelectedDate(date);
-                  }}
-                >
-                  <div className={styles.dayNumber}>{date ? date.getDate() : ''}</div>
-                  {dayData && (
-                    <div className={styles.dayIndicators}>
-                      {dayData.mood === 'good' && <span className={styles.moodIndicator}>😊</span>}
-                      {dayData.mood === 'neutral' && <span className={styles.moodIndicator}>😐</span>}
-                      {dayData.mood === 'bad' && <span className={styles.moodIndicator}>😞</span>}
-                      {dayData.painLevel && dayData.painLevel > 0 && (
-                        <span className={styles.painIndicator} style={{ opacity: dayData.painLevel / 5 }}>
-                          💢
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Легенда */}
-          <div className={styles.legend}>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.period}`}></div>
-              <span>Период</span>
-            </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.predicted}`}></div>
-              <span>Прогноз</span>
-            </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.ovulation}`}></div>
-              <span>Овуляция</span>
-            </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.fertile}`}></div>
-              <span>Фертильное окно</span>
-            </div>
-            <div className={styles.legendItem}>
-              <div className={`${styles.legendDot} ${styles.today}`}></div>
-              <span>Сегодня</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Навигация по вкладкам */}
-        <div className={styles.tabNavigation}>
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`${styles.tabButton} ${activeTab === 'calendar' ? styles.active : ''}`}
-          >
-            Календарь
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`${styles.tabButton} ${activeTab === 'history' ? styles.active : ''}`}
-          >
-            История ({cycles.length})
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className={styles.tabButton}
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-
-        {/* Индикатор синхронизации */}
-        {cloudEnabled && (
-          <div className={styles.syncIndicator}>
-            {syncStatus === 'syncing' && (
-              <div className={styles.syncStatus}>
-                <Cloud size={16} className={styles.syncIcon} />
-                <span>Синхронизация...</span>
+              <div className={styles.statItem}>
+                <div className={styles.statNumber}>{stats.cycleCount}</div>
+                <div className={styles.statLabel}>циклов отмечено</div>
               </div>
-            )}
-            {syncStatus === 'success' && (
-              <div className={`${styles.syncStatus} ${styles.success}`}>
-                <Cloud size={16} className={styles.syncIcon} />
-                <span>Синхронизировано</span>
-              </div>
-            )}
-            {syncStatus === 'error' && (
-              <div className={`${styles.syncStatus} ${styles.error}`}>
-                <CloudOff size={16} className={styles.syncIcon} />
-                <span>Ошибка синхронизации</span>
+            </div>
+
+            {/* График длины циклов */}
+            {cycles.length >= 2 && (
+              <div className={styles.chartSection}>
+                <CycleLengthChart cycles={cycles} />
               </div>
             )}
           </div>
@@ -754,112 +951,115 @@ const ModernNastiaApp: React.FC = () => {
         )}
       </div>
 
-      {/* Модальное окно для редактирования дня и симптомов */}
-      {selectedDayForSymptoms && (
+      {showNotifications && (
         <div className={styles.modal}>
-          <div className={styles.modalContent}>
-            <h3 className={styles.modalTitle}>
-              {formatDate(selectedDayForSymptoms)}
-            </h3>
-
-            <div className={styles.symptomForm}>
-              {/* Уровень боли */}
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Уровень боли: {editingPainLevel > 0 ? editingPainLevel : 'нет'}
-                </label>
-                <div className={styles.painSlider}>
-                  {[0, 1, 2, 3, 4, 5].map(level => (
-                    <button
-                      key={level}
-                      onClick={() => setEditingPainLevel(level as PainLevel)}
-                      className={`${styles.painButton} ${editingPainLevel === level ? styles.active : ''}`}
-                    >
-                      {level === 0 ? '😊' : '💢'.repeat(level)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Настроение */}
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Настроение/Энергия</label>
-                <div className={styles.moodButtons}>
-                  <button
-                    onClick={() => setEditingMood('good')}
-                    className={`${styles.moodButton} ${editingMood === 'good' ? styles.active : ''}`}
-                  >
-                    😊 Хорошо
-                  </button>
-                  <button
-                    onClick={() => setEditingMood('neutral')}
-                    className={`${styles.moodButton} ${editingMood === 'neutral' ? styles.active : ''}`}
-                  >
-                    😐 Нормально
-                  </button>
-                  <button
-                    onClick={() => setEditingMood('bad')}
-                    className={`${styles.moodButton} ${editingMood === 'bad' ? styles.active : ''}`}
-                  >
-                    😞 Плохо
-                  </button>
-                </div>
-              </div>
-
-              {/* Заметки */}
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Заметки</label>
-                <textarea
-                  value={editingNotes}
-                  onChange={(e) => setEditingNotes(e.target.value)}
-                  placeholder="Дополнительные заметки..."
-                  className={styles.formTextarea}
-                  rows={3}
-                />
-              </div>
+          <div className={`${styles.modalContent} ${styles.notificationsModal}`}>
+            <div className={styles.notificationsHeader}>
+              <h3 className={styles.notificationsTitle}>Уведомления</h3>
+              <button
+                onClick={handleCloseNotifications}
+                className={styles.closeButton}
+                aria-label="Закрыть"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className={styles.modalActions}>
-              <button
-                onClick={saveDaySymptoms}
-                className={`${styles.modalButton} ${styles.primary}`}
-              >
-                Сохранить
-              </button>
-              <button
-                onClick={() => setSelectedDayForSymptoms(null)}
-                className={`${styles.modalButton} ${styles.secondary}`}
-              >
-                Отмена
-              </button>
+            <div className={styles.notificationsBody}>
+              {notifications.length === 0 ? (
+                <p className={styles.notificationEmpty}>
+                  Пока никакой язвительной драмы — новых уведомлений нет.
+                </p>
+              ) : (
+                <div className={styles.notificationsList}>
+                  {notifications.map(notification => (
+                    <div key={notification.id} className={styles.notificationCard}>
+                      <div className={styles.notificationTitle}>
+                        {notification.title}
+                      </div>
+                      <div className={styles.notificationBody}>{notification.body}</div>
+                      <div className={styles.notificationMeta}>
+                        <span>{getNotificationTypeLabel(notification.type)}</span>
+                        <span>{formatNotificationTimestamp(notification.sentAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Модальное окно для добавления цикла (правый клик) */}
+      {/* Модальное окно для добавления начала менструации */}
       {selectedDate && (
         <div className={styles.modal}>
-          <div className={styles.modalContent}>
-            <h3 className={styles.modalTitle}>
-              Добавить цикл
-            </h3>
-            <p className={styles.modalText}>
-              Дата: {formatDate(selectedDate)}
-            </p>
-            <div className={styles.modalActions}>
-              <button
-                onClick={() => addCycle(selectedDate)}
-                className={`${styles.modalButton} ${styles.primary}`}
-              >
-                Добавить
-              </button>
+          <div className={`${styles.modalContent} ${styles.periodModal}`}>
+            <div className={`${styles.settingsHeader} ${styles.periodHeader}`}>
+              <h3 className={styles.settingsTitle}>
+                Начало менструации
+              </h3>
               <button
                 onClick={() => setSelectedDate(null)}
-                className={`${styles.modalButton} ${styles.secondary}`}
+                className={styles.closeButton}
+                aria-label="Закрыть"
               >
-                Отмена
+                ✕
               </button>
+            </div>
+            <div className={styles.periodModalBody}>
+              <div className={styles.periodIconWrapper}>
+                <div className={styles.periodIcon}>🌸</div>
+              </div>
+
+              <div className={styles.periodContent}>
+                <p className={styles.periodDate}>
+                  {formatDate(selectedDate)}
+                </p>
+
+                {periodContentStatus === 'loading' ? (
+                  <div className={styles.periodSkeletons}>
+                    <div className={styles.periodSkeletonLine} style={{ width: '55%' }}></div>
+                  </div>
+                ) : (
+                  <p className={styles.periodText}>
+                    {(renderedPeriodContent ?? fallbackPeriodContent).question}
+                  </p>
+                )}
+
+                {periodContentStatus === 'loading' ? (
+                  <div className={styles.periodSkeletons}>
+                    <div className={styles.periodSkeletonLine} style={{ width: '80%' }}></div>
+                    <div className={styles.periodSkeletonLine} style={{ width: '68%' }}></div>
+                  </div>
+                ) : (
+                  <p className={styles.periodJoke}>
+                    <span className={styles.periodHintEmoji}>
+                      {(renderedPeriodContent ?? fallbackPeriodContent).joke.emoji}
+                    </span>
+                    {(renderedPeriodContent ?? fallbackPeriodContent).joke.text}
+                  </p>
+                )}
+
+                {periodContentStatus === 'error' && periodContentError && (
+                  <p className={styles.periodContentError}>{periodContentError}</p>
+                )}
+              </div>
+
+              <div className={styles.periodActions}>
+                <button
+                  onClick={() => addCycle(selectedDate)}
+                  className={`${styles.bigButton} ${styles.primaryButton}`}
+                >
+                  Да, добавить
+                </button>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className={`${styles.bigButton} ${styles.secondaryButton}`}
+                >
+                  Нет, передумала
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -868,14 +1068,23 @@ const ModernNastiaApp: React.FC = () => {
       {/* Модальное окно настроек */}
       {showSettings && (
         <div className={styles.modal}>
-          <div className={styles.modalContent}>
-            <h3 className={styles.modalTitle}>
-              Настройки
-            </h3>
+          <div className={`${styles.modalContent} ${styles.settingsModal}`}>
+            <div className={styles.settingsHeader}>
+              <h3 className={styles.settingsTitle}>
+                Настройки
+              </h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className={styles.closeButton}
+                aria-label="Закрыть"
+              >
+                ✕
+              </button>
+            </div>
 
             <div className={styles.settingsForm}>
               {/* Секция облачной синхронизации */}
-              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--nastia-dark)' }}>
+              <h4 className={styles.sectionTitle}>
                 Облачная синхронизация
               </h4>
 
@@ -927,11 +1136,21 @@ const ModernNastiaApp: React.FC = () => {
                 </p>
               </div>
 
+              {cloudEnabled && (
+                <div className={styles.formGroup}>
+                  <p className={styles.formInfo}>
+                    {remoteOpenAIKey
+                      ? '✓ OpenAI-ключ подтянут из GitHub Secrets — Настя придумала тексты заранее.'
+                      : '⚠️ OpenAI-ключ ещё не подтянут из GitHub. Проверьте секрет OPENAI_API_KEY в репозитории.'}
+                  </p>
+                </div>
+              )}
+
               {/* Разделитель */}
-              <div style={{ borderTop: '1px solid #e5e7eb', margin: '1.5rem 0' }}></div>
+              <div className={styles.sectionDivider}></div>
 
               {/* Секция уведомлений */}
-              <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--nastia-dark)' }}>
+              <h4 className={styles.sectionTitle}>
                 Push-уведомления
               </h4>
 
@@ -946,9 +1165,10 @@ const ModernNastiaApp: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={notificationSettings.enabled}
-                        onChange={(e) => {
-                          handleNotificationSettingsChange('enabled', e.target.checked);
-                          if (e.target.checked) {
+                        onChange={async (e) => {
+                          const enabled = e.target.checked;
+                          await updateNotificationSettings({ enabled });
+                          if (enabled) {
                             handleEnableNotifications();
                           } else {
                             handleDisableNotifications();
@@ -967,75 +1187,40 @@ const ModernNastiaApp: React.FC = () => {
                   )}
 
                   {notificationSettings.enabled && notificationPermission === 'granted' && (
-                    <>
-                      <div className={styles.formGroup}>
-                        <label className={styles.formLabel}>
-                          Уведомлять за дней до менструации
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="7"
-                          value={notificationSettings.daysBeforePeriod}
-                          onChange={(e) => handleNotificationSettingsChange('daysBeforePeriod', parseInt(e.target.value))}
-                          className={styles.formInput}
-                        />
-                      </div>
+                    <p className={styles.formInfo}>
+                      Настя будет слать жёстко-саркастичные пуши: про фертильное окно, день овуляции,
+                      предменструальные качели и сам день Х.
+                    </p>
+                  )}
 
-                      <div className={styles.formGroup}>
-                        <label className={styles.formLabel}>
-                          Уведомлять за дней до овуляции
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="5"
-                          value={notificationSettings.daysBeforeOvulation}
-                          onChange={(e) => handleNotificationSettingsChange('daysBeforeOvulation', parseInt(e.target.value))}
-                          className={styles.formInput}
-                        />
-                      </div>
-
-                      <div className={styles.formGroup}>
-                        <label className={styles.formLabel}>
-                          <input
-                            type="checkbox"
-                            checked={notificationSettings.dailyReminder}
-                            onChange={(e) => handleNotificationSettingsChange('dailyReminder', e.target.checked)}
-                            className={styles.checkbox}
-                          />
-                          <span>Ежедневное напоминание</span>
-                        </label>
-                      </div>
-
-                      <div className={styles.formGroup}>
-                        <button
-                          onClick={handleTestNotification}
-                          className={`${styles.modalButton} ${styles.secondary}`}
-                          style={{ width: '100%' }}
-                        >
-                          Отправить тестовое уведомление
-                        </button>
-                      </div>
-                    </>
+                  {notificationPermission === 'granted' && (
+                    <div className={styles.formGroup}>
+                      <button
+                        onClick={handleTestNotification}
+                        className={styles.bigButton}
+                      >
+                        Отправить тестовое уведомление
+                      </button>
+                    </div>
                   )}
                 </>
               )}
-            </div>
 
-            <div className={styles.modalActions}>
-              <button
-                onClick={saveCloudSettings}
-                className={`${styles.modalButton} ${styles.primary}`}
-              >
-                Сохранить
-              </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className={`${styles.modalButton} ${styles.secondary}`}
-              >
-                Отмена
-              </button>
+              {/* Кнопки сохранения внутри формы */}
+              <div className={styles.settingsActions}>
+                <button
+                  onClick={saveCloudSettings}
+                  className={`${styles.bigButton} ${styles.primaryButton}`}
+                >
+                  Сохранить
+                </button>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className={`${styles.bigButton} ${styles.secondaryButton}`}
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           </div>
         </div>

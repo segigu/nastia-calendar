@@ -17,10 +17,10 @@ body {
 
 /* Основные цвета для Nastia */
 :root {
-  --nastia-pink: #FFB6C1;
-  --nastia-purple: #DDA0DD;
-  --nastia-light: #FFF0F5;
-  --nastia-dark: #8B008B;
+  --nastia-pink: #ffb6c1;
+  --nastia-purple: #9f3de6;
+  --nastia-light: #f3e8ff;
+  --nastia-dark: #7126c6;
   --nastia-red: #ff6b9d;
   --gray-600: #6b7280;
   --gray-700: #374151;

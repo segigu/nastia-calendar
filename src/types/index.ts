@@ -42,3 +42,13 @@ export interface NastiaData {
     notifications: boolean;
   };
 }
+
+export type NotificationCategory = 'fertile_window' | 'ovulation_day' | 'period_forecast' | 'period_start' | 'generic';
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  sentAt: string; // ISO timestamp
+  type: NotificationCategory;
+}

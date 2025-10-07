@@ -15,9 +15,6 @@ export interface PushSubscriptionData {
 
 export interface NotificationSettings {
   enabled: boolean;
-  daysBeforePeriod: number;
-  daysBeforeOvulation: number;
-  dailyReminder: boolean;
 }
 
 const SETTINGS_KEY = 'nastia-notification-settings';
@@ -139,14 +136,18 @@ export const saveNotificationSettings = (settings: NotificationSettings): void =
 export const getNotificationSettings = (): NotificationSettings => {
   const saved = localStorage.getItem(SETTINGS_KEY);
   if (saved) {
-    return JSON.parse(saved);
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        enabled: Boolean(parsed.enabled),
+      };
+    } catch (error) {
+      console.warn('Failed to parse notification settings, resetting to defaults', error);
+    }
   }
   // Настройки по умолчанию
   return {
     enabled: false,
-    daysBeforePeriod: 1,
-    daysBeforeOvulation: 1,
-    dailyReminder: false
   };
 };
 

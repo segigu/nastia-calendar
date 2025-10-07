@@ -1,14 +1,39 @@
+
 .chartContainer {
-  margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--nastia-light);
 }
 
 .chartTitle {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--nastia-dark);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.chartScrollContainer {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0 -0.75rem;
+  padding: 0 0.75rem;
+}
+
+.chartScrollContainer::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chartScrollContainer::-webkit-scrollbar-track {
+  background: var(--nastia-light);
+  border-radius: 3px;
+}
+
+.chartScrollContainer::-webkit-scrollbar-thumb {
+  background: var(--nastia-pink);
+  border-radius: 3px;
+}
+
+.chartScrollContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--nastia-purple);
 }
 
 .emptyChart {
@@ -49,7 +74,7 @@
 }
 
 .legendNormal {
-  background: linear-gradient(135deg, #d8b4fe 0%, #f0abfc 100%);
+  background: linear-gradient(135deg, #d4b8ff 0%, var(--nastia-purple) 100%);
 }
 
 .legendAbnormal {
