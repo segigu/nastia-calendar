@@ -2,8 +2,8 @@ name: Send Push Notifications
 
 on:
   schedule:
-    # Запускать каждый день в 9:00 UTC (12:00 по Москве)
-    - cron: '0 9 * * *'
+    # Запускать каждый день в 6:00 UTC (7:00 по Берлину/CET, 8:00 по Берлину/CEST)
+    - cron: '0 6 * * *'
   workflow_dispatch: # Возможность запускать вручную
 
 jobs:
