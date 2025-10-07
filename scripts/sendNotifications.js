@@ -120,7 +120,8 @@ async function loadRepoJson(username, filename, fallbackValue) {
   const response = await fetchFromGitHub(url);
 
   if (response.status === 404) {
-    return fallbackValue;
+    console.warn(`File ${filename} not found (404), using fallback value`);
+    return { value: fallbackValue, corrupted: true };
   }
 
   if (!response.ok) {
@@ -133,20 +134,21 @@ async function loadRepoJson(username, filename, fallbackValue) {
   // Handle empty or invalid content
   if (!content || content.trim() === '') {
     console.warn(`File ${filename} is empty, using fallback value`);
-    return fallbackValue;
+    return { value: fallbackValue, corrupted: true };
   }
 
   try {
-    return JSON.parse(content);
+    return { value: JSON.parse(content), corrupted: false };
   } catch (error) {
     console.warn(`File ${filename} contains invalid JSON, using fallback value:`, error.message);
-    return fallbackValue;
+    return { value: fallbackValue, corrupted: true };
   }
 }
 
 async function loadConfig(username) {
   try {
-    return await loadRepoJson(username, CONFIG_FILE, null);
+    const result = await loadRepoJson(username, CONFIG_FILE, null);
+    return result.value;
   } catch (error) {
     console.warn('Failed to load config, continuing with defaults:', error.message);
     return null;
@@ -368,10 +370,25 @@ async function generateMessage(type, context, cache) {
 }
 
 async function loadNotificationsLog(username) {
-  const data = await loadRepoJson(username, 'nastia-notifications.json', {
+  const fallback = {
     notifications: [],
     lastUpdated: new Date().toISOString(),
-  });
+  };
+
+  const result = await loadRepoJson(username, 'nastia-notifications.json', fallback);
+
+  // If the file was corrupted, force save to fix it
+  if (result.corrupted) {
+    console.warn('Notifications log was corrupted or missing, recreating...');
+    try {
+      await saveNotificationsLog(username, fallback);
+      console.log('Notifications log recreated successfully');
+    } catch (error) {
+      console.error('Failed to recreate notifications log:', error.message);
+    }
+  }
+
+  const data = result.value;
   if (!Array.isArray(data.notifications)) {
     data.notifications = [];
   }
@@ -435,16 +452,22 @@ async function main() {
     const userData = await userResponse.json();
     const username = userData.login;
 
-    const nastiaData = await loadRepoJson(username, 'nastia-cycles.json', null)
-      ?? await loadRepoJson(username, 'nastia-data.json', null);
+    let nastiaDataResult = await loadRepoJson(username, 'nastia-cycles.json', null);
+    let nastiaData = nastiaDataResult.value;
+
+    if (!nastiaData) {
+      nastiaDataResult = await loadRepoJson(username, 'nastia-data.json', null);
+      nastiaData = nastiaDataResult.value;
+    }
 
     const cycleCount = nastiaData?.cycles?.length ?? 0;
     console.log(`Cycles loaded: ${cycleCount}`);
 
-    const subscriptionsData = await loadRepoJson(username, 'subscriptions.json', {
+    const subscriptionsResult = await loadRepoJson(username, 'subscriptions.json', {
       subscriptions: [],
       lastUpdated: new Date().toISOString(),
     });
+    const subscriptionsData = subscriptionsResult.value;
 
     console.log(`Subscriptions loaded: ${subscriptionsData.subscriptions.length}`);
 
