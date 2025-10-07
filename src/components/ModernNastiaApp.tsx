@@ -953,9 +953,9 @@ const ModernNastiaApp: React.FC = () => {
 
       {showNotifications && (
         <div className={styles.modal}>
-          <div className={`${styles.modalContent} ${styles.notificationsModal}`}>
+          <div className={styles.notificationsModal}>
             <div className={styles.notificationsHeader}>
-              <h3 className={styles.notificationsTitle}>Уведомления</h3>
+              <h3 className={styles.settingsTitle}>Уведомления</h3>
               <button
                 onClick={handleCloseNotifications}
                 className={styles.closeButton}

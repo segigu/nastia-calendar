@@ -533,7 +533,13 @@ async function main() {
       });
 
       try {
-        await webpush.sendNotification(pushSubscription, payload);
+        await webpush.sendNotification(
+          pushSubscription,
+          Buffer.from(payload, 'utf-8'),
+          {
+            contentEncoding: 'aes128gcm'
+          }
+        );
         sent += 1;
         console.log(`Notification (${type}) sent to ${subscription.endpoint.slice(-20)}`);
       } catch (error) {
