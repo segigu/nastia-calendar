@@ -129,7 +129,19 @@ async function loadRepoJson(username, filename, fallbackValue) {
 
   const payload = await response.json();
   const content = Buffer.from(payload.content, 'base64').toString('utf8');
-  return JSON.parse(content);
+
+  // Handle empty or invalid content
+  if (!content || content.trim() === '') {
+    console.warn(`File ${filename} is empty, using fallback value`);
+    return fallbackValue;
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    console.warn(`File ${filename} contains invalid JSON, using fallback value:`, error.message);
+    return fallbackValue;
+  }
 }
 
 async function loadConfig(username) {
