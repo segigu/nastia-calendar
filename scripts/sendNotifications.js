@@ -426,10 +426,15 @@ async function main() {
     const nastiaData = await loadRepoJson(username, 'nastia-cycles.json', null)
       ?? await loadRepoJson(username, 'nastia-data.json', null);
 
+    const cycleCount = nastiaData?.cycles?.length ?? 0;
+    console.log(`Cycles loaded: ${cycleCount}`);
+
     const subscriptionsData = await loadRepoJson(username, 'subscriptions.json', {
       subscriptions: [],
       lastUpdated: new Date().toISOString(),
     });
+
+    console.log(`Subscriptions loaded: ${subscriptionsData.subscriptions.length}`);
 
     const currentConfig = await loadConfig(username);
     const trimmedOpenAIKey = (OPENAI_API_KEY || '').trim();
@@ -471,10 +476,16 @@ async function main() {
     }
 
     const today = getMoscowToday();
+    console.log('Today (Moscow):', today.toISOString());
+    console.log('Next period:', stats.nextPeriod.toISOString(), 'Ovulation:', stats.ovulationDay.toISOString(), 'Fertile start:', stats.fertileStart.toISOString());
+
     const typeInfo = pickNotificationType(today, stats);
 
     if (!typeInfo) {
-      console.log('No notification planned for today');
+      console.log('No notification planned for today', {
+        daysUntilPeriod: diffInDays(today, stats.nextPeriod),
+        daysUntilOvulation: diffInDays(today, stats.ovulationDay),
+      });
       return;
     }
 
@@ -510,6 +521,8 @@ async function main() {
       if (!logEntry) {
         logEntry = buildNotificationPayload(type, message, today);
       }
+
+      console.log('Sending notification with context:', context);
 
       const payload = JSON.stringify({
         title: message.title,
