@@ -2,7 +2,7 @@
 
 // Public VAPID key
 // Это публичный ключ, можно хранить в коде
-const VAPID_PUBLIC_KEY = 'BHL7bn7IEcJOy7unRivuOE-6e-svZMQQ_WMt5rTm7Ae86p4RN9BlTOqgeEWrvpiBJqwqcAGKUGNs2DXqybIhIv0';
+const VAPID_PUBLIC_KEY = 'BPn-lXbJtRsRhCcrvJG5OeYcDq5kAqhXYJytC_u8fYiCTx69Qp6CQMgccH1i-Q0yLKunANaYV0lWljYUl5nCgb0';
 
 export interface PushSubscriptionData {
   endpoint: string;
