@@ -1,0 +1,22 @@
+name: Fix Notifications File
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+jobs:
+  fix-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fix notifications file
+        env:
+          GITHUB_TOKEN: ${{ secrets.NASTIA_DATA_TOKEN }}
+        run: node scripts/fixNotificationsFile.js
