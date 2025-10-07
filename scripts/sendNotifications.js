@@ -423,11 +423,8 @@ async function main() {
     const userData = await userResponse.json();
     const username = userData.login;
 
-    const nastiaData = await loadRepoJson(username, 'nastia-data.json', null);
-    if (!nastiaData || !nastiaData.cycles || nastiaData.cycles.length === 0) {
-      console.log('No cycles available, skipping notifications');
-      return;
-    }
+    const nastiaData = await loadRepoJson(username, 'nastia-cycles.json', null)
+      ?? await loadRepoJson(username, 'nastia-data.json', null);
 
     const subscriptionsData = await loadRepoJson(username, 'subscriptions.json', {
       subscriptions: [],
@@ -435,11 +432,12 @@ async function main() {
     });
 
     const currentConfig = await loadConfig(username);
-    if (OPENAI_API_KEY && OPENAI_API_KEY.trim()) {
+    const trimmedOpenAIKey = (OPENAI_API_KEY || '').trim();
+    if (trimmedOpenAIKey) {
       const nextConfig = {
         ...(currentConfig ?? {}),
         openAI: {
-          apiKey: OPENAI_API_KEY.trim(),
+          apiKey: trimmedOpenAIKey,
         },
         updatedAt: new Date().toISOString(),
       };
@@ -447,7 +445,7 @@ async function main() {
       const shouldUpdate =
         !currentConfig ||
         !currentConfig.openAI ||
-        currentConfig.openAI.apiKey !== OPENAI_API_KEY.trim();
+        currentConfig.openAI.apiKey !== trimmedOpenAIKey;
 
       if (shouldUpdate) {
         try {
@@ -457,6 +455,13 @@ async function main() {
           console.error('Failed to update configuration file:', error.message);
         }
       }
+    } else {
+      console.warn('OPENAI_API_KEY secret is empty; remote config not updated');
+    }
+
+    if (!nastiaData || !nastiaData.cycles || nastiaData.cycles.length === 0) {
+      console.log('No cycles available, skipping notifications');
+      return;
     }
 
     const stats = computeCycleStats(nastiaData.cycles);
