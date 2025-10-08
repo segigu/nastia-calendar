@@ -115,19 +115,26 @@ async function callOpenAIAPI(
  * Tries Claude first, falls back to OpenAI if Claude fails
  */
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
+  console.log('[AI Client] Attempting to call AI with options:', {
+    hasClaudeKey: Boolean(options.claudeApiKey || process.env.REACT_APP_CLAUDE_API_KEY),
+    hasOpenAIKey: Boolean(options.openAIApiKey || process.env.REACT_APP_OPENAI_API_KEY),
+  });
+
   // Try Claude first
   try {
     const text = await callClaudeAPI(options);
+    console.log('[AI Client] ✅ Claude API succeeded');
     return { text, provider: 'claude' };
   } catch (claudeError) {
-    console.warn('Claude API failed, falling back to OpenAI:', claudeError);
+    console.warn('[AI Client] ❌ Claude API failed, falling back to OpenAI:', claudeError);
 
     // Fallback to OpenAI
     try {
       const text = await callOpenAIAPI(options);
+      console.log('[AI Client] ✅ OpenAI API succeeded');
       return { text, provider: 'openai' };
     } catch (openAIError) {
-      console.error('OpenAI API also failed:', openAIError);
+      console.error('[AI Client] ❌ OpenAI API also failed:', openAIError);
       throw new Error(`Both AI providers failed. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}`);
     }
   }

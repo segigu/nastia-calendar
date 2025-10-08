@@ -447,18 +447,25 @@ const ModernNastiaApp: React.FC = () => {
     fetchRemoteConfig(githubToken)
       .then(config => {
         if (cancelled || !config) {
+          console.log('[Config] No remote config loaded');
           return;
         }
+        console.log('[Config] Remote config loaded:', {
+          hasClaudeKey: Boolean(config.claude?.apiKey),
+          hasOpenAIKey: Boolean(config.openAI?.apiKey),
+        });
         if (config.claude?.apiKey) {
           setRemoteClaudeKey(config.claude.apiKey);
+          console.log('[Config] ✅ Claude API key loaded from remote config');
         }
         if (config.openAI?.apiKey) {
           setRemoteOpenAIKey(config.openAI.apiKey);
+          console.log('[Config] ✅ OpenAI API key loaded from remote config');
         }
       })
       .catch(error => {
         if (!cancelled) {
-          console.error('Failed to load remote config:', error);
+          console.error('[Config] ❌ Failed to load remote config:', error);
         }
       });
 
