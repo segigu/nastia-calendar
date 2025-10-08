@@ -11,6 +11,7 @@ export interface GeneratePeriodContentOptions {
   cycleStartISODate: string;
   signal?: AbortSignal;
   apiKey?: string;
+  openAIApiKey?: string;
 }
 
 const responseSchema = {
@@ -48,13 +49,8 @@ export async function generatePeriodModalContent({
   cycleStartISODate,
   signal,
   apiKey,
+  openAIApiKey,
 }: GeneratePeriodContentOptions): Promise<PeriodModalContent> {
-  const key = apiKey || process.env.REACT_APP_CLAUDE_API_KEY;
-
-  if (!key) {
-    throw new Error('Claude API key is not configured. Set REACT_APP_CLAUDE_API_KEY.');
-  }
-
   const effectiveUserName = (userName && userName.trim()) ? userName.trim() : 'Настя';
 
   const cycleDate = new Date(cycleStartISODate);
@@ -79,53 +75,29 @@ export async function generatePeriodModalContent({
   }
 }`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 500,
-      temperature: 0.9,
-      system:
-        'Ты "Настя" — язвительная подруга, которая пишет на русском с остроумным, поддерживающим сарказмом. Всегда отвечай строго в формате JSON без дополнительных пояснений.',
-      messages: [
-        {
-          role: 'user',
-          content: instructions,
-        },
-      ],
-    }),
+  const { callAI } = await import('./aiClient');
+
+  const result = await callAI({
+    system: 'Ты "Настя" — язвительная подруга, которая пишет на русском с остроумным, поддерживающим сарказмом. Всегда отвечай строго в формате JSON без дополнительных пояснений.',
+    messages: [
+      {
+        role: 'user',
+        content: instructions,
+      },
+    ],
+    temperature: 0.9,
+    maxTokens: 500,
     signal,
+    claudeApiKey: apiKey,
+    openAIApiKey,
   });
 
-  if (!response.ok) {
-    let message = 'Failed to generate AI content';
-    try {
-      const errorPayload = await response.json();
-      if (errorPayload?.error?.message) {
-        message = errorPayload.error.message;
-      }
-    } catch {
-      /* ignore JSON errors */
-    }
-    throw new Error(message);
-  }
-
-  const payload = await response.json();
-  const rawContent = payload?.content?.[0]?.text;
-
-  if (!rawContent) {
-    throw new Error('Claude response did not include content.');
-  }
+  console.log(`Generated period modal content using ${result.provider}`);
 
   let parsed: PeriodModalContent;
   try {
-    // Claude может обернуть JSON в markdown блок, убираем это
-    const cleanContent = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // AI может обернуть JSON в markdown блок, убираем это
+    const cleanContent = result.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     parsed = JSON.parse(cleanContent);
   } catch (error) {
     throw new Error('Failed to parse AI response.');

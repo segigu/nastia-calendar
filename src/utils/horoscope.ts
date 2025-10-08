@@ -34,45 +34,42 @@ function sanitizeHoroscopeText(value: string | undefined): string {
 
 async function translateToRussian(
   text: string,
-  apiKey: string,
+  claudeApiKey?: string,
+  openAIApiKey?: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 500,
-      temperature: 0.8,
-      system:
-        'Ты переводчик гороскопов с лёгким женским сарказмом и юмором. Переведи текст на русский язык естественно, выразительно и с долей иронии. Добавь 2-3 подходящих эмодзи в ключевых местах текста, чтобы сделать его более живым и эмоциональным. Сохраняй общий смысл, но не бойся добавить чуточку дерзости и самоиронии. Отвечай только переводом с эмодзи, без дополнительных пояснений.',
+  const { callAI } = await import('./aiClient');
+
+  try {
+    const result = await callAI({
+      system: 'Ты переводчик гороскопов с лёгким женским сарказмом и юмором. Переведи текст на русский язык естественно, выразительно и с долей иронии. Добавь 2-3 подходящих эмодзи в ключевых местах текста, чтобы сделать его более живым и эмоциональным. Сохраняй общий смысл, но не бойся добавить чуточку дерзости и самоиронии. Отвечай только переводом с эмодзи, без дополнительных пояснений.',
       messages: [
         {
           role: 'user',
           content: text,
         },
       ],
-    }),
-    signal,
-  });
+      temperature: 0.8,
+      maxTokens: 500,
+      signal,
+      claudeApiKey,
+      openAIApiKey,
+    });
 
-  if (!response.ok) {
-    throw new Error(`Translation failed: ${response.status} ${response.statusText}`);
+    console.log(`Translated horoscope using ${result.provider}`);
+    return result.text.trim();
+  } catch (error) {
+    console.warn('Failed to translate horoscope:', error);
+    return text;
   }
-
-  const data = await response.json();
-  return data.content?.[0]?.text?.trim() || text;
 }
 
 export async function fetchDailyHoroscope(
   sign: string,
   isoDate: string,
   signal?: AbortSignal,
-  apiKey?: string,
+  claudeApiKey?: string,
+  openAIApiKey?: string,
 ): Promise<DailyHoroscope> {
   const url = getHoroscopeUrl(sign, isoDate);
 
@@ -92,10 +89,10 @@ export async function fetchDailyHoroscope(
     throw new Error('Horoscope payload missing text');
   }
 
-  // Переводим текст на русский, если передан API ключ
-  if (apiKey) {
+  // Переводим текст на русский, если передан хотя бы один API ключ
+  if (claudeApiKey || openAIApiKey) {
     try {
-      text = await translateToRussian(text, apiKey, signal);
+      text = await translateToRussian(text, claudeApiKey, openAIApiKey, signal);
     } catch (error) {
       console.warn('Failed to translate horoscope, using original text:', error);
       // Если перевод не удался, используем оригинальный текст

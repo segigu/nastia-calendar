@@ -89,6 +89,7 @@ const ModernNastiaApp: React.FC = () => {
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [remoteClaudeKey, setRemoteClaudeKey] = useState<string | null>(null);
+  const [remoteOpenAIKey, setRemoteOpenAIKey] = useState<string | null>(null);
   const [periodContent, setPeriodContent] = useState<PeriodModalContent | null>(null);
   const [periodContentStatus, setPeriodContentStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [periodContentError, setPeriodContentError] = useState<string | null>(null);
@@ -355,16 +356,6 @@ const ModernNastiaApp: React.FC = () => {
       return;
     }
 
-    // Ключ берём из локального поля или из билд-настройки. Если ключей нет — используем заранее заготовленный текст.
-    const activeApiKey = (remoteClaudeKey ?? '').trim() || process.env.REACT_APP_CLAUDE_API_KEY || '';
-
-    if (!activeApiKey) {
-      setPeriodContent(fallbackPeriodContent);
-      setPeriodContentStatus('idle');
-      setPeriodContentError(null);
-      return;
-    }
-
     const controller = new AbortController();
     setPeriodContentStatus('loading');
     setPeriodContentError(null);
@@ -374,7 +365,8 @@ const ModernNastiaApp: React.FC = () => {
       userName: PRIMARY_USER_NAME,
       cycleStartISODate: selectedDate.toISOString(),
       signal: controller.signal,
-      apiKey: activeApiKey,
+      apiKey: remoteClaudeKey ?? undefined,
+      openAIApiKey: remoteOpenAIKey ?? undefined,
     })
       .then(content => {
         setPeriodContent(content);
@@ -395,7 +387,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, remoteClaudeKey, fallbackPeriodContent]);
+  }, [selectedDate, remoteClaudeKey, remoteOpenAIKey, fallbackPeriodContent]);
 
   useEffect(() => {
     if (!selectedDate) {
@@ -407,9 +399,14 @@ const ModernNastiaApp: React.FC = () => {
     setPeriodHoroscope(null);
 
     const isoDate = selectedDate.toISOString().split('T')[0];
-    const activeApiKey = (remoteClaudeKey ?? '').trim() || process.env.REACT_APP_CLAUDE_API_KEY || '';
 
-    fetchDailyHoroscope('aries', isoDate, controller.signal, activeApiKey)
+    fetchDailyHoroscope(
+      'aries',
+      isoDate,
+      controller.signal,
+      remoteClaudeKey ?? undefined,
+      remoteOpenAIKey ?? undefined
+    )
       .then(result => {
         const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
           day: 'numeric',
@@ -436,7 +433,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, remoteClaudeKey]);
+  }, [selectedDate, remoteClaudeKey, remoteOpenAIKey]);
 
   useEffect(() => {
     if (!githubToken) {
@@ -449,10 +446,15 @@ const ModernNastiaApp: React.FC = () => {
 
     fetchRemoteConfig(githubToken)
       .then(config => {
-        if (cancelled || !config?.claude?.apiKey) {
+        if (cancelled || !config) {
           return;
         }
-        setRemoteClaudeKey(config.claude.apiKey);
+        if (config.claude?.apiKey) {
+          setRemoteClaudeKey(config.claude.apiKey);
+        }
+        if (config.openAI?.apiKey) {
+          setRemoteOpenAIKey(config.openAI.apiKey);
+        }
       })
       .catch(error => {
         if (!cancelled) {

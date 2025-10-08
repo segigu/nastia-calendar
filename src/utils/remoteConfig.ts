@@ -4,7 +4,7 @@ const GITHUB_OWNER = 'segigu';
 const GITHUB_REPO = 'nastia-data';
 const CONFIG_FILE = 'nastia-config.json';
 
-interface RemoteConfig {
+export interface RemoteConfig {
   openAI?: {
     apiKey?: string;
   };

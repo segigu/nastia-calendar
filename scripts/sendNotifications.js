@@ -13,7 +13,9 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
+const OPENAI_MODEL = 'gpt-4o-mini';
 
 const CONFIG_FILE = 'nastia-config.json';
 
@@ -671,56 +673,117 @@ function getDaysWord(value) {
   return 'дней';
 }
 
+async function callAIWithFallback(prompt, systemPrompt) {
+  // Try Claude first
+  if (CLAUDE_API_KEY) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 300,
+          temperature: 0.95,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
+      }
+
+      const payload = await response.json();
+      const raw = payload?.content?.[0]?.text;
+      if (!raw) {
+        throw new Error('Claude returned empty content');
+      }
+
+      console.log('Generated notification using Claude API');
+      return raw;
+    } catch (claudeError) {
+      console.warn('Claude API failed, trying OpenAI:', claudeError.message);
+    }
+  }
+
+  // Fallback to OpenAI
+  if (OPENAI_API_KEY) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.95,
+          max_tokens: 300,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const payload = await response.json();
+      const raw = payload?.choices?.[0]?.message?.content;
+      if (!raw) {
+        throw new Error('OpenAI returned empty content');
+      }
+
+      console.log('Generated notification using OpenAI API');
+      return raw;
+    } catch (openAIError) {
+      console.warn('OpenAI API also failed:', openAIError.message);
+      throw new Error(`Both AI providers failed. Claude: ${claudeError?.message || 'No key'}. OpenAI: ${openAIError.message}`);
+    }
+  }
+
+  throw new Error('No AI API keys available');
+}
+
 async function generateMessage(type, context, cache) {
   if (cache.has(type)) {
     return cache.get(type);
   }
 
-  if (!CLAUDE_API_KEY) {
+  if (!CLAUDE_API_KEY && !OPENAI_API_KEY) {
     const fallback = applyPersonaTemplate(fallbackMessages[type]);
     cache.set(type, fallback);
     return fallback;
   }
 
-  const prompt = buildPrompt(type, context);
+  const prompt = buildPrompt(type, context) + '\n\nВерни ответ СТРОГО в формате JSON:\n{"title": "текст заголовка", "body": "текст уведомления"}';
+  const systemPrompt = 'Ты Настя — язвительная, саркастичная подруга, которая пишет на русском. Всегда отвечай СТРОГО в формате JSON: {"title": "заголовок", "body": "текст"}. Без дополнительных пояснений, только JSON.';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 300,
-        temperature: 0.95,
-        system: 'Ты Настя — язвительная, саркастичная подруга, которая пишет на русском. Всегда отвечай СТРОГО в формате JSON: {"title": "заголовок", "body": "текст"}. Без дополнительных пояснений, только JSON.',
-        messages: [
-          {
-            role: 'user',
-            content: prompt + '\n\nВерни ответ СТРОГО в формате JSON:\n{"title": "текст заголовка", "body": "текст уведомления"}',
-          },
-        ],
-      }),
-    });
+    const raw = await callAIWithFallback(prompt, systemPrompt);
 
-    if (!response.ok) {
-      throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
-    }
-
-    const payload = await response.json();
-    const raw = payload?.content?.[0]?.text;
-    if (!raw) {
-      throw new Error('Claude returned empty content');
-    }
-
-    // Claude может обернуть JSON в markdown блок
+    // AI может обернуть JSON в markdown блок
     const cleanContent = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const parsed = JSON.parse(cleanContent);
     if (!parsed.title || !parsed.body) {
-      throw new Error('Claude response missing fields');
+      throw new Error('AI response missing fields');
     }
 
     if (!isValidPersonaTitle(parsed.title)) {
