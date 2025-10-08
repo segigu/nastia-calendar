@@ -111,8 +111,8 @@ async function callOpenAIAPI(
 }
 
 /**
- * Calls AI API with automatic fallback from Claude to OpenAI
- * Tries Claude first, falls back to OpenAI if Claude fails
+ * Calls AI API with automatic fallback from OpenAI to Claude
+ * Tries OpenAI first (better CORS support), falls back to Claude if needed
  */
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
   console.log('[AI Client] Attempting to call AI with options:', {
@@ -120,22 +120,22 @@ export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
     hasOpenAIKey: Boolean(options.openAIApiKey || process.env.REACT_APP_OPENAI_API_KEY),
   });
 
-  // Try Claude first
+  // Try OpenAI first (better browser CORS support)
   try {
-    const text = await callClaudeAPI(options);
-    console.log('[AI Client] ✅ Claude API succeeded');
-    return { text, provider: 'claude' };
-  } catch (claudeError) {
-    console.warn('[AI Client] ❌ Claude API failed, falling back to OpenAI:', claudeError);
+    const text = await callOpenAIAPI(options);
+    console.log('[AI Client] ✅ OpenAI API succeeded');
+    return { text, provider: 'openai' };
+  } catch (openAIError) {
+    console.warn('[AI Client] ❌ OpenAI API failed, falling back to Claude:', openAIError);
 
-    // Fallback to OpenAI
+    // Fallback to Claude
     try {
-      const text = await callOpenAIAPI(options);
-      console.log('[AI Client] ✅ OpenAI API succeeded');
-      return { text, provider: 'openai' };
-    } catch (openAIError) {
-      console.error('[AI Client] ❌ OpenAI API also failed:', openAIError);
-      throw new Error(`Both AI providers failed. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}`);
+      const text = await callClaudeAPI(options);
+      console.log('[AI Client] ✅ Claude API succeeded');
+      return { text, provider: 'claude' };
+    } catch (claudeError) {
+      console.error('[AI Client] ❌ Claude API also failed:', claudeError);
+      throw new Error(`Both AI providers failed. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}`);
     }
   }
 }
