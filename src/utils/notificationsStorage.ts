@@ -27,6 +27,11 @@ export function saveLocalNotifications(notifications: StoredNotification[]): voi
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
 }
 
+export function clearLocalNotifications(): void {
+  localStorage.removeItem(NOTIFICATIONS_KEY);
+  localStorage.removeItem(READ_SET_KEY);
+}
+
 export function loadReadSet(): Set<string> {
   const parsed = parseJson<string[]>(localStorage.getItem(READ_SET_KEY), []);
   return new Set(parsed);

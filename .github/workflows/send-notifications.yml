@@ -2,8 +2,8 @@ name: Send Push Notifications
 
 on:
   schedule:
-    # Запускать каждый день в 6:00 UTC (7:00 по Берлину/CET, 8:00 по Берлину/CEST)
-    - cron: '0 6 * * *'
+    # Проверять каждые 5 минут с 05:00 до 21:55 UTC, чтобы отправить пуш в случайное время между 07:00 и 21:55 по Берлину
+    - cron: '*/5 5-21 * * *'
   workflow_dispatch: # Возможность запускать вручную
 
 jobs:
@@ -27,5 +27,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.NASTIA_DATA_TOKEN }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         run: node scripts/sendNotifications.js

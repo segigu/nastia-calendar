@@ -49,13 +49,12 @@ export async function generatePeriodModalContent({
   signal,
   apiKey,
 }: GeneratePeriodContentOptions): Promise<PeriodModalContent> {
-  const key = apiKey || process.env.REACT_APP_OPENAI_API_KEY;
+  const key = apiKey || process.env.REACT_APP_CLAUDE_API_KEY;
 
   if (!key) {
-    throw new Error('OpenAI API key is not configured. Set REACT_APP_OPENAI_API_KEY.');
+    throw new Error('Claude API key is not configured. Set REACT_APP_CLAUDE_API_KEY.');
   }
 
-  const model = process.env.REACT_APP_OPENAI_MODEL || 'gpt-4o-mini';
   const effectiveUserName = (userName && userName.trim()) ? userName.trim() : 'Настя';
 
   const cycleDate = new Date(cycleStartISODate);
@@ -68,29 +67,32 @@ export async function generatePeriodModalContent({
   const instructions = `Ты — Настя-советчица: язвительная подруга с чёрным, но тёплым чувством юмора и железной поддержкой.
 Обращайся к ${effectiveUserName}, допускаются уменьшительно-ласкательные формы, но без сиропа.
 Категорически избегай слов «приложение», «трекинг», «помощник» и любых намёков на сервис. Говори как живая подруга, ворчащая рядом на диване.
-Нужны две части: (1) одно приветствие (до 24 слов), где вы вместе отмечаете дату цикла с долей жёсткого сострадания; можешь упомянуть спазмы, PMS или заряд хандры, (2) одна шутка в стиле красной дорожки/сериала с едким женским сарказмом, допускающим ворчание, но без самообесценивания.
-Шутка — одно предложение. Эмодзи используй только в шутке. Избегай позитивных клише и мотивационных лозунгов.`;
+Нужны две части: (1) одно приветствие (до 24 слов), где вы вместе отмечаете дату цикла с долей жёсткого сострадания; можешь упомянуть спазмы, PMS или заряд хандры. Приветствие без эмодзи. (2) одна «народная мудрость» — едкое, саркастичное наставление на один-два предложения, будто бабка у подъезда, но с твоим фирменным чёрным юмором. Обязательно дай ощущение приметы/поговорки, но без клише и морализаторства.
+Эмодзи используй только в этой народной мудрости (1 штука, максимум 2, если очень уместно). Избегай позитивных клише и мотивационных лозунгов.
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+Верни ответ СТРОГО в JSON формате:
+{
+  "question": "текст приветствия без эмодзи",
+  "joke": {
+    "emoji": "1-2 эмодзи",
+    "text": "текст народной мудрости"
+  }
+}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model,
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 500,
       temperature: 0.9,
-      max_tokens: 450,
-      response_format: {
-        type: 'json_schema',
-        json_schema: responseSchema,
-      },
+      system:
+        'Ты "Настя" — язвительная подруга, которая пишет на русском с остроумным, поддерживающим сарказмом. Всегда отвечай строго в формате JSON без дополнительных пояснений.',
       messages: [
-        {
-          role: 'system',
-          content:
-            'You are "Настя", a playful female friend who writes in Russian with witty, supportive sarcasm. Always comply with the provided schema.',
-        },
         {
           role: 'user',
           content: instructions,
@@ -114,15 +116,17 @@ export async function generatePeriodModalContent({
   }
 
   const payload = await response.json();
-  const rawContent = payload?.choices?.[0]?.message?.content;
+  const rawContent = payload?.content?.[0]?.text;
 
   if (!rawContent) {
-    throw new Error('OpenAI response did not include content.');
+    throw new Error('Claude response did not include content.');
   }
 
   let parsed: PeriodModalContent;
   try {
-    parsed = JSON.parse(rawContent);
+    // Claude может обернуть JSON в markdown блок, убираем это
+    const cleanContent = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    parsed = JSON.parse(cleanContent);
   } catch (error) {
     throw new Error('Failed to parse AI response.');
   }
@@ -132,10 +136,10 @@ export async function generatePeriodModalContent({
 
 export function getFallbackPeriodContent(userName = 'Настя'): PeriodModalContent {
   return {
-    question: `Привет, ${userName}! Отметим дату, чтобы календарь знал, когда организм снова решил устроить премьеру без предупреждений?`,
+    question: `Привет, ${userName}! Ну что, фиксируем премьеру цикла, пока организм не решил устроить неожиданный антракт?`,
     joke: {
-      emoji: '🤹‍♀️',
-      text: 'Если бы мой цикл был сериалом, он бы выставил всех героев на красную дорожку — одобряю гламур!',
+      emoji: '🧙‍♀️',
+      text: 'Народ гласит: кто в первый день цикла пледом укутался — тому гормоны гадости не устроят. Проверим теорию? 😉',
     },
   };
 }

@@ -43,7 +43,19 @@ export interface NastiaData {
   };
 }
 
-export type NotificationCategory = 'fertile_window' | 'ovulation_day' | 'period_forecast' | 'period_start' | 'generic';
+export type NotificationCategory =
+  | 'fertile_window'
+  | 'ovulation_day'
+  | 'period_forecast'
+  | 'period_start'
+  | 'period_check'
+  | 'period_waiting'
+  | 'period_delay_warning'
+  | 'period_confirmed_day0'
+  | 'period_confirmed_day1'
+  | 'period_confirmed_day2'
+  | 'birthday'
+  | 'generic';
 
 export interface NotificationItem {
   id: string;

@@ -8,8 +8,19 @@ interface RemoteConfig {
   openAI?: {
     apiKey?: string;
   };
+  claude?: {
+    apiKey?: string;
+  };
   notifications?: {
     defaultType?: NotificationCategory;
+  };
+  notificationSchedule?: {
+    dayKey?: string;
+    targetMinutes?: number;
+    targetTime?: string;
+    timezone?: string;
+    slotMinutes?: number;
+    generatedAt?: string;
   };
   updatedAt?: string;
 }

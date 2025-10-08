@@ -16,10 +16,22 @@ interface RemoteNotificationsPayload {
 }
 
 function normalizeCategory(value: string | undefined): NotificationCategory {
-  if (value === 'fertile_window' || value === 'ovulation_day' || value === 'period_forecast' || value === 'period_start') {
-    return value;
+  switch (value) {
+    case 'fertile_window':
+    case 'ovulation_day':
+    case 'period_forecast':
+    case 'period_start':
+    case 'period_check':
+    case 'period_waiting':
+    case 'period_delay_warning':
+    case 'period_confirmed_day0':
+    case 'period_confirmed_day1':
+    case 'period_confirmed_day2':
+    case 'birthday':
+      return value;
+    default:
+      return 'generic';
   }
-  return 'generic';
 }
 
 export async function fetchRemoteNotifications(token: string): Promise<NotificationItem[]> {

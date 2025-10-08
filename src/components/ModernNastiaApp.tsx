@@ -46,13 +46,14 @@ import {
   saveLocalNotifications,
   loadReadSet,
   saveReadSet,
-  mergeNotifications,
+  clearLocalNotifications,
   markAllAsRead,
   addSingleNotification,
   type StoredNotification,
 } from '../utils/notificationsStorage';
 import { fetchRemoteNotifications } from '../utils/notificationsSync';
 import { fetchRemoteConfig } from '../utils/remoteConfig';
+import { fetchDailyHoroscope, type DailyHoroscope } from '../utils/horoscope';
 import {
   generatePeriodModalContent,
   getFallbackPeriodContent,
@@ -68,6 +69,13 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
   ovulation_day: 'День овуляции',
   period_forecast: 'Прогноз менструации',
   period_start: 'День менструации',
+  period_check: 'Проверка начала менструации',
+  period_waiting: 'Ожидание менструации',
+  period_delay_warning: 'Возможная задержка',
+  period_confirmed_day0: 'Менструация началась',
+  period_confirmed_day1: 'Менструация — поддержка',
+  period_confirmed_day2: 'Менструация — поддержка',
+  birthday: 'День рождения',
   generic: 'Напоминание',
 };
 
@@ -80,10 +88,14 @@ const ModernNastiaApp: React.FC = () => {
   const [githubToken, setGithubToken] = useState('');
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [remoteOpenAIKey, setRemoteOpenAIKey] = useState<string | null>(null);
+  const [remoteClaudeKey, setRemoteClaudeKey] = useState<string | null>(null);
   const [periodContent, setPeriodContent] = useState<PeriodModalContent | null>(null);
   const [periodContentStatus, setPeriodContentStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [periodContentError, setPeriodContentError] = useState<string | null>(null);
+  const [periodHoroscope, setPeriodHoroscope] = useState<DailyHoroscope | null>(null);
+  const [periodHoroscopeStatus, setPeriodHoroscopeStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [showQuestionBubble, setShowQuestionBubble] = useState(false);
+  const [showJokeBubble, setShowJokeBubble] = useState(false);
 
   // Состояние для уведомлений
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(getNotificationSettings());
@@ -109,6 +121,7 @@ const ModernNastiaApp: React.FC = () => {
     }
     return storedSet;
   });
+  const [visibleNotificationIds, setVisibleNotificationIds] = useState<string[]>([]);
   const readIdsRef = useRef(readIds);
   const notificationsRequestSeqRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -123,16 +136,32 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    setNotifications(prev => persistNotifications(prev));
-  }, []);
-
   const fallbackPeriodContent = useMemo(
     () => getFallbackPeriodContent(PRIMARY_USER_NAME),
     [],
   );
 
   const renderedPeriodContent = periodContent ?? (periodContentStatus !== 'loading' ? fallbackPeriodContent : null);
+  useEffect(() => {
+    if (!selectedDate || periodContentStatus === 'loading') {
+      setShowQuestionBubble(false);
+      setShowJokeBubble(false);
+      return;
+    }
+
+    setShowQuestionBubble(false);
+    setShowJokeBubble(false);
+
+    const questionTimer = window.setTimeout(() => setShowQuestionBubble(true), 80);
+    const jokeTimer = window.setTimeout(() => setShowJokeBubble(true), 420);
+
+    return () => {
+      window.clearTimeout(questionTimer);
+      window.clearTimeout(jokeTimer);
+    };
+  }, [selectedDate, periodContentStatus, renderedPeriodContent]);
+
+  const activePeriodContent = renderedPeriodContent ?? fallbackPeriodContent;
 
   const stats = useMemo(() => calculateCycleStats(cycles), [cycles]);
   const nextPredictionDate = stats.nextPrediction;
@@ -141,13 +170,47 @@ const ModernNastiaApp: React.FC = () => {
     [notifications]
   );
 
+  useEffect(() => {
+    if (!showNotifications) {
+      setVisibleNotificationIds([]);
+      return;
+    }
+    if (notificationsLoading) {
+      setVisibleNotificationIds([]);
+      return;
+    }
+    if (notifications.length === 0) {
+      setVisibleNotificationIds([]);
+      return;
+    }
+
+    setVisibleNotificationIds([]);
+    const timers = notifications.map((notification, index) =>
+      window.setTimeout(() => {
+        setVisibleNotificationIds(prev =>
+          prev.includes(notification.id) ? prev : [...prev, notification.id]
+        );
+      }, 140 * index + 120)
+    );
+
+    return () => {
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [showNotifications, notificationsLoading, notifications]);
+
   const persistNotifications = useCallback((items: StoredNotification[]): StoredNotification[] => {
     const limited = items.slice(0, MAX_STORED_NOTIFICATIONS);
     saveLocalNotifications(limited);
     return limited;
   }, []);
 
-  const refreshRemoteNotifications = useCallback(async () => {
+  useEffect(() => {
+    setNotifications(prev => persistNotifications(prev));
+  }, [persistNotifications]);
+
+  const refreshRemoteNotifications = useCallback(async (options: { markAsRead?: boolean } = {}) => {
     if (!githubToken) {
       setNotificationsError('Добавьте GitHub токен, чтобы получать уведомления');
       return;
@@ -165,14 +228,31 @@ const ModernNastiaApp: React.FC = () => {
         return;
       }
 
-      if (remoteNotifications.length > 0) {
-        setNotifications(prev => {
-          const merged = mergeNotifications(remoteNotifications, prev, readIdsRef.current);
-          return persistNotifications(merged);
-        });
+      const mapped: StoredNotification[] = remoteNotifications
+        .map(item => ({
+          ...item,
+          read: readIdsRef.current.has(item.id),
+        }))
+        .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+
+      let next: StoredNotification[];
+
+      if (options.markAsRead) {
+        const { updated } = markAllAsRead(mapped);
+        next = updated;
       } else {
-        setNotifications(prev => persistNotifications(prev));
+        next = mapped;
       }
+
+      const limited = persistNotifications(next);
+      const limitedReadSet = options.markAsRead
+        ? new Set(limited.map(notification => notification.id))
+        : new Set(limited.filter(notification => notification.read).map(notification => notification.id));
+
+      readIdsRef.current = limitedReadSet;
+      saveReadSet(limitedReadSet);
+      setReadIds(limitedReadSet);
+      setNotifications(limited);
     } catch (error) {
       console.error('Failed to refresh notifications from cloud:', error);
       if (!isMountedRef.current || notificationsRequestSeqRef.current !== requestId) {
@@ -187,22 +267,23 @@ const ModernNastiaApp: React.FC = () => {
     }
   }, [githubToken, persistNotifications]);
 
-  const markAllNotificationsAsRead = () => {
-    if (notifications.length === 0) {
-      return;
-    }
-    const { updated, readSet } = markAllAsRead(notifications);
-    const persisted = persistNotifications(updated);
-    saveReadSet(readSet);
-    setNotifications(persisted);
-    setReadIds(new Set(readSet));
-  };
-
   const normalizeNotificationType = (value?: string): NotificationCategory => {
-    if (value === 'fertile_window' || value === 'ovulation_day' || value === 'period_forecast' || value === 'period_start') {
-      return value;
+    switch (value) {
+      case 'fertile_window':
+      case 'ovulation_day':
+      case 'period_forecast':
+      case 'period_start':
+      case 'period_check':
+      case 'period_waiting':
+      case 'period_delay_warning':
+      case 'period_confirmed_day0':
+      case 'period_confirmed_day1':
+      case 'period_confirmed_day2':
+      case 'birthday':
+        return value;
+      default:
+        return 'generic';
     }
-    return 'generic';
   };
 
   const formatNotificationTimestamp = (iso: string): string => {
@@ -224,9 +305,15 @@ const ModernNastiaApp: React.FC = () => {
   };
 
   const handleOpenNotifications = () => {
-    markAllNotificationsAsRead();
+    clearLocalNotifications();
+    setNotifications([]);
+    const emptySet = new Set<string>();
+    setReadIds(emptySet);
+    readIdsRef.current = emptySet;
+    setVisibleNotificationIds([]);
+    setNotificationsError(null);
     setShowNotifications(true);
-    void refreshRemoteNotifications();
+    void refreshRemoteNotifications({ markAsRead: true });
   };
 
   const handleCloseNotifications = () => {
@@ -263,11 +350,13 @@ const ModernNastiaApp: React.FC = () => {
       setPeriodContent(null);
       setPeriodContentStatus('idle');
       setPeriodContentError(null);
+      setPeriodHoroscope(null);
+      setPeriodHoroscopeStatus('idle');
       return;
     }
 
     // Ключ берём из локального поля или из билд-настройки. Если ключей нет — используем заранее заготовленный текст.
-    const activeApiKey = (remoteOpenAIKey ?? '').trim() || process.env.REACT_APP_OPENAI_API_KEY || '';
+    const activeApiKey = (remoteClaudeKey ?? '').trim() || process.env.REACT_APP_CLAUDE_API_KEY || '';
 
     if (!activeApiKey) {
       setPeriodContent(fallbackPeriodContent);
@@ -306,7 +395,48 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, remoteOpenAIKey, fallbackPeriodContent]);
+  }, [selectedDate, remoteClaudeKey, fallbackPeriodContent]);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
+    const controller = new AbortController();
+    setPeriodHoroscopeStatus('loading');
+    setPeriodHoroscope(null);
+
+    const isoDate = selectedDate.toISOString().split('T')[0];
+    const activeApiKey = (remoteClaudeKey ?? '').trim() || process.env.REACT_APP_CLAUDE_API_KEY || '';
+
+    fetchDailyHoroscope('aries', isoDate, controller.signal, activeApiKey)
+      .then(result => {
+        const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+
+        const formattedDate = dateFormatter.format(selectedDate);
+
+        setPeriodHoroscope({
+          text: result.text,
+          date: result.date || formattedDate,
+        });
+        setPeriodHoroscopeStatus('idle');
+      })
+      .catch(error => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('Не удалось получить гороскоп для Насти:', error);
+        setPeriodHoroscopeStatus('error');
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedDate, remoteClaudeKey]);
 
   useEffect(() => {
     if (!githubToken) {
@@ -319,10 +449,10 @@ const ModernNastiaApp: React.FC = () => {
 
     fetchRemoteConfig(githubToken)
       .then(config => {
-        if (cancelled || !config?.openAI?.apiKey) {
+        if (cancelled || !config?.claude?.apiKey) {
           return;
         }
-        setRemoteOpenAIKey(config.openAI.apiKey);
+        setRemoteClaudeKey(config.claude.apiKey);
       })
       .catch(error => {
         if (!cancelled) {
@@ -377,7 +507,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [persistNotifications]);
 
   // Инициализация уведомлений
   const initNotifications = async () => {
@@ -1048,7 +1178,10 @@ const ModernNastiaApp: React.FC = () => {
               ) : (
                 <div className={styles.notificationsList}>
                   {notifications.map(notification => (
-                    <div key={notification.id} className={styles.notificationCard}>
+                    <div
+                      key={notification.id}
+                      className={`${styles.notificationCard} ${visibleNotificationIds.includes(notification.id) ? styles.notificationCardVisible : ''}`}
+                    >
                       <div className={styles.notificationTitle}>
                         {notification.title}
                       </div>
@@ -1093,33 +1226,60 @@ const ModernNastiaApp: React.FC = () => {
                 </p>
 
                 {periodContentStatus === 'loading' ? (
-                  <div className={styles.periodSkeletons}>
-                    <div className={styles.periodSkeletonLine} style={{ width: '55%' }}></div>
+                  <div className={styles.periodChatSkeleton}>
+                    <div className={styles.periodSkeletonBubble} style={{ width: '78%' }}></div>
+                    <div className={styles.periodSkeletonBubble} style={{ width: '90%' }}></div>
                   </div>
                 ) : (
-                  <p className={styles.periodText}>
-                    {(renderedPeriodContent ?? fallbackPeriodContent).question}
-                  </p>
-                )}
-
-                {periodContentStatus === 'loading' ? (
-                  <div className={styles.periodSkeletons}>
-                    <div className={styles.periodSkeletonLine} style={{ width: '80%' }}></div>
-                    <div className={styles.periodSkeletonLine} style={{ width: '68%' }}></div>
+                  <div className={styles.periodMessages} aria-live="polite">
+                    <div
+                      className={`${styles.periodMessage} ${styles.questionBubble} ${showQuestionBubble ? styles.periodMessageVisible : ''}`}
+                    >
+                      {activePeriodContent.question}
+                    </div>
+                    <div
+                      className={`${styles.periodMessage} ${styles.jokeBubble} ${showJokeBubble ? styles.periodMessageVisible : ''}`}
+                    >
+                      <span className={styles.periodWisdomLabel}>Народная мудрость</span>
+                      <div className={styles.periodWisdomContent}>
+                        {activePeriodContent.joke.emoji ? (
+                          <span className={styles.periodHintEmoji} aria-hidden="true">
+                            {activePeriodContent.joke.emoji}
+                          </span>
+                        ) : null}
+                        <span>{activePeriodContent.joke.text}</span>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <p className={styles.periodJoke}>
-                    <span className={styles.periodHintEmoji}>
-                      {(renderedPeriodContent ?? fallbackPeriodContent).joke.emoji}
-                    </span>
-                    {(renderedPeriodContent ?? fallbackPeriodContent).joke.text}
-                  </p>
                 )}
 
                 {periodContentStatus === 'error' && periodContentError && (
                   <p className={styles.periodContentError}>{periodContentError}</p>
                 )}
               </div>
+
+              {(periodHoroscopeStatus === 'loading' || periodHoroscope) && (
+                <div className={styles.periodHoroscopeSection}>
+                  {periodHoroscopeStatus === 'loading' ? (
+                    <div className={styles.periodHoroscopeSkeleton}>
+                      <div className={styles.periodHoroscopeSkeletonHeader} />
+                      <div className={styles.periodHoroscopeSkeletonLine} />
+                      <div className={styles.periodHoroscopeSkeletonLine} style={{ width: '85%' }} />
+                      <div className={styles.periodHoroscopeSkeletonLine} style={{ width: '78%' }} />
+                    </div>
+                  ) : periodHoroscope ? (
+                    <div className={styles.periodHoroscopeCard}>
+                      <div className={styles.periodHoroscopeHeader}>
+                        <span className={styles.periodHoroscopeTitle}>Гороскоп дня</span>
+                        {periodHoroscope.date ? (
+                          <span className={styles.periodHoroscopeRange}>{periodHoroscope.date}</span>
+                        ) : null}
+                      </div>
+                      <p className={styles.periodHoroscopeText}>{periodHoroscope.text}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               <div className={styles.periodActions}>
                 <button
@@ -1199,7 +1359,7 @@ const ModernNastiaApp: React.FC = () => {
               {cloudEnabled && (
                 <div className={styles.formGroup}>
                   <p className={styles.formInfo}>
-                    ✓ OpenAI-ключ подтянут из GitHub Secrets — Настя придумала тексты заранее.
+                    ✓ Claude API ключ подтянут из GitHub Secrets — Настя с лучшим сарказмом генерирует тексты.
                   </p>
                 </div>
               )}
