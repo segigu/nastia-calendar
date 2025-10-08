@@ -51,6 +51,7 @@ export async function fetchRemoteConfig(token: string): Promise<RemoteConfig | n
     return JSON.parse(content) as RemoteConfig;
   } catch (error) {
     console.error('Failed to parse remote config', error);
+    console.error('Config content:', content.substring(0, 500));
     return null;
   }
 }

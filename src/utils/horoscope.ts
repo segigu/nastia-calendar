@@ -12,12 +12,8 @@ function getHoroscopeUrl(sign: string, isoDate: string): string {
   });
   const apiUrl = `${HOROSCOPE_ENDPOINT}?${params.toString()}`;
 
-  // В development используем CORS прокси allorigins
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
-  }
-
-  return apiUrl;
+  // Всегда используем CORS прокси для обхода CORS ограничений
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
 }
 
 interface HoroscopeApiResponse {
