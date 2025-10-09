@@ -71,13 +71,14 @@ self.addEventListener('push', event => {
     }
   }
 
-  const options: NotificationOptions = {
+  // Android Chrome поддерживает vibrate, но TypeScript типы его не включают
+  const options: NotificationOptions & { vibrate?: number[] } = {
     body: payload.body,
     icon: payload.icon,
     badge: payload.badge,
-    vibrate: payload.vibrate,
     tag: payload.tag,
     requireInteraction: payload.requireInteraction,
+    vibrate: payload.vibrate,
     data: {
       url: payload.url ?? defaultPayload.url,
       dateOfArrival: Date.now(),
@@ -99,6 +100,7 @@ self.addEventListener('push', event => {
           body: payload.body ?? defaultPayload.body,
           type: options.data?.type,
           sentAt: options.data?.sentAt,
+          url: options.data?.url,
         },
       });
     }
@@ -107,17 +109,37 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = (event.notification.data && (event.notification.data as { url?: string }).url) || `${self.registration.scope}`;
+  const targetUrl = (() => {
+    const raw = (event.notification.data && (event.notification.data as { url?: string }).url) || `${self.registration.scope}`;
+    try {
+      return new URL(raw, self.registration.scope).toString();
+    } catch {
+      return `${self.registration.scope}`;
+    }
+  })();
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async clientList => {
       for (const client of clientList) {
-        if ('focus' in client && client.url === url) {
-          return client.focus();
+        if ('focus' in client) {
+          try {
+            const clientUrl = new URL(client.url);
+            const target = new URL(targetUrl);
+            if (clientUrl.origin === target.origin && clientUrl.pathname === target.pathname) {
+              await client.focus();
+              client.postMessage({
+                type: 'nastia-open',
+                payload: { url: targetUrl },
+              });
+              return;
+            }
+          } catch {
+            // ignore parsing errors
+          }
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(targetUrl);
       }
       return undefined;
     })

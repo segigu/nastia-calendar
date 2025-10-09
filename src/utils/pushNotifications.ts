@@ -20,12 +20,52 @@ export interface NotificationSettings {
 const SETTINGS_KEY = 'nastia-notification-settings';
 const SUBSCRIPTION_KEY = 'nastia-push-subscription';
 
+function resolveServiceWorkerPath(): string {
+  const publicUrl = process.env.PUBLIC_URL ?? '';
+
+  if (!publicUrl) {
+    return '/service-worker.js';
+  }
+
+  const normalizePath = (value: string): string => {
+    const trimmed = value.replace(/\/+$/, '');
+    if (!trimmed) {
+      return '/service-worker.js';
+    }
+    const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${withLeadingSlash}/service-worker.js`;
+  };
+
+  try {
+    const url = new URL(publicUrl, window.location.href);
+    const pathname = url.pathname || '/';
+    return normalizePath(pathname);
+  } catch {
+    if (publicUrl.startsWith('http')) {
+      try {
+        const parsed = new URL(publicUrl);
+        return normalizePath(parsed.pathname || '/');
+      } catch {
+        /* noop */
+      }
+    }
+
+    return normalizePath(publicUrl);
+  }
+}
+
 // Регистрация Service Worker
 export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Service Worker registration skipped in non-production environment');
+    return null;
+  }
+
   if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/nastia-calendar/service-worker.js');
-      console.log('Service Worker registered:', registration);
+      const swPath = resolveServiceWorkerPath();
+      const registration = await navigator.serviceWorker.register(swPath);
+      console.log('Service Worker registered with path:', swPath);
       return registration;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
@@ -79,7 +119,7 @@ export const subscribeToPush = async (): Promise<PushSubscriptionData | null> =>
       const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
+        applicationServerKey: convertedVapidKey as BufferSource
       });
     }
 
@@ -161,39 +201,23 @@ export const sendTestNotification = async (): Promise<void> => {
       throw new Error('Notification permission not granted');
     }
 
-    // Сначала пробуем простой Notification API (не требует Service Worker)
-    console.log('Creating simple notification...');
-    const notification = new Notification('Nastia Calendar', {
+    // Используем только Service Worker API для совместимости с Android
+    console.log('Waiting for Service Worker...');
+    const registration = await navigator.serviceWorker.ready;
+
+    console.log('Service Worker ready, showing notification...');
+
+    // Android Chrome поддерживает vibrate, поэтому добавляем его
+    const notificationOptions: NotificationOptions & { vibrate?: number[] } = {
       body: 'Тестовое уведомление работает! 🎉',
       icon: '/nastia-calendar/logo192.png',
+      badge: '/nastia-calendar/logo192.png',
+      tag: 'test-notification',
+      requireInteraction: false,
       vibrate: [200, 100, 200]
-    });
+    };
 
-    console.log('Simple notification created:', notification);
-
-    // Потом пробуем через Service Worker с таймаутом
-    console.log('Waiting for Service Worker...');
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Service Worker timeout')), 3000)
-      );
-      const registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        timeoutPromise
-      ]) as ServiceWorkerRegistration;
-
-      console.log('Service Worker ready:', registration);
-
-      console.log('Showing SW notification...');
-      await registration.showNotification('Nastia Calendar (SW)', {
-        body: 'Уведомление через Service Worker',
-        icon: '/nastia-calendar/logo192.png',
-        vibrate: [200, 100, 200]
-      });
-      console.log('Service Worker notification sent successfully');
-    } catch (swError) {
-      console.warn('Service Worker notification failed:', swError);
-    }
+    await registration.showNotification('Nastia Calendar', notificationOptions);
 
     console.log('Test notification sent successfully');
   } catch (error) {

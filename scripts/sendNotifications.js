@@ -18,6 +18,9 @@ const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
 const OPENAI_MODEL = 'gpt-4o-mini';
 
 const CONFIG_FILE = 'nastia-config.json';
+const PREVIEW_MODE = process.argv.includes('--preview-morning-brief');
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://segigu.github.io/nastia-calendar/';
+const MORNING_BRIEF_URL = new URL('?open=daily-horoscope', APP_BASE_URL).toString();
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 const MOSCOW_TZ = 'Europe/Moscow';
@@ -25,27 +28,32 @@ const BERLIN_TZ = 'Europe/Berlin';
 const NOTIFICATION_START_HOUR = 7;
 const NOTIFICATION_END_HOUR = 21;
 const NOTIFICATION_SLOT_MINUTES = 5;
+const DEFAULT_MORNING_BRIEF_MINUTES = 6 * 60 + 45; // 06:45 Berlin time
 const MIN_NOTIFICATION_MINUTES = NOTIFICATION_START_HOUR * 60;
 const MAX_NOTIFICATION_MINUTES = NOTIFICATION_END_HOUR * 60 + (60 - NOTIFICATION_SLOT_MINUTES);
 const NASTIA_BIRTH_YEAR = 1992;
 const NASTIA_BIRTH_MONTH = 3; // April (0-indexed)
 const NASTIA_BIRTH_DAY = 12;
 
-if (!GITHUB_TOKEN) {
+if (!GITHUB_TOKEN && !PREVIEW_MODE) {
   console.error('Missing GITHUB_TOKEN');
   process.exit(1);
 }
 
 if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-  console.error('Missing VAPID keys');
-  process.exit(1);
+  if (!PREVIEW_MODE) {
+    console.error('Missing VAPID keys');
+    process.exit(1);
+  }
 }
 
-webpush.setVapidDetails(
-  'mailto:noreply@nastia-calendar.com',
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+if (!PREVIEW_MODE) {
+  webpush.setVapidDetails(
+    'mailto:noreply@nastia-calendar.com',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
 
 const responseSchema = {
   name: 'push_notification',
@@ -56,7 +64,7 @@ const responseSchema = {
     properties: {
       title: {
         type: 'string',
-        description: 'Имя вымышленного персонажа на русском в 1-3 словах (только имя/фамилия/отчество), без эмодзи.',
+        description: 'Имя вымышленного персонажа на русском в 1-3 словах (только имя/фамилия/отчество), без эмодзи. ЗАПРЕЩЕНЫ имена: Игорь, Константин, Стас.',
         maxLength: 48,
         pattern: '^(?![Нн]аст)(?![нН]аст)[А-ЯЁ][А-ЯЁа-яё-]*(?:\\s[А-ЯЁ][А-ЯЁа-яё-]*){0,2}$',
       },
@@ -114,10 +122,19 @@ const fallbackMessages = {
     title: 'Галя Именинница',
     body: 'Настюш, с днюхой! Галя Именинница на связи: устроим шумный праздник и ноль драмы. 🎉💜',
   },
+  morning_brief: {
+    title: 'Звёздный пинок',
+    body: 'Настя, Марс уже рычит в трубку — просыпайся и держи оборону. 💥',
+    url: MORNING_BRIEF_URL,
+  },
 };
+
+const NOTIFICATIONS_URL = new URL('?open=notifications', APP_BASE_URL).toString();
+const FORCE_MORNING_BRIEF = process.env.FORCE_MORNING_BRIEF === '1';
 
 const TITLE_REGEX = /^(?![Нн]аст)[А-ЯЁ][А-ЯЁа-яё-]*(?:\s[А-ЯЁ][А-ЯЁа-яё-]*){0,2}$/;
 const EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}\u{1F004}-\u{1F9FF}]/u;
+const FORBIDDEN_NAMES = ['игорь', 'константин', 'стас'];
 
 function truncateWithEllipsis(text, limit = 110) {
   const trimmed = (text || '').trim();
@@ -131,7 +148,18 @@ function isValidPersonaTitle(value) {
   if (!value) {
     return false;
   }
-  return TITLE_REGEX.test(value.trim());
+  const trimmed = value.trim();
+  if (!TITLE_REGEX.test(trimmed)) {
+    return false;
+  }
+  // Проверяем, что в имени нет запрещённых имён
+  const lowerValue = trimmed.toLowerCase();
+  for (const forbidden of FORBIDDEN_NAMES) {
+    if (lowerValue.includes(forbidden)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function ensureEmojiPresent(text) {
@@ -143,6 +171,117 @@ function ensureEmojiPresent(text) {
     return truncated;
   }
   return truncateWithEllipsis(`${truncated} 🛡️`);
+}
+
+async function generateDailyHoroscopeNarrative(context) {
+  const prompt = `Составь саркастичный дневной гороскоп для Насти.
+Дата для тебя: ${context.todayHuman}. Не упоминай дату явно.
+
+Требования:
+- 2 абзаца по 2-3 предложения, каждый начинается с подходящего эмодзи.
+- Обращайся к Насте напрямую (Настя, Настюш, Настёна и т.п.).
+- Обязательно вплети планеты (Марс, Венера, Сатурн, Юпитер, Луна, Солнце) и их влияние на день.
+- Подчеркни бытовые задачи, детей, отношения с Серёжей, подготовку к экзамену, жизнь в Германии.
+- Используй чёрный юмор, допустим умеренный мат.
+- Финал — жёсткий, но обнадёживающий.
+
+Верни чистый текст без дополнительных пояснений.`;
+
+  const systemPrompt = 'Ты Настя — язвительная подруга. Пиши по-русски, остро и поддерживающе. Никаких форматов кроме чистого текста.';
+
+  const raw = await callAIWithFallback(prompt, systemPrompt);
+  return raw.trim();
+}
+
+async function generateMorningBriefFromNarrative(narrative, context) {
+  const prompt = `Вот дневной гороскоп для Насти:
+"""
+${narrative}
+"""
+
+Сформируй push-уведомление утром в 06:45 по Берлину.
+Формат JSON:
+{
+  "title": "фраза из 2-3 слов, описывающая главный вайб дня",
+  "body": "жёсткая саркастичная строка до 110 символов с 1-2 эмодзи, обращение к Насте"
+}
+
+Требования:
+- Вытащи главный мотив из гороскопа и сформулируй как короткий заголовок (без персонажей и имён).
+- В тексте дай Насте утренний пинок: что её ждёт, на что настроиться. Можно использовать мат, но умно.
+- Сделай так, чтобы фраза заряжала энергией, а не ныла.
+- Ответ — строго JSON без дополнительного текста.`;
+
+  const systemPrompt = 'Ты пишешь острые push-уведомления. Отвечай только JSON-объектом.';
+
+  const raw = await callAIWithFallback(prompt, systemPrompt);
+  const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const parsed = JSON.parse(clean);
+  if (!parsed?.title || !parsed?.body) {
+    throw new Error('Morning brief JSON missing fields');
+  }
+  return {
+    title: truncateWithEllipsis(parsed.title.trim(), 48),
+    body: ensureEmojiPresent(parsed.body.trim()),
+    url: MORNING_BRIEF_URL,
+  };
+}
+
+async function generateMorningBrief(context) {
+  if (!CLAUDE_API_KEY && !OPENAI_API_KEY) {
+    return {
+      title: fallbackMessages.morning_brief.title,
+      body: ensureEmojiPresent(fallbackMessages.morning_brief.body),
+      url: fallbackMessages.morning_brief.url,
+    };
+  }
+
+  try {
+    const narrative = await generateDailyHoroscopeNarrative(context);
+    const brief = await generateMorningBriefFromNarrative(narrative, context);
+    return brief;
+  } catch (error) {
+    console.warn('Failed to generate morning brief via AI:', error);
+    return {
+      title: fallbackMessages.morning_brief.title,
+      body: ensureEmojiPresent(fallbackMessages.morning_brief.body),
+      url: fallbackMessages.morning_brief.url,
+    };
+  }
+}
+
+if (PREVIEW_MODE) {
+  (async () => {
+    const berlinNow = getBerlinNow();
+    const today = berlinNow;
+    const period = addDays(today, 3);
+    const ovulation = addDays(today, 14);
+    const context = {
+      todayHuman: formatRussianDate(today),
+      periodHuman: formatRussianDate(period),
+      daysUntilPeriod: diffInDays(today, period),
+      daysUntilPeriodWord: getDaysWord(Math.abs(diffInDays(today, period))),
+      daysUntilOvulation: diffInDays(today, ovulation),
+      daysWord: getDaysWord(Math.abs(diffInDays(today, ovulation))),
+      daysPastPrediction: 0,
+      daysPastPredictionWord: getDaysWord(0),
+      periodStartHuman: formatRussianDate(addDays(today, -1)),
+      daysSincePeriodStart: 1,
+      daysSincePeriodStartWord: getDaysWord(1),
+      birthdayHuman: formatRussianDate(today),
+      birthdayAge: getNastiaAgeOn(today),
+      isBirthday: isNastiaBirthday(today),
+    };
+
+    const message = await generateMorningBrief(context);
+    console.log('Morning brief preview:');
+    console.log(JSON.stringify(message, null, 2));
+    process.exit(0);
+  })().catch(error => {
+    console.error('Preview generation failed:', error);
+    process.exit(1);
+  });
+  return;
 }
 
 function toZonedDate(date, timeZone) {
@@ -220,7 +359,7 @@ function formatBerlinClockFromIso(value) {
   return formatClock(zoned);
 }
 
-function getLatestNotificationForDay(log, dayKey) {
+function getLatestNotificationForDay(log, dayKey, filterType) {
   if (!log || !Array.isArray(log.notifications)) {
     return null;
   }
@@ -229,7 +368,7 @@ function getLatestNotificationForDay(log, dayKey) {
       continue;
     }
     const entryKey = getBerlinDayKey(new Date(entry.sentAt));
-    if (entryKey === dayKey) {
+    if (entryKey === dayKey && (!filterType || entry.type === filterType)) {
       return entry;
     }
   }
@@ -619,7 +758,7 @@ function buildPrompt(type, context) {
   const base = `Ты — Настина лучшая подруга с жёстким, но поддерживающим женским сарказмом. Пиши по-русски дерзко и прямо, обращайся к Насте по-свойски (Настюш, Настён, Настёнка, Настюшка, Настёна, детка, иногда можно по фамилии - Орлова).
 Задача: придумать push-уведомление для календаря цикла.
 Формат:
-- Заголовок из 1-3 слов: только вымышленное имя, фамилия и/или отчество персонажа. Персонаж должен быть новым в каждом уведомлении, с игривым оттенком, связанным с темой фертильности, гормонов, защиты, беременности и т.п. Никаких обращений к Насте. Примеры (не повторяй дословно): «Людмила Фертильная», «Фёдор Плодовитый», «Олеся Овуляторовна», «Марфа Контрацептовна», «Гриша Презерваторов».
+- Заголовок из 1-3 слов: только вымышленное имя, фамилия и/или отчество персонажа. Персонаж должен быть новым в каждом уведомлении, с игривым оттенком, связанным с темой фертильности, гормонов, защиты, беременности и т.п. Никаких обращений к Насте. ЗАПРЕЩЕНО использовать имена: Игорь, Константин, Стас (в любой форме). Примеры (не повторяй дословно): «Людмила Фертильная», «Фёдор Плодовитый», «Олеся Овуляторовна», «Марфа Контрацептовна», «Гриша Презерваторов».
 - Тело до 110 символов с обращением к Насте, 1-2 эмодзи и жёстким, но заботливым сарказмом. Пиши от лица персонажа из заголовка, будто он шлёт сообщение в чат. Никакой мягкости, но и без обсценной лексики и унижений.
 Сегодня: ${context.todayHuman}. Прогноз старта менструации: ${context.periodHuman}.`;
 
@@ -660,7 +799,10 @@ function buildPrompt(type, context) {
     }
     case 'birthday':
       return `Ты — Настина лучшая подруга с жёстким, но поддерживающим сарказмом. Пиши по-русски, формат push: новый персонаж в заголовке (1-3 слова) и короткое тело с 1-2 эмодзи.
-Сегодня ${context.todayHuman} и Настюше исполняется ${context.birthdayAge}. Поздравь её дерзко и тепло, будто подруга шлёт сообщение в чат. Сделай намёк на праздник, заботу о себе и её суперсилу вести цикл. Без официоза и пафоса, только живая язвительная любовь.`;
+Сегодня ${context.todayHuman} и Настюше исполняется ${context.birthdayAge}. Поздравь её дерзко и тепло, будто подруга шлёт сообщение в чат. Сделай намёк на праздник, заботу о себе и её суперсилу вести цикл. Без официоза и пафоса, только живая язвительная любовь. ЗАПРЕЩЕНО использовать имена: Игорь, Константин, Стас.`;
+    case 'morning_brief':
+      return `Ты — Настина лучшая подруга с чёрным юмором. Формат push: новый персонаж в заголовке (1-3 слова), тело до 110 символов, 1-2 эмодзи, острый сарказм допустим даже с лёгкими матами.
+Ситуация: раннее утро (${context.todayHuman}), 06:45 по Берлину. Нужно разбудить Настю, задав тон дня. В заголовке — персонаж, отражающий вайб дня (например, «Аня Ранозоревая», «Марго Кофеинова», «Фёкла Будильникова»). ЗАПРЕЩЕНО использовать имена: Игорь, Константин, Стас. В тексте — жёсткий утренний брифинг: намекни, что звёзды уже подняли её с кровати, приплети планеты (Марс, Венера, Сатурн, Юпитер, Луна или Солнце) и опиши, какая драма или движуха светит сегодня. Можно использовать нецензурную лексику, но умно и по делу. Обязательно обращайся к Насте лично.`;
     default:
       return base;
   }
@@ -879,7 +1021,66 @@ function buildNotificationPayload(type, message, today) {
     title: message.title,
     body: message.body,
     sentAt: new Date().toISOString(),
+    url: message.url ?? (type === 'morning_brief' ? MORNING_BRIEF_URL : NOTIFICATIONS_URL),
   };
+}
+
+async function dispatchNotificationToSubscriptions({
+  type,
+  context,
+  subscriptions,
+  messageCache,
+  today,
+  prebuiltMessage,
+}) {
+  let sent = 0;
+  let logEntry;
+
+  for (const subscription of subscriptions) {
+    const settings = subscription.settings || {};
+    const enabled = settings.enabled !== false;
+    if (!enabled) {
+      continue;
+    }
+
+    const pushSubscription = {
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+    };
+
+    const message = prebuiltMessage ?? await generateMessage(type, context, messageCache ?? new Map());
+    const targetUrl = message.url ?? (type === 'morning_brief' ? MORNING_BRIEF_URL : NOTIFICATIONS_URL);
+    if (!logEntry) {
+      logEntry = buildNotificationPayload(type, { ...message, url: targetUrl }, today);
+    }
+
+    const payload = JSON.stringify({
+      title: message.title,
+      body: message.body,
+      id: logEntry.id,
+      type,
+      sentAt: logEntry.sentAt,
+      url: targetUrl,
+    });
+
+    try {
+      await webpush.sendNotification(
+        pushSubscription,
+        Buffer.from(payload, 'utf-8'),
+        {
+          contentEncoding: 'aes128gcm',
+        }
+      );
+      sent += 1;
+      console.log(`Notification (${type}) sent to ${subscription.endpoint.slice(-20)}`);
+    } catch (error) {
+      const status = error?.statusCode ?? error?.status ?? 'unknown-status';
+      const responseBody = error?.body ? error.body.toString() : undefined;
+      console.error(`Failed to send ${type} to ${subscription.endpoint.slice(-20)}:`, error.message, status, responseBody);
+    }
+  }
+
+  return { sent, logEntry };
 }
 
 async function main() {
@@ -897,22 +1098,21 @@ async function main() {
     const berlinNow = getBerlinNow();
     const berlinMinutesNow = getMinutesSinceMidnight(berlinNow);
     const currentBerlinTime = formatClock(berlinNow);
+    const morningBriefMinutes = FORCE_MORNING_BRIEF
+      ? berlinMinutesNow
+      : DEFAULT_MORNING_BRIEF_MINUTES;
+    const morningBriefTime = formatMinutesToClock(morningBriefMinutes);
 
     console.log(`Current time in ${BERLIN_TZ}: ${currentBerlinTime}`);
+    if (FORCE_MORNING_BRIEF) {
+      console.log(`Morning brief forced for immediate send (Berlin minutes: ${morningBriefMinutes})`);
+    } else {
+      console.log(`Morning brief planned time: ${morningBriefTime} (${BERLIN_TZ})`);
+    }
     console.log(`Planned notification time: ${schedule.targetTime} (${BERLIN_TZ})`);
-
-    if (berlinMinutesNow < schedule.targetMinutes) {
-      console.log('Notification window not reached yet, skipping this run');
-      return;
-    }
-
     const notificationsLog = await loadNotificationsLog(username);
-    const todaysNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey);
-    if (todaysNotification) {
-      const sentClock = formatBerlinClockFromIso(todaysNotification.sentAt);
-      console.log(`Notification already sent today at ${sentClock} (${BERLIN_TZ}), skipping`);
-      return;
-    }
+
+    const todaysMorningNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, 'morning_brief');
 
     let nastiaDataResult = await loadRepoJson(username, 'nastia-cycles.json', null);
     let nastiaData = nastiaDataResult.value;
@@ -949,17 +1149,9 @@ async function main() {
     console.log('Next period:', stats.nextPeriod.toISOString(), 'Ovulation:', stats.ovulationDay.toISOString(), 'Fertile start:', stats.fertileStart.toISOString());
 
     const typeInfo = pickNotificationType(today, stats);
-
-    if (!typeInfo) {
-      console.log('No notification planned for today', {
-        daysUntilPeriod: diffInDays(today, stats.nextPeriod),
-        daysUntilOvulation: diffInDays(today, stats.ovulationDay),
-      });
-      return;
-    }
-
-    const { type, metadata } = typeInfo;
-    console.log('Notification type selected:', type, metadata);
+    const type = typeInfo?.type ?? null;
+    const metadata = typeInfo?.metadata ?? {};
+    console.log('Primary notification type:', type, metadata);
     const messageCache = new Map();
 
     const predictedDate = (() => {
@@ -1021,52 +1213,60 @@ async function main() {
       isBirthday: isNastiaBirthday(today),
     };
 
-    let sent = 0;
-    let logEntry;
-
-    for (const subscription of subscriptionsData.subscriptions) {
-      const settings = subscription.settings || {};
-      const enabled = settings.enabled !== false;
-      if (!enabled) {
-        continue;
-      }
-
-      const pushSubscription = {
-        endpoint: subscription.endpoint,
-        keys: subscription.keys,
-      };
-
-      const message = await generateMessage(type, context, messageCache);
-      if (!logEntry) {
-        logEntry = buildNotificationPayload(type, message, today);
-      }
-
-      console.log('Sending notification with context:', context);
-
-      const payload = JSON.stringify({
-        title: message.title,
-        body: message.body,
-        id: logEntry.id,
-        type,
-        sentAt: logEntry.sentAt,
+    if ((FORCE_MORNING_BRIEF || berlinMinutesNow >= morningBriefMinutes) && !todaysMorningNotification) {
+      console.log('Generating morning brief notification...');
+      const morningMessage = await generateMorningBrief(context);
+      const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
+        type: 'morning_brief',
+        context,
+        subscriptions: subscriptionsData.subscriptions,
+        messageCache: new Map(),
+        today,
+        prebuiltMessage: morningMessage,
       });
 
-      try {
-        await webpush.sendNotification(
-          pushSubscription,
-          Buffer.from(payload, 'utf-8'),
-          {
-            contentEncoding: 'aes128gcm'
-          }
-        );
-        sent += 1;
-        console.log(`Notification (${type}) sent to ${subscription.endpoint.slice(-20)}`);
-      } catch (error) {
-        const status = error?.statusCode ?? error?.status ?? 'unknown-status';
-        const responseBody = error?.body ? error.body.toString() : undefined;
-        console.error(`Failed to send to ${subscription.endpoint.slice(-20)}:`, error.message, status, responseBody);
+      if (morningSent > 0 && morningLogEntry) {
+        notificationsLog.notifications.unshift(morningLogEntry);
+        notificationsLog.notifications = notificationsLog.notifications.slice(0, 200);
+        notificationsLog.lastUpdated = new Date().toISOString();
+        try {
+          await saveNotificationsLog(username, notificationsLog);
+        } catch (error) {
+          console.error('Failed to persist notifications log after morning brief:', error.message);
+        }
       }
+      console.log(`Morning brief notifications sent: ${morningSent}`);
+    } else if (todaysMorningNotification) {
+      const sentClock = formatBerlinClockFromIso(todaysMorningNotification.sentAt);
+      console.log(`Morning brief already sent today at ${sentClock} (${BERLIN_TZ})`);
+    } else {
+      console.log(`Too early for morning brief, waiting until ${morningBriefTime} Berlin time.`);
     }
+
+    if (!type) {
+      console.log('No primary notification planned for today');
+      return;
+    }
+
+    if (berlinMinutesNow < schedule.targetMinutes) {
+      console.log('Main notification window not reached yet, skipping this run');
+      return;
+    }
+
+    const todaysNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, type);
+    if (todaysNotification) {
+      const sentClock = formatBerlinClockFromIso(todaysNotification.sentAt);
+      console.log(`Notification already sent today at ${sentClock} (${BERLIN_TZ}), skipping`);
+      return;
+    }
+
+    const { sent, logEntry } = await dispatchNotificationToSubscriptions({
+      type,
+      context,
+      subscriptions: subscriptionsData.subscriptions,
+      messageCache,
+      today,
+    });
 
     if (sent > 0 && logEntry) {
       notificationsLog.notifications.unshift(logEntry);
@@ -1086,4 +1286,37 @@ async function main() {
   }
 }
 
-main();
+if (PREVIEW_MODE) {
+  (async () => {
+    const berlinNow = getBerlinNow();
+    const today = berlinNow;
+    const period = addDays(today, 3);
+    const ovulation = addDays(today, 14);
+    const context = {
+      todayHuman: formatRussianDate(today),
+      periodHuman: formatRussianDate(period),
+      daysUntilPeriod: diffInDays(today, period),
+      daysUntilPeriodWord: getDaysWord(Math.abs(diffInDays(today, period))),
+      daysUntilOvulation: diffInDays(today, ovulation),
+      daysWord: getDaysWord(Math.abs(diffInDays(today, ovulation))),
+      daysPastPrediction: 0,
+      daysPastPredictionWord: getDaysWord(0),
+      periodStartHuman: formatRussianDate(addDays(today, -1)),
+      daysSincePeriodStart: 1,
+      daysSincePeriodStartWord: getDaysWord(1),
+      birthdayHuman: formatRussianDate(today),
+      birthdayAge: getNastiaAgeOn(today),
+      isBirthday: isNastiaBirthday(today),
+    };
+
+    const message = await generateMorningBrief(context);
+    console.log('Morning brief preview:');
+    console.log(JSON.stringify(message, null, 2));
+    process.exit(0);
+  })().catch(error => {
+    console.error('Preview generation failed:', error);
+    process.exit(1);
+  });
+} else {
+  main();
+}

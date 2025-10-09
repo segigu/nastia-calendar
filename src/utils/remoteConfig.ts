@@ -11,6 +11,9 @@ export interface RemoteConfig {
   claude?: {
     apiKey?: string;
   };
+  claudeProxy?: {
+    url?: string;
+  };
   notifications?: {
     defaultType?: NotificationCategory;
   };

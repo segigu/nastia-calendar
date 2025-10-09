@@ -11,59 +11,38 @@ export interface GeneratePeriodContentOptions {
   cycleStartISODate: string;
   signal?: AbortSignal;
   apiKey?: string;
+  claudeProxyUrl?: string;
   openAIApiKey?: string;
 }
-
-const responseSchema = {
-  name: 'period_modal_copy',
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['question', 'joke'],
-    properties: {
-      question: {
-        type: 'string',
-        description: 'A concise invitation to start tracking the cycle addressed to the user by name.',
-      },
-      joke: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['emoji', 'text'],
-        properties: {
-          emoji: {
-            type: 'string',
-            description: 'One emoji or a short emoji combo.',
-          },
-          text: {
-            type: 'string',
-            description: 'A short punchline with playful female sarcasm and a supportive tone.',
-          },
-        },
-      },
-    },
-  },
-} as const;
 
 export async function generatePeriodModalContent({
   userName,
   cycleStartISODate,
   signal,
   apiKey,
+  claudeProxyUrl,
   openAIApiKey,
 }: GeneratePeriodContentOptions): Promise<PeriodModalContent> {
   const effectiveUserName = (userName && userName.trim()) ? userName.trim() : 'Настя';
 
   const cycleDate = new Date(cycleStartISODate);
-  const readableDate = cycleDate.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const readableDate = Number.isNaN(cycleDate.getTime())
+    ? null
+    : cycleDate.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+  const dateContext = readableDate
+    ? `Дата старта цикла: ${readableDate}.`
+    : '';
 
   const instructions = `Ты — Настя-советчица: язвительная подруга с чёрным, но тёплым чувством юмора и железной поддержкой.
 Обращайся к ${effectiveUserName}, допускаются уменьшительно-ласкательные формы, но без сиропа.
 Категорически избегай слов «приложение», «трекинг», «помощник» и любых намёков на сервис. Говори как живая подруга, ворчащая рядом на диване.
 Нужны две части: (1) одно приветствие (до 24 слов), где вы вместе отмечаете дату цикла с долей жёсткого сострадания; можешь упомянуть спазмы, PMS или заряд хандры. Приветствие без эмодзи. (2) одна «народная мудрость» — едкое, саркастичное наставление на один-два предложения, будто бабка у подъезда, но с твоим фирменным чёрным юмором. Обязательно дай ощущение приметы/поговорки, но без клише и морализаторства.
+${dateContext}
 Эмодзи используй только в этой народной мудрости (1 штука, максимум 2, если очень уместно). Избегай позитивных клише и мотивационных лозунгов.
 
 Верни ответ СТРОГО в JSON формате:
@@ -89,6 +68,7 @@ export async function generatePeriodModalContent({
     maxTokens: 500,
     signal,
     claudeApiKey: apiKey,
+    claudeProxyUrl,
     openAIApiKey,
   });
 

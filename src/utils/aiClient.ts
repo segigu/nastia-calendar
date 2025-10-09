@@ -2,18 +2,19 @@
  * Unified AI API client with automatic fallback from Claude to OpenAI
  */
 
-interface AIMessage {
+export interface AIMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-interface AIRequestOptions {
+export interface AIRequestOptions {
   system?: string;
   messages: AIMessage[];
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
   claudeApiKey?: string;
+  claudeProxyUrl?: string;
   openAIApiKey?: string;
 }
 
@@ -25,7 +26,50 @@ interface AIResponse {
 async function callClaudeAPI(
   options: AIRequestOptions
 ): Promise<string> {
-  const { system, messages, temperature = 0.8, maxTokens = 500, signal, claudeApiKey } = options;
+  const {
+    system,
+    messages,
+    temperature = 0.8,
+    maxTokens = 500,
+    signal,
+    claudeApiKey,
+    claudeProxyUrl,
+  } = options;
+
+  const proxyUrl = (claudeProxyUrl || process.env.REACT_APP_CLAUDE_PROXY_URL || '').trim();
+
+  const payload = {
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: maxTokens,
+    temperature,
+    system,
+    messages: messages.filter(m => m.role !== 'system'),
+  };
+
+  if (proxyUrl) {
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Claude proxy error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text;
+
+    if (!text) {
+      throw new Error('Claude proxy returned empty response');
+    }
+
+    return text;
+  }
 
   const key = (claudeApiKey || '').trim() || process.env.REACT_APP_CLAUDE_API_KEY;
   if (!key) {
@@ -39,13 +83,7 @@ async function callClaudeAPI(
       'x-api-key': key,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: maxTokens,
-      temperature,
-      system,
-      messages: messages.filter(m => m.role !== 'system'),
-    }),
+    body: JSON.stringify(payload),
     signal,
   });
 
@@ -111,31 +149,32 @@ async function callOpenAIAPI(
 }
 
 /**
- * Calls AI API with automatic fallback from OpenAI to Claude
- * Tries OpenAI first (better CORS support), falls back to Claude if needed
+ * Calls AI API with automatic fallback from Claude to OpenAI.
+ * Tries Claude first (primary provider), falls back to OpenAI on failure.
  */
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
   console.log('[AI Client] Attempting to call AI with options:', {
     hasClaudeKey: Boolean(options.claudeApiKey || process.env.REACT_APP_CLAUDE_API_KEY),
+    hasClaudeProxy: Boolean(options.claudeProxyUrl || process.env.REACT_APP_CLAUDE_PROXY_URL),
     hasOpenAIKey: Boolean(options.openAIApiKey || process.env.REACT_APP_OPENAI_API_KEY),
   });
 
-  // Try OpenAI first (better browser CORS support)
+  // Try Claude first (primary provider)
   try {
-    const text = await callOpenAIAPI(options);
-    console.log('[AI Client] ✅ OpenAI API succeeded');
-    return { text, provider: 'openai' };
-  } catch (openAIError) {
-    console.warn('[AI Client] ❌ OpenAI API failed, falling back to Claude:', openAIError);
+    const text = await callClaudeAPI(options);
+    console.log('[AI Client] ✅ Claude API succeeded (primary)');
+    return { text, provider: 'claude' };
+  } catch (claudeError) {
+    console.warn('[AI Client] ❌ Claude API failed, falling back to OpenAI:', claudeError);
 
-    // Fallback to Claude
+    // Fallback to OpenAI
     try {
-      const text = await callClaudeAPI(options);
-      console.log('[AI Client] ✅ Claude API succeeded');
-      return { text, provider: 'claude' };
-    } catch (claudeError) {
-      console.error('[AI Client] ❌ Claude API also failed:', claudeError);
-      throw new Error(`Both AI providers failed. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}`);
+      const text = await callOpenAIAPI(options);
+      console.log('[AI Client] ✅ OpenAI API succeeded (fallback)');
+      return { text, provider: 'openai' };
+    } catch (openAIError) {
+      console.error('[AI Client] ❌ OpenAI API also failed:', openAIError);
+      throw new Error(`Both AI providers failed. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}`);
     }
   }
 }

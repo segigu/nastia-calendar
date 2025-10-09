@@ -133,7 +133,6 @@ export const calculateFertileWindow = (cycles: CycleData[]): FertileWindow | nul
   if (cycles.length === 0) return null;
 
   const stats = calculateCycleStats(cycles);
-  const avgCycleLength = stats.averageLength6Months || stats.averageLength;
 
   // Овуляция обычно происходит за 14 дней до следующих месячных
   const ovulationDay = addDays(stats.nextPrediction, -14);

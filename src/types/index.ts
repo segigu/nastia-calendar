@@ -63,4 +63,5 @@ export interface NotificationItem {
   body: string;
   sentAt: string; // ISO timestamp
   type: NotificationCategory;
+  url?: string;
 }

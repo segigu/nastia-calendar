@@ -1,107 +1,598 @@
+import { buildAstroHighlights } from './astro';
+import type { AIRequestOptions, AIMessage } from './aiClient';
+import { fetchDailyWeatherSummary, fetchWeeklyWeatherSummary } from './weather';
+import { buildDailyCycleHint, buildSergeyCycleHint, buildWeeklyCycleHint } from './cyclePrompt';
+import type { CycleData } from '../types';
+
 export interface DailyHoroscope {
   text: string;
   date: string | null;
+  provider?: 'claude' | 'openai' | 'fallback';
+  weekRange?: string;
+  highlights?: string[];
 }
 
-const HOROSCOPE_ENDPOINT = 'https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily';
-
-function getHoroscopeUrl(sign: string, isoDate: string): string {
-  const params = new URLSearchParams({
-    sign: sign.toLowerCase(),
-    day: isoDate,
-  });
-  const apiUrl = `${HOROSCOPE_ENDPOINT}?${params.toString()}`;
-
-  // Всегда используем CORS прокси для обхода CORS ограничений
-  // corsproxy.io - бесплатный CORS прокси
-  return `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+export interface HoroscopeLoadingMessage {
+  emoji: string;
+  text: string;
 }
 
-interface HoroscopeApiResponse {
-  data?: {
-    horoscope_data?: string;
-    date?: string;
-  };
-  success?: boolean;
-  status?: number;
-}
+// Настя родилась 12 апреля 1992 года
+const EXAM_DATE = new Date('2025-10-11T00:00:00.000Z');
 
-function sanitizeHoroscopeText(value: string | undefined): string {
-  if (!value) {
-    return '';
+// Контекст для персонализации гороскопа
+const NASTIA_CONTEXT = `
+Настя родом из Украины (город Очаков, там сейчас живут её бабушка и дедушка).
+Сейчас живёт в Германии с мамой Светой — вынужденно, бывают конфликты.
+Не работает. Они втроём (Настя, мама Света и дети) ютятся в одной небольшой квартире в хейме для беженцев.
+Двое детей:
+- Сын Дамир, 5 лет (15 мая 2020) — одержим кораблями (особенно «Титаником») и поездами, ему разрешают планшет только на час в день и дают исключительно детский YouTube, поэтому он часто устраивает истерики из-за ограничений.
+- Дочь Мишель, 2.5 года (17 марта 2023) — любит туфли, сумочки и красить губы, называет свою бутылочку с компотом «сосик» и не может уснуть без двух таких бутылок за ночь; недавно начала активно проситься на горшок, хотя родственники всё ещё тянут с памперсами.
+Молодой человек Сергей (13 декабря 1979).
+11 октября 2025 сдаёт экзамен по немецкому языку (через неделю после экзамена уже не стоит о нем упоминать).
+
+ВАЖНО: Мама Света — НЕ посылать на хуй в тексте, это табу.
+Света сидит дома, готовит, помогает с внуками и вяло ищет работу в Германии.
+`.trim();
+
+const HOROSCOPE_SYSTEM_PROMPT = `Ты пишешь недельный гороскоп для Насти (12 апреля 1992, Овен ♈️).
+
+КОНТЕКСТ:
+${NASTIA_CONTEXT}
+
+СТИЛЬ:
+Пиши с МАКСИМАЛЬНЫМ сарказмом и иронией — как самая язвительная подруга, которая говорит правду в глаза без прикрас. Обязательно используй ненормативную лексику (хуй, нахуй, блядь, пиздец и т.д.) — НЕ легкий мат, а полноценный, но уместный и со вкусом. Если нужно послать куда подальше — пиши прямо "на хуй", а не эвфемизмы. Мат должен усиливать сарказм и делать текст живым.
+
+ФОРМАТ:
+НЕ используй markdown (**, ##, ---). Структура: 2–3 коротких абзаца с эмодзи. ВСЕГДА заканчивай полным предложением!`;
+
+const SERGEY_CONTEXT = `
+Сергей — партнёр Насти (13 декабря 1979). Живёт с ней и детьми в Германии.
+По характеру сдержанный, ворчливый, любит порядок, терпеть не может хаос и пустые обещания.
+Сергей IT-разработчик (делает и поддерживает это приложение), целыми днями сидит за компом и превратил свою отдельную комнату в импровизированный офис; там же он живёт отдельно, а к Насте приходит ночевать, когда есть силы.
+Любит велосипед, но далеко не всегда успевает выехать покататься.
+Он не курит и ненавидит запах табака. Настя курит, и он тайно надеется, что она услышит его просьбы и бросит ради всех. Перегар его тоже бесит, поэтому он пьёт куда меньше Насти.
+Сергей хронически уставший, но продолжает тащить, не верит в чудеса и мечтает об одном дне тишины.
+Настя — та, кто читает этот текст; её нужно поддержать и похвалить за выдержку.
+`.trim();
+
+const SERGEY_SYSTEM_PROMPT = `Ты пишешь едкий дневной гороскоп про Сергея (13 декабря 1979) специально для Насти.
+
+КОНТЕКСТ:
+${SERGEY_CONTEXT}
+
+СТИЛЬ:
+- Адресуй текст Насте. Обращайся к ней «ты», описывая, что творится у Серёжи (используй «у него», «ему» и т.д.).
+- Настю не критикуй. Подчёркивай, что она молодец и держится, а вот Серёжа — источник сарказма.
+- Тёмный юмор и жёсткий сарказм в адрес Серёжи и обстоятельств, мат по делу допустим.
+- Не подбадривай Серёжу и не обещай ему светлого будущего. Финал должен звучать без позитива, максимум сухое «ну держись».
+
+ФОРМАТ:
+- Один плотный абзац (3–4 предложения), начни с подходящего эмодзи и пробела.
+- Без markdown, списков, заголовков.
+- Заверши сухим/язвительным выводом без позитивного налёта.`;
+
+function getWeekRange(isoDate: string): string {
+  const startDate = new Date(isoDate);
+  if (Number.isNaN(startDate.getTime())) {
+    return isoDate;
   }
-  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 6);
+
+  const startDay = startDate.getDate();
+  const endDay = endDate.getDate();
+
+  const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', day: 'numeric' });
+  const startMonth = monthFormatter.format(startDate).split(' ')[1]; // "21 октября" -> "октября"
+  const endMonth = monthFormatter.format(endDate).split(' ')[1]; // "27 октября" -> "октября"
+
+  // Если месяцы разные
+  if (startMonth !== endMonth) {
+    return `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
+  }
+
+  // Если один месяц
+  return `${startDay}–${endDay} ${startMonth}`;
 }
 
-async function translateToRussian(
-  text: string,
-  claudeApiKey?: string,
-  openAIApiKey?: string,
-  signal?: AbortSignal,
-): Promise<string> {
+function pluralizeDays(value: number): string {
+  const abs = Math.abs(value) % 100;
+  const last = abs % 10;
+
+  if (abs > 10 && abs < 20) {
+    return 'дней';
+  }
+
+  if (last === 1) {
+    return 'день';
+  }
+
+  if (last >= 2 && last <= 4) {
+    return 'дня';
+  }
+
+  return 'дней';
+}
+
+function formatDaysAhead(diff: number): string {
+  if (diff === 0) {
+    return 'сегодня';
+  }
+  if (diff === 1) {
+    return 'завтра';
+  }
+  if (diff === 2) {
+    return 'послезавтра';
+  }
+  return `через ${diff} ${pluralizeDays(diff)}`;
+}
+
+function formatDaysAgo(diff: number): string {
+  if (diff === 1) {
+    return 'вчера';
+  }
+  if (diff === 2) {
+    return 'позавчера';
+  }
+  return `${diff} ${pluralizeDays(diff)} назад`;
+}
+
+function getExamContext(isoDate: string): string | null {
+  if (!isoDate) {
+    return null;
+  }
+
+  const startMs = Date.parse(isoDate);
+  if (Number.isNaN(startMs)) {
+    return null;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const examMs = EXAM_DATE.getTime();
+  const diffDays = Math.floor((examMs - startMs) / dayMs);
+  const examDateLabel = new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(EXAM_DATE);
+
+  if (diffDays > 6) {
+    const descriptor = formatDaysAhead(diffDays);
+    return `Экзамен по немецкому ${examDateLabel} ещё впереди (${descriptor}) — упомяни зубрёжку, подготовку и фон тревоги.`;
+  }
+
+  if (diffDays >= 0) {
+    if (diffDays === 0) {
+      return `Экзамен по немецкому ${examDateLabel} — это сегодня. Сделай акцент на кульминации и на том, как все ходят по стенам.`;
+    }
+    const descriptor = formatDaysAhead(diffDays);
+    const numericLabel = diffDays === 1
+      ? '1 день'
+      : `${diffDays} ${pluralizeDays(diffDays)}`;
+    return `До экзамена по немецкому ${examDateLabel} осталось ${numericLabel} (${descriptor}). Укажи это точно (без сдвига) и добавь, что подготовка на последнем издыхании.`;
+  }
+
+  const daysAfter = Math.abs(diffDays);
+  const descriptor = formatDaysAgo(daysAfter);
+  return `Экзамен по немецкому ${examDateLabel} уже позади (${descriptor}). Покажи выжатость, откат или облегчение после него.`;
+}
+
+function simplifyWeatherSummary(summary: string | null | undefined): string | null {
+  if (!summary) {
+    return null;
+  }
+
+  const withoutMetrics = summary
+    // remove temperatures, speeds, percentages with units
+    .replace(/-?\d+[.,]?\d*\s*(?:°C|°|градус(?:ов|а|)|мм|миллиметр(?:ов|а|)|км\/ч|процент(?:ов|а|)|%)/gi, '')
+    // remove leftover numeric tokens
+    .replace(/-?\d+[.,]?\d*/g, '')
+    // remove duplicate spaces and space before punctuation
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/\s+\./g, '.')
+    .replace(/\s+([!?;:])/g, '$1')
+    .trim();
+
+  return withoutMetrics || null;
+}
+
+function buildWeeklyPrompt(
+  isoDate: string,
+  astroHighlights: string[],
+  weatherSummary?: string | null,
+  cycleHint?: string | null,
+): string {
+  const weekRange = getWeekRange(isoDate);
+  const examContext = getExamContext(isoDate);
+
+  return `Напиши жёсткий саркастичный гороскоп на ${weekRange}.
+
+ТРЕБОВАНИЯ:
+- 2–3 коротких абзаца, каждый с эмодзи
+- МАКСИМУМ сарказма и иронии — говори правду в глаза, троллить без жалости
+- Фокус: её жизнь (дети, Сергей, конфликты с мамой, быт в Германии, изучение немецкого, тоска по Очакову)
+- Если упоминаешь Сергея, делай это как про живого мужика: то поддерживает, то бесит, но без придуманных героев и новых романчиков
+${examContext ? `- ${examContext}
+` : ''}- ОБЯЗАТЕЛЬНО используй нормальный мат (хуй, нахуй, блядь, пиздец, пиздато, хуево, охуенно, ебанутый, ёбнутый и так далее) — не эвфемизмы, а прямо. Мат должен быть уместным и усиливать сарказм. Например: "послать на хуй", "какого хуя", "пиздец как устала" и т.д.
+- ТАБУ: Маму Свету нельзя посылать на хуй в тексте!
+- ИМЕНА: варьируй имена (Сергей/Сереженька/Серёжа, Света/мама/мамуля, Дамир/Дамирка, Мишель/Мишелька). Не используй одно и то же обращение постоянно.
+- НЕ упоминай знаки зодиака других людей в тексте (типа "Сергей-Стрелец")
+- НЕ пиши "Овен", "твой знак", даты — это уже в заголовке
+- НЕ используй markdown (**, ##, ---)
+- Обязательно закончи полным предложением
+- Финал: саркастично-ободряющий, типа "справишься, даже если всё идёт к хуям"
+${weatherSummary ? `- Погода на неделю: ${weatherSummary}. Обыграй это язвительно, не называя город.` : ''}
+${cycleHint ? `- Цикл Насти: ${cycleHint}` : ''}
+
+${astroHighlights.length ? `Вспомогательные заметки (для тебя, не перечисляй их списком, а вплети смысл в текст):\n${astroHighlights.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n` : ''}${weatherSummary ? `Напоминание для тебя: погода на неделе — ${weatherSummary}. В тексте просто саркастично намекни на эти погодные приколы, место не называй.\n` : ''}${cycleHint ? `Запомни: цикл такой — ${cycleHint}. В тексте подчёркнуто намекни на это.` : ''}Пиши сразу текст, без вступлений.`;
+}
+
+function buildDailyPrompt(
+  isoDate: string,
+  astroHighlights: string[],
+  weatherSummary?: string | null,
+  cycleHint?: string | null,
+): string {
+  const date = new Date(isoDate);
+  const formatter = new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const formattedDate = formatter.format(date);
+  const examContext = getExamContext(isoDate);
+
+  return `Составь язвительный дневной гороскоп для Насти на сегодня (дата для тебя: ${formattedDate}, но в тексте её не называй).
+
+ТРЕБОВАНИЯ:
+- 2 коротких абзаца по 2–3 предложения, каждый с тематическими эмодзи в начале
+- Сарказм и мат на месте, как у лучшей подруги, но без перебора
+- Фокус: дела дня, дети, взаимодействие с Серёжей, бытовуха в Германии, тоска по дому
+- Если упоминаешь Серёжу — показывай реальное взаимодействие, не выдумывай новых людей
+${examContext ? `- ${examContext}
+` : ''}- Используй факты ниже, чтобы привязать события к реальным транзитам. Не перечисляй их как список и не ссылайся на "транзит" — просто интегрируй смысл.
+- Не упоминай про недели, только про этот день
+- Финал — жёстко поддерживающий, законченная мысль
+${weatherSummary ? `- Погода на день: ${weatherSummary}. Вплети это в текст саркастично и без упоминания города.` : ''}
+${cycleHint ? `- Цикл: ${cycleHint}` : ''}
+
+${astroHighlights.length ? `Вспомогательные заметки (для тебя, не перечисляй их дословно):
+${astroHighlights.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+` : ''}${weatherSummary ? `Справка по погоде: ${weatherSummary}. Просто сделай ехидный заход в тексте, не раскрывая локацию.\n` : ''}${cycleHint ? `Справка по циклу: ${cycleHint} Используй это обязательно, чтоб подколоть и поддержать Настю.` : ''}Пиши цельный текст сразу, без вступлений.`;
+}
+
+function buildSergeyDailyPrompt(
+  isoDate: string,
+  astroHighlights: string[],
+  weatherSummary?: string | null,
+  cycleHint?: string | null,
+): string {
+  const date = new Date(isoDate);
+  const formatter = new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const formattedDate = formatter.format(date);
+
+  return `Составь едкий дневной гороскоп про Сергея на сегодня (для тебя дата: ${formattedDate}, но не пиши её в тексте).
+
+ТРЕБОВАНИЯ:
+- Один цельный абзац из 3–4 коротких предложений, начни его с подходящего эмодзи и пробела.
+- Пиши, как будто сообщаешь Насте новости о Серёже: «у него», «ему», «его», «ты, Настя, держишься» и т.д.
+- Настю держи в позитивном свете, можешь её прикольно похвалить. Серёжу — тролль язвительно.
+- Тон: усталый, язвительный, с матом по делу; никакого вдохновляющего оптимизма для Серёжи.
+- Финал — саркастично-жёсткий, без лучика надежды.
+${astroHighlights.length ? `- Используй нижние подсказки как фон (вплетай смысл, не повторяй дословно):
+${astroHighlights.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+` : ''}${weatherSummary ? `- У Серёжи на улице ${weatherSummary}. Обязательно намекни на погодный вайб без цифр и конкретных значений.` : ''}${cycleHint ? `- ${cycleHint}` : ''}- Не используй списки и markdown. Верни только готовый текст.`;
+}
+
+function isLikelyTruncated(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  const endings = '.!?…';
+  const closingQuotes = '»"”\'';
+
+  const lastChar = trimmed.slice(-1);
+  if (closingQuotes.includes(lastChar)) {
+    const beforeQuote = trimmed.slice(0, -1).trim().slice(-1);
+    if (beforeQuote && endings.includes(beforeQuote)) {
+      return false;
+    }
+  }
+
+  if (!endings.includes(lastChar)) {
+    return true;
+  }
+
+  const sentences = trimmed.split(/[.!?…]/).map(part => part.trim()).filter(Boolean);
+  if (sentences.length === 0) {
+    return true;
+  }
+  const lastSentence = sentences[sentences.length - 1];
+  return lastSentence.length < 20;
+}
+
+interface HoroscopeRequestOptions {
+  signal?: AbortSignal;
+  claudeApiKey?: string;
+  claudeProxyUrl?: string;
+  openAIApiKey?: string;
+}
+
+async function requestHoroscopeText(
+  prompt: string,
+  options: HoroscopeRequestOptions,
+  baseMaxTokens = 700,
+  retryMaxTokens = 950,
+  systemPrompt: string = HOROSCOPE_SYSTEM_PROMPT,
+): Promise<{ text: string; provider: 'claude' | 'openai' }>
+{
   const { callAI } = await import('./aiClient');
 
-  try {
-    const result = await callAI({
-      system: 'Ты переводчик гороскопов с лёгким женским сарказмом и юмором. Переведи текст на русский язык естественно, выразительно и с долей иронии. Добавь 2-3 подходящих эмодзи в ключевых местах текста, чтобы сделать его более живым и эмоциональным. Сохраняй общий смысл, но не бойся добавить чуточку дерзости и самоиронии. Отвечай только переводом с эмодзи, без дополнительных пояснений.',
-      messages: [
-        {
-          role: 'user',
-          content: text,
-        },
-      ],
-      temperature: 0.8,
-      maxTokens: 500,
-      signal,
-      claudeApiKey,
-      openAIApiKey,
-    });
+  const makeMessages = (content: string): AIMessage[] => [
+    {
+      role: 'user',
+      content,
+    },
+  ];
 
-    console.log(`Translated horoscope using ${result.provider}`);
-    return result.text.trim();
-  } catch (error) {
-    console.warn('Failed to translate horoscope:', error);
-    return text;
+  const baseRequest: AIRequestOptions = {
+    system: systemPrompt,
+    messages: makeMessages(prompt),
+    temperature: 0.85,
+    maxTokens: baseMaxTokens,
+    signal: options.signal,
+    claudeApiKey: options.claudeApiKey,
+    claudeProxyUrl: options.claudeProxyUrl,
+    openAIApiKey: options.openAIApiKey,
+  };
+
+  let result = await callAI(baseRequest);
+  let text = result.text.trim();
+
+  if (!text || isLikelyTruncated(text)) {
+    console.warn('[Horoscope] First attempt looks truncated, requesting rewrite with more tokens.');
+    try {
+      const retryRequest: AIRequestOptions = {
+        ...baseRequest,
+        maxTokens: retryMaxTokens,
+        messages: makeMessages(
+          `${prompt}\n\nПерепиши полностью заново. Заверши каждое предложение и весь текст, не оставляй обрезанных фраз. Финал должен быть законченной мыслью.`,
+        ),
+      };
+      const retryResult = await callAI(retryRequest);
+      const retryText = retryResult.text.trim();
+      if (retryText) {
+        result = retryResult;
+        text = retryText;
+      }
+    } catch (retryError) {
+      console.warn('[Horoscope] Retry attempt failed:', retryError);
+    }
   }
-}
-
-export async function fetchDailyHoroscope(
-  sign: string,
-  isoDate: string,
-  signal?: AbortSignal,
-  claudeApiKey?: string,
-  openAIApiKey?: string,
-): Promise<DailyHoroscope> {
-  const url = getHoroscopeUrl(sign, isoDate);
-
-  const response = await fetch(url, {
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch horoscope: ${response.status} ${response.statusText}`);
-  }
-
-  const payload = (await response.json()) as HoroscopeApiResponse;
-  let text = sanitizeHoroscopeText(payload?.data?.horoscope_data);
-  const date = sanitizeHoroscopeText(payload?.data?.date);
 
   if (!text) {
-    throw new Error('Horoscope payload missing text');
+    throw new Error('AI returned empty horoscope text');
   }
 
-  // Переводим текст на русский, если передан хотя бы один API ключ
-  if (claudeApiKey || openAIApiKey) {
-    try {
-      text = await translateToRussian(text, claudeApiKey, openAIApiKey, signal);
-    } catch (error) {
-      console.warn('Failed to translate horoscope, using original text:', error);
-      // Если перевод не удался, используем оригинальный текст
-    }
+  if (isLikelyTruncated(text)) {
+    console.warn('[Horoscope] Horoscope still appears truncated after retry.');
   }
 
   return {
     text,
-    date: date || null,
+    provider: result.provider,
   };
+}
+
+export async function fetchDailyHoroscope(
+  isoDate: string,
+  signal?: AbortSignal,
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+  cycles?: CycleData[],
+): Promise<DailyHoroscope> {
+  try {
+    const astroHighlights = buildAstroHighlights(isoDate);
+    const weatherSummary = await fetchWeeklyWeatherSummary(isoDate, signal);
+    const cycleHint = cycles ? buildWeeklyCycleHint(cycles, isoDate) : null;
+    const prompt = buildWeeklyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint);
+    if (astroHighlights.length > 0) {
+      console.log('[Horoscope] Astro highlights:', astroHighlights);
+    }
+
+    const result = await requestHoroscopeText(prompt, {
+      signal,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
+    });
+
+    console.log(`Generated weekly horoscope using ${result.provider}`);
+
+    return {
+      text: result.text,
+      date: isoDate ?? null,
+      provider: result.provider,
+      weekRange: getWeekRange(isoDate),
+      highlights: astroHighlights,
+    };
+  } catch (error) {
+    console.error('Failed to generate AI horoscope:', error);
+    return {
+      text: 'Сегодня гороскоп спрятался за облаками, но Настя уверена: что бы ни случилось, ты справишься! 💖',
+      date: isoDate ?? null,
+      provider: 'fallback',
+      highlights: [],
+    };
+  }
+}
+
+const FALLBACK_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
+  { emoji: '☎️', text: 'Звоним Марсу — выясняем, кто сегодня заведует твоим драйвом.' },
+  { emoji: '💌', text: 'Через Венеру шлём письмо — уточняем, сколько нежности выделено на день.' },
+  { emoji: '🛰️', text: 'Связь с Юпитером ловим — проверяем, прилетит ли удача без предупреждения.' },
+  { emoji: '☕️', text: 'Сатурн допивает кофе и пишет список обязанностей на сегодня.' },
+  { emoji: '🧹', text: 'Плутон делает уборку в подсознании — оставь ему пару минут хаоса.' },
+  { emoji: '🌕', text: 'Луна примеряет настроение — подбирает тебе правильный уровень драматизма.' },
+];
+
+export async function fetchHoroscopeLoadingMessages(
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+  signal?: AbortSignal,
+): Promise<HoroscopeLoadingMessage[]> {
+  const prompt = `Сгенерируй 6 смешных статусов о том, что идёт загрузка гороскопа. Каждый статус должен:
+- начинаться с одного подходящего эмодзи;
+- быть длиной 8-14 слов;
+- упоминать реальные планеты или небесные тела (Марс, Венера, Сатурн, Плутон, Юпитер, Луна, Солнце и т.д.);
+- звучать так, будто Настя иронично объясняет процесс (например: «звоним Марсу», «ждём ответ от Венеры»);
+- не повторяться по смыслу и тону;
+- не использовать списки, кавычки или слово «статус».
+
+Верни строго JSON-массив объектов вида [{"emoji":"✨","text":"..."}] без пояснений.`;
+
+  try {
+    const { callAI } = await import('./aiClient');
+    const response = await callAI({
+      system: 'Ты придумываешь остроумные статусы для экрана загрузки. Отвечай строго JSON-массивом.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.95,
+      maxTokens: 320,
+      signal,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
+    });
+
+    const cleaned = response.text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned) as HoroscopeLoadingMessage[];
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error('Empty loading messages array');
+    }
+
+    return parsed
+      .filter(entry => entry && typeof entry.emoji === 'string' && typeof entry.text === 'string')
+      .map(entry => ({
+        emoji: entry.emoji.trim(),
+        text: entry.text.trim(),
+      }))
+      .filter(entry => entry.emoji && entry.text)
+      .slice(0, 6);
+  } catch (error) {
+    console.warn('Failed to fetch custom loading messages, using fallback:', error);
+    return FALLBACK_LOADING_MESSAGES;
+  }
+}
+
+export async function fetchDailyHoroscopeForDate(
+  isoDate: string,
+  signal?: AbortSignal,
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+  cycles?: CycleData[],
+): Promise<DailyHoroscope> {
+  try {
+    const astroHighlights = buildAstroHighlights(isoDate, 3);
+    const weatherSummary = await fetchDailyWeatherSummary(isoDate, signal);
+    const cycleHint = cycles ? buildDailyCycleHint(cycles, isoDate) : null;
+    const prompt = buildDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint);
+    if (astroHighlights.length > 0) {
+      console.log('[Horoscope] Daily astro highlights:', astroHighlights);
+    }
+
+    const result = await requestHoroscopeText(prompt, {
+      signal,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
+    }, 600, 850);
+
+    console.log(`Generated daily horoscope using ${result.provider}`);
+
+    return {
+      text: result.text,
+      date: isoDate ?? null,
+      provider: result.provider,
+      highlights: astroHighlights,
+    };
+  } catch (error) {
+    console.error('Failed to generate daily horoscope:', error);
+    return {
+      text: 'Сегодня звёзды заняты своими делами, но Настя уверена, что ты выдержишь этот день! ✨',
+      date: isoDate ?? null,
+      provider: 'fallback',
+      highlights: [],
+    };
+  }
+}
+
+export async function fetchSergeyDailyHoroscopeForDate(
+  isoDate: string,
+  signal?: AbortSignal,
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+  cycles?: CycleData[],
+): Promise<DailyHoroscope> {
+  try {
+    const allHighlights = buildAstroHighlights(isoDate, 6);
+    const sergeySpecific = allHighlights.filter(
+      entry => /Серёж/i.test(entry) || /ваших отношений/i.test(entry) || /Серге[йя]/i.test(entry),
+    );
+    const astroHighlights = sergeySpecific.length > 0 ? sergeySpecific : allHighlights.slice(0, 3);
+    const rawWeatherSummary = await fetchDailyWeatherSummary(isoDate, signal);
+    const weatherSummary = simplifyWeatherSummary(rawWeatherSummary);
+    const cycleHint = cycles ? buildSergeyCycleHint(cycles, isoDate) : null;
+    const prompt = buildSergeyDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint);
+
+    const result = await requestHoroscopeText(
+      prompt,
+      {
+        signal,
+        claudeApiKey,
+        claudeProxyUrl,
+        openAIApiKey,
+      },
+      520,
+      680,
+      SERGEY_SYSTEM_PROMPT,
+    );
+
+    console.log(`Generated Sergey daily horoscope using ${result.provider}`);
+
+    return {
+      text: result.text,
+      date: isoDate ?? null,
+      provider: result.provider,
+      highlights: astroHighlights,
+    };
+  } catch (error) {
+    console.error('Failed to generate Sergey daily horoscope:', error);
+    return {
+      text: '🤦‍♂️ Звёзды пожали плечами: Серёжа опять тащит быт один, и никакой свет в конце тоннеля даже не мигает.',
+      date: isoDate ?? null,
+      provider: 'fallback',
+      highlights: [],
+    };
+  }
 }

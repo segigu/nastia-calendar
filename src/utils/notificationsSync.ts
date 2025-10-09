@@ -11,6 +11,7 @@ interface RemoteNotificationsPayload {
     body: string;
     sentAt: string;
     type?: string;
+    url?: string;
   }>;
   lastUpdated?: string;
 }
@@ -81,6 +82,7 @@ export async function fetchRemoteNotifications(token: string): Promise<Notificat
       body: item.body,
       sentAt: item.sentAt,
       type: normalizeCategory(item.type),
+      url: item.url,
     };
   });
 }

@@ -2,6 +2,9 @@
   "claude": {
     "apiKey": "sk-ant-api03-YOUR_CLAUDE_API_KEY_HERE"
   },
+  "claudeProxy": {
+    "url": "https://your-worker.your-subdomain.workers.dev"
+  },
   "notifications": {
     "defaultType": "motivational"
   },
