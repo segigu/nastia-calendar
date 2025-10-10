@@ -125,7 +125,8 @@ self.addEventListener('notificationclick', event => {
           try {
             const clientUrl = new URL(client.url);
             const target = new URL(targetUrl);
-            if (clientUrl.origin === target.origin && clientUrl.pathname === target.pathname) {
+            // Match by full URL (including query params) to support deep links
+            if (clientUrl.href === target.href) {
               await client.focus();
               client.postMessage({
                 type: 'nastia-open',
@@ -138,6 +139,7 @@ self.addEventListener('notificationclick', event => {
           }
         }
       }
+      // Always open the target URL in a new window if no exact match found
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }
