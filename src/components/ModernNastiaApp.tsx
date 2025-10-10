@@ -725,7 +725,8 @@ const ModernNastiaApp: React.FC = () => {
       insightControllersRef.current[type] = null;
     }
 
-    // ВСЕГДА делаем новый запрос при раскрытии
+    // ВСЕГДА делаем новый запрос при раскрытии — сбрасываем старый контент
+    setInsightDescriptions(prev => ({ ...prev, [type]: null }));
     setInsightLoadingStates(prev => ({ ...prev, [type]: true }));
     setInsightLoadingPhrases(prev => ({ ...prev, [type]: getRandomLoadingPhrase() }));
 

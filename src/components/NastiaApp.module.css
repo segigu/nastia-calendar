@@ -39,7 +39,7 @@
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 2.125rem;
   font-weight: 700;
   color: var(--nastia-dark);
   margin-left: 0.5rem;
@@ -47,7 +47,7 @@
 
 .subtitle {
   color: var(--gray-600);
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .card {
@@ -136,13 +136,13 @@
 }
 
 .statNumber {
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   font-weight: 700;
   color: var(--nastia-dark);
 }
 
 .statLabel {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--gray-600);
 }
 
@@ -167,7 +167,7 @@
 }
 
 .monthTitle {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--nastia-dark);
 }
@@ -181,7 +181,7 @@
 
 .weekDay {
   text-align: center;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   color: var(--gray-500);
   padding: 0.5rem;
@@ -200,7 +200,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -415,7 +415,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .dailyHoroscopeCTAWrapper {
@@ -434,7 +434,7 @@
   border: none;
   background: linear-gradient(135deg, #ad19f7 0%, #ac87ec 100%);
   color: #f9fafb;
-  font-size: 1rem;
+  font-size: 1.125rem;
   text-align: left;
   cursor: pointer;
   box-shadow: 0 18px 32px -18px rgba(76, 29, 149, 0.45);
@@ -456,12 +456,12 @@
 
 .dailyHoroscopeTitle {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.175rem;
   margin-bottom: 0.15rem;
 }
 
 .dailyHoroscopeSubtitle {
-  font-size: 0.9rem;
+  font-size: 1.025rem;
   color: rgba(240, 249, 255, 0.85);
 }
 
@@ -518,7 +518,7 @@
   padding: 1rem 1.5rem;
   border-radius: 16px;
   border: none;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -576,6 +576,7 @@
 
 .importText {
   color: var(--gray-600);
+  font-size: 1rem;
 }
 
 .statsDetails {
@@ -583,7 +584,7 @@
 }
 
 .statsTitle {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--nastia-dark);
   margin-bottom: 1rem;
@@ -601,10 +602,12 @@
 
 .statsItemLabel {
   color: var(--gray-600);
+  font-size: 1rem;
 }
 
 .statsItemValue {
   font-weight: 700;
+  font-size: 1rem;
 }
 
 .cyclesList {
@@ -632,10 +635,11 @@
 .cycleDate {
   font-weight: 600;
   color: var(--nastia-dark);
+  font-size: 1rem;
 }
 
 .cycleNotes {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--gray-600);
   margin-top: 0.25rem;
 }
@@ -690,7 +694,7 @@
 }
 
 .modalTitle {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--nastia-dark);
   margin-bottom: 1rem;
@@ -699,6 +703,7 @@
 .modalText {
   color: var(--gray-600);
   margin-bottom: 1rem;
+  font-size: 1rem;
 }
 
 .modalActions {
@@ -711,7 +716,7 @@
   padding: 1rem 1.5rem;
   border-radius: 16px;
   border: none;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -748,7 +753,7 @@
 
 .footerText {
   color: var(--gray-600);
-  font-size: 0.875rem;
+  font-size: 1rem;
   margin: 0;
   font-style: italic;
 }
@@ -762,7 +767,7 @@
   border: 1px solid #bae6fd;
   border-radius: 0.75rem;
   margin-bottom: 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #0369a1;
 }
 
@@ -903,7 +908,7 @@
   border-radius: 999px;
   min-width: 1.1rem;
   height: 1.1rem;
-  font-size: 0.65rem;
+  font-size: 0.775rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -936,7 +941,7 @@
 }
 
 .notificationsTitle {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--nastia-dark);
 }
@@ -974,7 +979,7 @@
 }
 
 .notificationTitle {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--nastia-dark);
   display: flex;
@@ -983,9 +988,9 @@
 }
 
 .notificationBody {
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   color: rgba(17, 24, 39, 0.78);
-  line-height: 1.35rem;
+  line-height: 1.5rem;
 }
 
 .notificationsSkeletonList {
@@ -1055,7 +1060,7 @@
 }
 
 .notificationMeta {
-  font-size: 0.8rem;
+  font-size: 0.925rem;
   color: rgba(17, 24, 39, 0.6);
   display: flex;
   align-items: center;
@@ -1080,7 +1085,7 @@
 .notificationEmpty {
   text-align: center;
   color: rgba(17, 24, 39, 0.7);
-  font-size: 1.05rem;
+  font-size: 1.175rem;
   line-height: 1.5;
   max-width: 320px;
 }
@@ -1097,7 +1102,7 @@
 
 .notificationErrorState p {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .notificationRetryButton {
@@ -1107,6 +1112,7 @@
   background: #111827;
   color: #fff;
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 12px 24px rgba(17, 24, 39, 0.18);
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -1157,7 +1163,7 @@
 }
 
 .settingsTitle {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #000;
   margin: 0;
@@ -1197,7 +1203,7 @@
 }
 
 .sectionTitle {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: #000;
   margin-bottom: 1rem;
@@ -1220,7 +1226,7 @@
   color: #000;
   margin-bottom: 0.75rem;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.125rem;
 }
 
 .checkbox {
@@ -1236,7 +1242,7 @@
   padding: 1rem;
   border: 2px solid #d1d5db;
   border-radius: 16px;
-  font-size: 1rem;
+  font-size: 1.125rem;
   background: white;
   color: #000;
   transition: border-color 0.2s;
@@ -1251,7 +1257,7 @@
 
 .formHint {
   margin-top: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   color: #666;
   line-height: 1.5;
 }
@@ -1260,7 +1266,7 @@
   padding: 1rem;
   background: white;
   border-radius: 16px;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #000;
   margin: 0;
   border: 1px solid #e5e7eb;
@@ -1282,7 +1288,7 @@
   padding: 1rem 1.5rem;
   border: none;
   border-radius: 16px;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -1332,7 +1338,7 @@
 
 /* Стили для Insights панели */
 .insightsTitle {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--nastia-dark);
   margin-bottom: 1rem;
@@ -1353,7 +1359,7 @@
 }
 
 .insightLabel {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--gray-600);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
@@ -1361,21 +1367,21 @@
 }
 
 .insightValue {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--nastia-dark);
   margin-bottom: 0.5rem;
 }
 
 .insightVariability {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--gray-600);
   font-weight: normal;
   margin-left: 0.25rem;
 }
 
 .insightRange {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--gray-600);
   font-weight: normal;
   margin-left: 0.25rem;
@@ -1385,7 +1391,7 @@
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
@@ -1405,13 +1411,13 @@
 }
 
 .insightConfidence {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--nastia-purple);
   font-weight: 500;
 }
 
 .insightSubtext {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--gray-600);
 }
 
@@ -1497,7 +1503,7 @@
 }
 
 .insightLoadingText {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--gray-600);
   line-height: 1.4;
   max-width: 280px;
@@ -1519,7 +1525,7 @@
   border: none;
   background: transparent;
   color: var(--gray-600);
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   border-radius: 0.5rem;
   cursor: pointer;
@@ -1537,7 +1543,7 @@
 }
 
 .insightDescription {
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.6;
   color: #000;
   padding: 0.5rem;
@@ -1575,7 +1581,7 @@
   background: transparent;
   color: var(--gray-600);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.125rem;
   cursor: pointer;
   transition: all 0.2s;
   border-bottom: 2px solid transparent;
@@ -1633,19 +1639,19 @@
 }
 
 .emptyState p:first-child {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
 }
 
 .emptyStateHint {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--gray-500);
 }
 
 /* Стили для отображения симптомов в календаре */
 .dayNumber {
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .dayIndicators {
@@ -1654,7 +1660,7 @@
   justify-content: center;
   align-items: center;
   margin-top: 2px;
-  font-size: 0.6rem;
+  font-size: 0.725rem;
 }
 
 .moodIndicator, .painIndicator {
@@ -1680,7 +1686,7 @@
   background: white;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .painButton:hover {
@@ -1708,7 +1714,7 @@
   background: white;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .moodButton:hover {
@@ -1727,7 +1733,7 @@
   padding: 0.75rem;
   border: 2px solid var(--gray-200);
   border-radius: 0.75rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   resize: vertical;
   font-family: inherit;
   transition: border-color 0.2s;
@@ -1771,7 +1777,7 @@
 }
 
 .periodIcon {
-  font-size: 5rem;
+  font-size: 5.25rem;
   animation: bounceIn 0.6s ease-out;
   animation-delay: 0.35s;
   animation-fill-mode: both;
@@ -1801,7 +1807,7 @@
 
 
 .periodDate {
-  font-size: 1.75rem;
+  font-size: 1.875rem;
   color: var(--nastia-purple);
   font-weight: 700;
   text-align: center;
@@ -1840,7 +1846,7 @@
 }
 
 .questionBubble {
-  font-size: 1.3rem;
+  font-size: 1.425rem;
   font-weight: 600;
   padding-right: 1.5rem;
 }
@@ -1862,7 +1868,7 @@
   background: #fff;
   border: 1px solid rgba(130, 92, 185, 0.18);
   font-weight: 500;
-  font-size: 1rem;
+  font-size: 1.125rem;
   margin-left: 2.75rem;
   display: flex;
   flex-direction: column;
@@ -1886,7 +1892,7 @@
 }
 
 .periodWisdomLabel {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1900,14 +1906,14 @@
 }
 
 .periodHintEmoji {
-  font-size: 1.35rem;
+  font-size: 1.475rem;
   line-height: 1.2;
   flex-shrink: 0;
 }
 
 .periodContentError {
   margin-top: 0.5rem;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--nastia-purple);
   text-align: center;
 }
@@ -1943,18 +1949,18 @@
 }
 
 .periodHoroscopeTitle {
-  font-size: 1.1rem;
+  font-size: 1.225rem;
   font-weight: 700;
 }
 
 .periodHoroscopeRange {
-  font-size: 0.85rem;
+  font-size: 0.975rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
 }
 
 .periodHoroscopeText {
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.95);
   white-space: pre-wrap;
@@ -1971,7 +1977,7 @@
   gap: 0.25rem;
   list-style: disc;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.9rem;
+  font-size: 1.025rem;
 }
 
 .dailyHoroscopeModal {
@@ -2001,7 +2007,7 @@
 }
 
 .dailyHoroscopeHeading {
-  font-size: 1.6rem;
+  font-size: 1.725rem;
   font-weight: 700;
 }
 
@@ -2015,7 +2021,7 @@
 }
 
 .dailyHoroscopeText {
-  font-size: 1.05rem;
+  font-size: 1.175rem;
   line-height: 1.75;
   color: rgba(243, 244, 255, 0.96);
   white-space: pre-wrap;
@@ -2090,7 +2096,7 @@
 }
 
 .dailyHoroscopeLoadingText {
-  font-size: 1.05rem;
+  font-size: 1.175rem;
   color: rgba(240, 249, 255, 0.9);
   max-width: 420px;
 }
@@ -2133,11 +2139,11 @@
   gap: 0.4rem;
   list-style: disc;
   color: rgba(224, 231, 255, 0.88);
-  font-size: 0.92rem;
+  font-size: 1.045rem;
 }
 
 .dailyHoroscopeDate {
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   font-weight: 600;
   color: rgba(224, 231, 255, 0.85);
 }
@@ -2148,7 +2154,7 @@
   padding: 1.1rem 1.3rem;
   border-radius: 16px;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 1.075rem;
 }
 
 .sergeyBanner {
@@ -2164,13 +2170,13 @@
 }
 
 .sergeyBannerTitle {
-  font-size: 1.1rem;
+  font-size: 1.225rem;
   font-weight: 700;
   color: #21165e;
 }
 
 .sergeyBannerSubtitle {
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   color: rgba(48, 36, 110, 0.88);
   line-height: 1.6;
 }
@@ -2185,7 +2191,7 @@
 .sergeyBannerButton {
   border-radius: 14px;
   padding: 0.78rem 1.2rem;
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
@@ -2272,7 +2278,7 @@
 }
 
 .sergeyBannerLoadingText {
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   color: rgba(48, 36, 110, 0.88);
   line-height: 1.6;
 }
@@ -2293,13 +2299,13 @@
   color: #7c162b;
   padding: 0.95rem 1.1rem;
   border-radius: 16px;
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   line-height: 1.6;
 }
 
 .sergeyBannerParagraph {
   margin: 0;
-  font-size: 0.97rem;
+  font-size: 1.095rem;
   line-height: 1.65;
   color: rgba(27, 20, 84, 0.95);
 }
@@ -2318,7 +2324,7 @@
   border: none;
   background: linear-gradient(135deg, rgba(132, 94, 247, 0.12), rgba(196, 181, 253, 0.18));
   color: #382461;
-  font-size: 1rem;
+  font-size: 1.125rem;
   text-align: left;
   cursor: pointer;
   box-shadow: 0 18px 32px -24px rgba(124, 58, 237, 0.6);
@@ -2340,12 +2346,12 @@
 
 .periodHoroscopeCTATitle {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.175rem;
   margin-bottom: 0.2rem;
 }
 
 .periodHoroscopeCTASubtitle {
-  font-size: 0.9rem;
+  font-size: 1.025rem;
   color: rgba(56, 36, 97, 0.85);
 }
 
@@ -2355,7 +2361,7 @@
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.78);
   color: #4c1d95;
-  font-size: 0.95rem;
+  font-size: 1.075rem;
   text-align: center;
 }
 

@@ -76,6 +76,12 @@ function buildPrompt(params: InsightGenerationParams): string {
 export async function generateInsightDescription(
   params: InsightGenerationParams
 ): Promise<InsightDescription> {
+  console.log('[Insight Content] Generating description for:', params.metricType, 'with keys:', {
+    hasClaudeKey: Boolean(params.apiKey),
+    hasClaudeProxy: Boolean(params.claudeProxyUrl),
+    hasOpenAIKey: Boolean(params.openAIApiKey),
+  });
+
   const prompt = buildPrompt(params);
 
   const messages: AIMessage[] = [
@@ -86,7 +92,7 @@ export async function generateInsightDescription(
   ];
 
   try {
-    const { text } = await callAI({
+    const { text, provider } = await callAI({
       messages,
       signal: params.signal,
       claudeApiKey: params.apiKey,
@@ -95,6 +101,8 @@ export async function generateInsightDescription(
       maxTokens: 800,
       temperature: 0.8,
     });
+
+    console.log('[Insight Content] ✅ Generated via', provider);
 
     // Пытаемся распарсить JSON из ответа
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
@@ -109,7 +117,7 @@ export async function generateInsightDescription(
 
     throw new Error('Неверный формат ответа от API');
   } catch (error) {
-    console.error('Failed to generate insight description:', error);
+    console.error('[Insight Content] ❌ Failed to generate:', error);
     throw error;
   }
 }

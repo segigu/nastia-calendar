@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .iconSuccess {
@@ -50,7 +50,7 @@
 }
 
 .title {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--nastia-dark);
   margin-bottom: 1rem;
@@ -63,7 +63,7 @@
   background-color: #f0f9ff;
   border-radius: 0.5rem;
   margin-bottom: 1.5rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #0369a1;
 }
 
@@ -91,6 +91,7 @@
   font-weight: 500;
   color: var(--gray-700);
   margin-bottom: 0.5rem;
+  font-size: 1rem;
 }
 
 .inputGroup input[type="checkbox"] {
@@ -103,7 +104,7 @@
   padding: 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   transition: border-color 0.2s;
 }
 
@@ -125,6 +126,7 @@
   border-radius: 0.5rem;
   border: none;
   font-weight: 500;
+  font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -159,7 +161,7 @@
   padding: 0.75rem;
   border-radius: 0.5rem;
   margin-top: 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .message.success {
