@@ -612,6 +612,95 @@
 
 .cyclesList {
   margin-bottom: 1.5rem;
+  padding: 0;
+}
+
+/* Стили для вступительной истории */
+.historyIntroContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0;
+  padding-top: 1rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.historyIntroEmoji {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: emojiPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  align-self: flex-start;
+}
+
+@keyframes emojiPop {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.historyIntroText {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--nastia-dark);
+  text-align: left;
+  line-height: 1.7;
+  width: 100%;
+  position: relative;
+  letter-spacing: 0.01em;
+}
+
+.historyEllipsis {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+.historyPunchline {
+  margin-top: 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--nastia-purple);
+  text-align: left;
+  width: 100%;
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cycleItem {
@@ -621,10 +710,17 @@
   padding: 0.75rem;
   background-color: var(--nastia-light);
   border-radius: 0.75rem;
-  margin-bottom: 0.75rem;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
 }
 
-.cycleItem:last-child {
+.cycleItem.cycleItemVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cycleItem:last-of-type {
   margin-bottom: 0;
 }
 
@@ -660,6 +756,119 @@
 
 .cycleActionButton:hover {
   color: var(--nastia-red);
+}
+
+/* Стили для связок между циклами */
+.cycleSeparator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.4s ease-out 0.2s, transform 0.4s ease-out 0.2s;
+}
+
+.cycleSeparator.cycleSeparatorVisible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cycleSeparatorLine {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nastia-purple-light) 20%,
+    var(--nastia-purple) 50%,
+    var(--nastia-purple-light) 80%,
+    transparent
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+.cycleSeparatorLine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.cycleSeparatorBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--nastia-purple) 0%, var(--nastia-dark) 100%);
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
+  position: relative;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(138, 89, 237, 0.4);
+  }
+}
+
+.cycleSeparatorBadge::before {
+  content: '✨';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 1rem;
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 1;
+  }
+}
+
+.cycleSeparatorDays {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.cycleSeparatorLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: lowercase;
+  margin-top: 0.125rem;
 }
 
 .modal {
@@ -742,20 +951,6 @@
 
 .modalButton:active {
   transform: scale(0.98);
-}
-
-.footer {
-  text-align: center;
-  margin-top: 2rem;
-  padding: 1rem 0;
-  border-top: 1px solid var(--nastia-light);
-}
-
-.footerText {
-  color: var(--gray-600);
-  font-size: 1rem;
-  margin: 0;
-  font-style: italic;
 }
 
 .syncMessage {
