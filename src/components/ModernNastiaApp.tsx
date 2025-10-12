@@ -9,7 +9,13 @@ import {
   Cloud,
   CloudOff
 } from 'lucide-react';
-import { CycleData, NastiaData, NotificationCategory, NotificationItem } from '../types';
+import {
+  CycleData,
+  type HoroscopeMemoryEntry,
+  NastiaData,
+  NotificationCategory,
+  NotificationItem,
+} from '../types';
 import nastiaLogo from '../assets/nastia-header-logo.png';
 import {
   formatDate,
@@ -17,6 +23,7 @@ import {
   isToday,
   getMonthYear,
   diffInDays,
+  addDays,
 } from '../utils/dateUtils';
 import {
   calculateCycleStats,
@@ -59,6 +66,7 @@ import {
   fetchDailyHoroscopeForDate,
   fetchHoroscopeLoadingMessages,
   fetchSergeyDailyHoroscopeForDate,
+  mergeHoroscopeMemoryEntries,
   type DailyHoroscope,
   type HoroscopeLoadingMessage,
 } from '../utils/horoscope';
@@ -73,10 +81,160 @@ import {
   getRandomLoadingPhrase,
   type InsightDescription,
 } from '../utils/insightContent';
+import {
+  generateHistoryStoryChunk,
+  type HistoryStoryOption,
+} from '../utils/historyStory';
 import styles from './NastiaApp.module.css';
 
 const PRIMARY_USER_NAME = 'Настя';
 const MAX_STORED_NOTIFICATIONS = 200;
+const HOROSCOPE_MEMORY_LIMIT = 12;
+
+const MS_IN_DAY = 24 * 60 * 60 * 1000;
+
+const pluralizeDays = (value: number): string => {
+  const abs = Math.abs(value) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 14) {
+    return 'дней';
+  }
+  if (last === 1) {
+    return 'день';
+  }
+  if (last >= 2 && last <= 4) {
+    return 'дня';
+  }
+  return 'дней';
+};
+
+const normalizeDate = (input: Date): Date => {
+  const normalized = new Date(input);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
+const formatDayCount = (value: number): string => `${value} ${pluralizeDays(value)}`;
+
+const buildPeriodTimingContext = (targetDate: Date, cycles: CycleData[]): string | null => {
+  if (!targetDate) {
+    return null;
+  }
+
+  const normalizedCycles: CycleData[] = [];
+
+  for (const cycle of cycles) {
+    if (!cycle?.startDate) {
+      continue;
+    }
+    const start = new Date(cycle.startDate);
+    if (Number.isNaN(start.getTime())) {
+      continue;
+    }
+    normalizedCycles.push({
+      ...cycle,
+      startDate: start,
+      endDate: cycle.endDate ? new Date(cycle.endDate) : undefined,
+    });
+  }
+
+  if (!normalizedCycles.length) {
+    return 'История циклов пустая, так что просто скажи, что фиксируете дату и наблюдаете за организмом.';
+  }
+
+  const stats = calculateCycleStats(normalizedCycles);
+  const averageLength = stats.averageLength6Months || stats.averageLength;
+
+  const summaryLines: string[] = [];
+
+  if (averageLength) {
+    summaryLines.push(`Средний цикл по журналу: около ${averageLength} ${pluralizeDays(averageLength)}.`);
+  }
+
+  if (stats.lastCycleLength) {
+    summaryLines.push(`Прошлый цикл длился ${stats.lastCycleLength} ${pluralizeDays(stats.lastCycleLength)}.`);
+  }
+
+  if (stats.predictionConfidence) {
+    summaryLines.push(`Уверенность прогноза: около ${stats.predictionConfidence}%.`);
+  }
+
+  const normalizedTarget = normalizeDate(targetDate);
+
+  let predictedDiffDays: number | null = null;
+
+  if (stats.nextPrediction instanceof Date && !Number.isNaN(stats.nextPrediction.getTime())) {
+    const predicted = normalizeDate(stats.nextPrediction);
+    predictedDiffDays = Math.round((normalizedTarget.getTime() - predicted.getTime()) / MS_IN_DAY);
+
+    const diffPhrase =
+      predictedDiffDays === 0
+        ? 'совпадает с прогнозом'
+        : predictedDiffDays > 0
+          ? `опаздывает на ${formatDayCount(predictedDiffDays)}`
+          : `пришла раньше на ${formatDayCount(Math.abs(predictedDiffDays))}`;
+
+    summaryLines.push(`Прогноз ждал старт ${formatDate(predicted)}, факт ${diffPhrase}.`);
+  } else {
+    summaryLines.push('Прогноз по дате пока ненадёжный — данных мало.');
+  }
+
+  let ovulationDiffDays: number | null = null;
+
+  if (stats.nextPrediction instanceof Date && !Number.isNaN(stats.nextPrediction.getTime())) {
+    const ovulationEstimate = normalizeDate(addDays(stats.nextPrediction, -14));
+    ovulationDiffDays = Math.round((normalizedTarget.getTime() - ovulationEstimate.getTime()) / MS_IN_DAY);
+
+    if (ovulationDiffDays === 0) {
+      summaryLines.push('Расчётная овуляция должна быть прямо сегодня — для менструации это крайне рано.');
+    } else if (ovulationDiffDays < 0) {
+      summaryLines.push(`По расчётам до овуляции ещё ${formatDayCount(Math.abs(ovulationDiffDays))} — организм резко ускорился.`);
+    } else {
+      const baseLine = `С расчётной овуляции прошло ${formatDayCount(ovulationDiffDays)}.`;
+      if (ovulationDiffDays < 12) {
+        summaryLines.push(`${baseLine} Это короче типичной лютеиновой фазы — тело явно торопится.`);
+      } else if (ovulationDiffDays > 18) {
+        summaryLines.push(`${baseLine} Это дольше обычного ожидания — можно подколоть организм за затяжку.`);
+      } else {
+        summaryLines.push(`${baseLine} Это вписывается в привычные 12–16 дней.`);
+      }
+    }
+  }
+
+  let directive: string;
+
+  if (predictedDiffDays == null) {
+    directive = 'Статистики мало — поддержи Настю, подбодри и предложи продолжать наблюдение.';
+  } else if (predictedDiffDays === 0) {
+    directive = 'Подчеркни, что организм отработал по расписанию и можно язвительно гордиться пунктуальностью.';
+  } else if (predictedDiffDays > 0) {
+    const delayText = formatDayCount(predictedDiffDays);
+    directive =
+      predictedDiffDays <= 2
+        ? `Отметь, что месячные припозднились на ${delayText} — поддержи и намекни на стресс или недосып.`
+        : `Подколи тело за задержку на ${delayText} и мягко предложи понаблюдать или обсудить с врачом, если такое повторяется.`;
+  } else {
+    const earlyDays = Math.abs(predictedDiffDays);
+    const earlyText = formatDayCount(earlyDays);
+    directive =
+      earlyDays <= 2
+        ? `Подметь, что цикл стартовал на ${earlyText} раньше и организм не стал ждать пикового ПМС.`
+        : `Скажи, что месячные пришли слишком рано (на ${earlyText}) — саркастично попроси перепроверить дату и прислушаться к самочувствию.`;
+  }
+
+  if (ovulationDiffDays != null) {
+    if (ovulationDiffDays <= 1) {
+      directive =
+        'По расчётам овуляция ещё совсем рядом, так что начало цикла выглядит подозрительно ранним — язвительно попроси Настю перепроверить дату и исключить ложную тревогу.';
+    } else if (ovulationDiffDays < 10) {
+      directive += ` Упомяни, что лютеиновая фаза вышла короткой (${formatDayCount(ovulationDiffDays)}) — посоветуй поберечь себя и наблюдать.`;
+    } else if (ovulationDiffDays > 18) {
+      directive += ` Добавь, что ожидание после овуляции растянулось на ${formatDayCount(ovulationDiffDays)} — подшути над организмом, который тянул до последнего.`;
+    }
+  }
+
+  return `${summaryLines.join('\n')}\nРекомендация рассказчице: ${directive}`.trim();
+};
 
 const DEFAULT_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
   { emoji: '☎️', text: 'Звоним Марсу — уточняем, кто сегодня заведует твоим драйвом.' },
@@ -240,6 +398,30 @@ const HISTORY_INTROS = [
   },
 ];
 
+interface StoryAuthor {
+  id: string;
+  name: string;
+  prompt: string;
+}
+
+const STORY_AUTHORS: StoryAuthor[] = [
+  {
+    id: 'tolstoy',
+    name: 'Лев Толстой',
+    prompt: 'Дай развернутые наблюдения за бытом и эмоциями, используй плавные переходы и внимательные детали.',
+  },
+  {
+    id: 'bulgakov',
+    name: 'Михаил Булгаков',
+    prompt: 'Добавь остроумие, лёгкую сатиру и намёки на мистику, избегай чрезмерного пафоса.',
+  },
+  {
+    id: 'christie',
+    name: 'Агата Кристи',
+    prompt: 'Поддерживай напряжение, оставляй крошечные зацепки и деталей для будущих развязок.',
+  },
+];
+
 const SERGEY_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
   { emoji: '🧯', text: 'Марс проверяет, чем тушить очередной пожар, пока Серёжа дышит на пепелище.' },
   { emoji: '🛠️', text: 'Сатурн выдал Серёже новые ключи — чинить то, что рухнуло за ночь.' },
@@ -247,6 +429,15 @@ const SERGEY_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
   { emoji: '🚬', text: 'Плутон подкуривает Серёже сигарету и шепчет, что отдохнуть всё равно не выйдет.' },
   { emoji: '📦', text: 'Юпитер навалил задач, пока Серёжа таскал коробки и матерился сквозь зубы.' },
 ];
+
+interface HistoryStorySegment {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  option?: HistoryStoryOption;
+  timestamp: string; // ISO timestamp
+}
 
 const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
   fertile_window: 'Фертильное окно',
@@ -267,6 +458,7 @@ const ModernNastiaApp: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
+  const [horoscopeMemory, setHoroscopeMemory] = useState<HoroscopeMemoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
   const [showSettings, setShowSettings] = useState(false);
   const [githubToken, setGithubToken] = useState('');
@@ -357,16 +549,289 @@ const ModernNastiaApp: React.FC = () => {
   const [visibleCycleIds, setVisibleCycleIds] = useState<string[]>([]);
   const [showHistoryIntro, setShowHistoryIntro] = useState(false);
   const [historyIntro, setHistoryIntro] = useState<{ emoji: string; text: string; punchline: string } | null>(null);
-  const [typedText, setTypedText] = useState('');
-  const [showPunchline, setShowPunchline] = useState(false);
+  const [historyStoryAuthor, setHistoryStoryAuthor] = useState<StoryAuthor>(() => {
+    const index = Math.floor(Math.random() * STORY_AUTHORS.length);
+    return STORY_AUTHORS[index];
+  });
+  const [historyStoryMenuOpen, setHistoryStoryMenuOpen] = useState(false);
+  const [historyStorySegments, setHistoryStorySegments] = useState<HistoryStorySegment[]>([]);
+  const historyStorySegmentsRef = useRef<HistoryStorySegment[]>([]);
+  const historyStorySummaryRef = useRef('');
+  const [historyStoryOptions, setHistoryStoryOptions] = useState<HistoryStoryOption[]>([]);
+  const [historyStoryLoading, setHistoryStoryLoading] = useState(false);
+  const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
+  const [historyStoryMode, setHistoryStoryMode] = useState<'story' | 'cycles'>('story');
+  const [historyStoryTyping, setHistoryStoryTyping] = useState(false);
+  const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
+  const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
+  const historyStoryPendingOptionsRef = useRef<HistoryStoryOption[] | null>(null);
+  const buttonAnimationTimeoutsRef = useRef<number[]>([]);
+  const historyStoryPendingChoiceRef = useRef<HistoryStoryOption | undefined>(undefined);
+  const historyStoryMenuRef = useRef<HTMLDivElement | null>(null);
+  const historyStoryMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const historyStoryTypingTimeoutRef = useRef<number | null>(null);
+  const historyStoryFetchControllerRef = useRef<AbortController | null>(null);
+  const historyMessagesRef = useRef<HTMLDivElement | null>(null);
+  const clearHistoryStoryTypingTimer = useCallback(() => {
+    if (historyStoryTypingTimeoutRef.current !== null) {
+      window.clearTimeout(historyStoryTypingTimeoutRef.current);
+      historyStoryTypingTimeoutRef.current = null;
+    }
+  }, []);
+
+  const abortHistoryStoryRequest = useCallback(() => {
+    if (historyStoryFetchControllerRef.current) {
+      historyStoryFetchControllerRef.current.abort();
+      historyStoryFetchControllerRef.current = null;
+    }
+  }, []);
+
+  const clearButtonAnimationTimers = useCallback(() => {
+    buttonAnimationTimeoutsRef.current.forEach(id => window.clearTimeout(id));
+    buttonAnimationTimeoutsRef.current = [];
+  }, []);
+
+  const resetHistoryStoryState = useCallback(() => {
+    abortHistoryStoryRequest();
+    clearHistoryStoryTypingTimer();
+    clearButtonAnimationTimers();
+    historyStoryPendingOptionsRef.current = null;
+    historyStoryPendingChoiceRef.current = undefined;
+    historyStorySegmentsRef.current = [];
+    historyStorySummaryRef.current = '';
+    setHistoryStorySegments([]);
+    setHistoryStoryOptions([]);
+    setHistoryStoryError(null);
+    setHistoryStoryLoading(false);
+    setHistoryStoryTyping(false);
+    setHistoryStoryMode('story');
+    setShowHistoryIntro(false);
+    setHistoryIntro(null);
+    setHistoryStoryMenuOpen(false);
+    setVisibleButtonsCount(0);
+  }, [abortHistoryStoryRequest, clearHistoryStoryTypingTimer, clearButtonAnimationTimers]);
+
+  const startTypingHistorySegment = useCallback((segment: HistoryStorySegment) => {
+    clearHistoryStoryTypingTimer();
+    const chunk = segment.text;
+
+    if (!chunk) {
+      setHistoryStoryTyping(false);
+      const pending = historyStoryPendingOptionsRef.current;
+      if (pending) {
+        setHistoryStoryOptions(pending);
+        historyStoryPendingOptionsRef.current = null;
+      }
+      return;
+    }
+
+    // Показываем индикатор "печатает..."
+    setHistoryStoryTyping(true);
+    setHistoryStoryOptions([]);
+
+    // Вычисляем время показа индикатора на основе длины текста (минимум 1с, максимум 3с)
+    const typingDuration = Math.min(Math.max(chunk.length * 15, 1000), 3000);
+
+    // После задержки показываем сообщение целиком
+    historyStoryTypingTimeoutRef.current = window.setTimeout(() => {
+      setHistoryStoryTyping(false);
+      setHistoryStorySegments(prev => {
+        const updated = [...prev, segment];
+        historyStorySegmentsRef.current = updated;
+        return updated;
+      });
+      const pending = historyStoryPendingOptionsRef.current;
+      if (pending) {
+        setHistoryStoryOptions(pending);
+        historyStoryPendingOptionsRef.current = null;
+      }
+    }, typingDuration);
+  }, [clearHistoryStoryTypingTimer]);
+
+  const updateHistoryStorySummary = useCallback((segments: HistoryStorySegment[]) => {
+    const CONTEXT_SEGMENTS = 4;
+    if (segments.length <= CONTEXT_SEGMENTS) {
+      historyStorySummaryRef.current = '';
+      return;
+    }
+
+    const older = segments.slice(0, segments.length - CONTEXT_SEGMENTS);
+    const summaryChunks = older.map((segment, index) => {
+      const prefix = index + 1;
+      return `${prefix}. ${segment.authorName}: ${segment.text}`;
+    });
+
+    let summary = summaryChunks.join(' ');
+    summary = summary.replace(/\s+/g, ' ').trim();
+
+    if (summary.length > 420) {
+      summary = `${summary.slice(0, 420).trimEnd()}…`;
+    }
+
+    historyStorySummaryRef.current = `Сжатая сводка предыдущих событий: ${summary}`;
+  }, []);
+
+  const fetchHistoryStoryChunk = useCallback(
+    async (choice?: HistoryStoryOption) => {
+      abortHistoryStoryRequest();
+
+      const controller = new AbortController();
+      historyStoryFetchControllerRef.current = controller;
+
+      setHistoryStoryLoading(true);
+      setHistoryStoryError(null);
+      historyStoryPendingChoiceRef.current = choice;
+
+      try {
+        const recentSegments = historyStorySegmentsRef.current.slice(-4);
+        const response = await generateHistoryStoryChunk({
+          segments: recentSegments.map(segment => ({
+            text: segment.text,
+            optionTitle: segment.option?.title,
+            optionDescription: segment.option?.description,
+          })),
+          currentChoice: choice,
+          summary: historyStorySummaryRef.current || undefined,
+          author: {
+            name: historyStoryAuthor.name,
+            stylePrompt: historyStoryAuthor.prompt,
+          },
+          signal: controller.signal,
+          claudeApiKey: remoteClaudeKey ?? undefined,
+          claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
+          openAIApiKey: remoteOpenAIKey ?? undefined,
+        });
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const newSegment: HistoryStorySegment = {
+          id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          text: response.continuation,
+          authorId: historyStoryAuthor.id,
+          authorName: historyStoryAuthor.name,
+          option: choice,
+          timestamp: new Date().toISOString(),
+        };
+
+        historyStoryPendingOptionsRef.current = response.options;
+        setShowHistoryIntro(false);
+        startTypingHistorySegment(newSegment);
+        historyStoryPendingChoiceRef.current = undefined;
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('Failed to generate history story chunk', error);
+        setHistoryStoryError('Не удалось придумать продолжение. Попробуй ещё раз.');
+        historyStoryPendingOptionsRef.current = null;
+        setHistoryStoryOptions([]);
+        setHistoryStoryTyping(false);
+      } finally {
+        if (!controller.signal.aborted) {
+          setHistoryStoryLoading(false);
+          historyStoryFetchControllerRef.current = null;
+        }
+      }
+    },
+    [abortHistoryStoryRequest, historyStoryAuthor, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, startTypingHistorySegment],
+  );
+
+  const initiateHistoryStory = useCallback(() => {
+    resetHistoryStoryState();
+    const randomIntro = HISTORY_INTROS[Math.floor(Math.random() * HISTORY_INTROS.length)];
+    setHistoryIntro(randomIntro);
+    setShowHistoryIntro(true);
+    setHistoryStoryMode('story');
+    void fetchHistoryStoryChunk();
+  }, [fetchHistoryStoryChunk, resetHistoryStoryState]);
+
+  const handleHistoryOptionSelect = useCallback((option: HistoryStoryOption) => {
+    setHistoryStoryMode('story');
+    setHistoryButtonsHiding(true);
+    clearButtonAnimationTimers();
+    setVisibleButtonsCount(0);
+
+    // Ждем завершения анимации скрытия (с учетом задержек между кнопками)
+    setTimeout(() => {
+      setHistoryStoryOptions([]);
+      setHistoryButtonsHiding(false);
+      void fetchHistoryStoryChunk(option);
+    }, 550); // 350ms анимация + 160ms последняя задержка + запас
+  }, [fetchHistoryStoryChunk, clearButtonAnimationTimers]);
+
+  const handleShowHistoryCycles = useCallback(() => {
+    setHistoryStoryMode('cycles');
+    setHistoryStoryMenuOpen(false);
+  }, []);
+
+  const handleReturnToStory = useCallback(() => {
+    setHistoryStoryMode('story');
+    setHistoryStoryMenuOpen(false);
+    if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading) {
+      initiateHistoryStory();
+    }
+  }, [historyStoryLoading, initiateHistoryStory]);
+
+  const handleHistoryRetry = useCallback(() => {
+    if (historyStoryLoading) {
+      return;
+    }
+
+    const pendingChoice = historyStoryPendingChoiceRef.current;
+    if (pendingChoice) {
+      void fetchHistoryStoryChunk(pendingChoice);
+      return;
+    }
+
+    const lastSegment = historyStorySegmentsRef.current[historyStorySegmentsRef.current.length - 1];
+    if (lastSegment?.option) {
+      void fetchHistoryStoryChunk(lastSegment.option);
+      return;
+    }
+
+    initiateHistoryStory();
+  }, [fetchHistoryStoryChunk, historyStoryLoading, initiateHistoryStory]);
   const readIdsRef = useRef(readIds);
   const notificationsRequestSeqRef = useRef(0);
   const isMountedRef = useRef(true);
   const sergeyRequestControllerRef = useRef<AbortController | null>(null);
+  const dataHydratedRef = useRef(false);
+  const horoscopeMemoryRef = useRef<HoroscopeMemoryEntry[]>([]);
+  const cyclesRef = useRef<CycleData[]>([]);
 
   useEffect(() => {
     readIdsRef.current = readIds;
   }, [readIds]);
+
+  useEffect(() => {
+    historyStorySegmentsRef.current = historyStorySegments;
+  }, [historyStorySegments]);
+
+  useEffect(() => {
+    updateHistoryStorySummary(historyStorySegments);
+  }, [historyStorySegments, updateHistoryStorySummary]);
+
+  useEffect(() => {
+    if (!historyStoryMenuOpen) {
+      return;
+    }
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (historyStoryMenuRef.current?.contains(target)) {
+        return;
+      }
+      if (historyStoryMenuButtonRef.current?.contains(target)) {
+        return;
+      }
+      setHistoryStoryMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [historyStoryMenuOpen]);
 
   useEffect(() => {
     return () => {
@@ -382,6 +847,140 @@ const ModernNastiaApp: React.FC = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      abortHistoryStoryRequest();
+      clearHistoryStoryTypingTimer();
+    };
+  }, [abortHistoryStoryRequest, clearHistoryStoryTypingTimer]);
+
+  useEffect(() => {
+    horoscopeMemoryRef.current = horoscopeMemory;
+  }, [horoscopeMemory]);
+
+  useEffect(() => {
+    cyclesRef.current = cycles;
+  }, [cycles]);
+
+  useEffect(() => {
+    if (activeTab !== 'history') {
+      resetHistoryStoryState();
+      return;
+    }
+
+    if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading && !historyStoryTyping) {
+      initiateHistoryStory();
+    }
+  }, [activeTab, historyStoryLoading, historyStoryTyping, initiateHistoryStory, resetHistoryStoryState]);
+
+  useEffect(() => {
+    if (historyStoryMode !== 'cycles' || cycles.length === 0) {
+      setVisibleCycleIds([]);
+      return;
+    }
+
+    setVisibleCycleIds([]);
+    const sortedCycles = [...cycles].sort(
+      (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+    );
+
+    const timers = sortedCycles.map((cycle, index) =>
+      window.setTimeout(() => {
+        setVisibleCycleIds(prev => (prev.includes(cycle.id) ? prev : [...prev, cycle.id]));
+      }, 150 * index + 100)
+    );
+
+    return () => {
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [historyStoryMode, cycles]);
+
+  // Функция для плавного скролла
+  const scrollToBottom = useCallback((delay = 0) => {
+    setTimeout(() => {
+      // Двойной requestAnimationFrame для гарантии что DOM обновился
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (historyMessagesRef.current) {
+            let scrollContainer = historyMessagesRef.current.parentElement;
+
+            while (scrollContainer && scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
+              scrollContainer = scrollContainer.parentElement;
+              if (scrollContainer?.tagName === 'BODY') break;
+            }
+
+            if (scrollContainer && scrollContainer.tagName !== 'BODY') {
+              // Скроллим вниз полностью, без отступа
+              scrollContainer.scrollTo({
+                top: scrollContainer.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+          }
+        });
+      });
+    }, delay);
+  }, []);
+
+  // Автоскролл при появлении typing indicator
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+
+    if (historyStoryTyping) {
+      scrollToBottom(350);
+    }
+  }, [historyStoryTyping, historyStoryMode, scrollToBottom]);
+
+  // Автоскролл при появлении нового сообщения
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+
+    if (historyStorySegments.length > 0 && !historyStoryTyping) {
+      scrollToBottom(400);
+    }
+  }, [historyStorySegments.length, historyStoryTyping, historyStoryMode, scrollToBottom]);
+
+  // Последовательное появление кнопок с прокруткой после каждой
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+
+    if (historyStoryOptions.length === 0) {
+      setVisibleButtonsCount(0);
+      return;
+    }
+
+    if (historyStoryTyping || historyButtonsHiding) {
+      return;
+    }
+
+    clearButtonAnimationTimers();
+
+    // Начинаем показывать кнопки по одной (включая кнопку "Показать циклы")
+    const totalButtons = historyStoryOptions.length + 1; // +1 для кнопки "Показать циклы"
+    const delayBetweenButtons = 500; // Задержка между кнопками
+
+    for (let i = 0; i < totalButtons; i++) {
+      const timeoutId = window.setTimeout(() => {
+        setVisibleButtonsCount(i + 1);
+        scrollToBottom(200);
+      }, delayBetweenButtons * (i + 1));
+
+      buttonAnimationTimeoutsRef.current.push(timeoutId);
+    }
+
+    return () => {
+      clearButtonAnimationTimers();
+    };
+  }, [historyStoryOptions, historyStoryMode, historyStoryTyping, historyButtonsHiding, scrollToBottom, clearButtonAnimationTimers]);
 
   const fallbackPeriodContent = useMemo(
     () => getFallbackPeriodContent(PRIMARY_USER_NAME),
@@ -450,73 +1049,6 @@ const ModernNastiaApp: React.FC = () => {
       }
     };
   }, [showNotifications, notificationsLoading, notifications]);
-
-  useEffect(() => {
-    if (activeTab !== 'history') {
-      setVisibleCycleIds([]);
-      setShowHistoryIntro(false);
-      setHistoryIntro(null);
-      setTypedText('');
-      setShowPunchline(false);
-      return;
-    }
-    if (cycles.length === 0) {
-      setVisibleCycleIds([]);
-      setShowHistoryIntro(false);
-      return;
-    }
-
-    // Выбираем рандомную историю
-    const randomIntro = HISTORY_INTROS[Math.floor(Math.random() * HISTORY_INTROS.length)];
-    setHistoryIntro(randomIntro);
-    setShowHistoryIntro(true);
-    setTypedText('');
-    setShowPunchline(false);
-    setVisibleCycleIds([]);
-
-    const allTimers: number[] = [];
-
-    // Эффект печатания текста
-    let charIndex = 0;
-    const typingInterval = window.setInterval(() => {
-      if (charIndex < randomIntro.text.length) {
-        setTypedText(randomIntro.text.substring(0, charIndex + 1));
-        charIndex++;
-      } else {
-        window.clearInterval(typingInterval);
-
-        // Показываем многоточие на секунду
-        const ellipsisTimer = window.setTimeout(() => {
-          setShowPunchline(true);
-
-          // Ждём ещё секунду и скрываем всё
-          const hideTimer = window.setTimeout(() => {
-            setShowHistoryIntro(false);
-
-            // Начинаем показывать циклы
-            const sortedCycles = [...cycles].sort(
-              (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-            );
-            sortedCycles.forEach((cycle, index) => {
-              const timer = window.setTimeout(() => {
-                setVisibleCycleIds(prev =>
-                  prev.includes(cycle.id) ? prev : [...prev, cycle.id]
-                );
-              }, 150 * index + 100);
-              allTimers.push(timer);
-            });
-          }, 1500);
-          allTimers.push(hideTimer);
-        }, 1000);
-        allTimers.push(ellipsisTimer);
-      }
-    }, 50);
-
-    return () => {
-      window.clearInterval(typingInterval);
-      allTimers.forEach(timer => window.clearTimeout(timer));
-    };
-  }, [activeTab, cycles]);
 
   const persistNotifications = useCallback((items: StoredNotification[]): StoredNotification[] => {
     const limited = items.slice(0, MAX_STORED_NOTIFICATIONS);
@@ -678,10 +1210,12 @@ const ModernNastiaApp: React.FC = () => {
     setPeriodContentStatus('loading');
     setPeriodContentError(null);
     setPeriodContent(null);
+    const timingContext = buildPeriodTimingContext(selectedDate, cycles);
 
     generatePeriodModalContent({
       userName: PRIMARY_USER_NAME,
       cycleStartISODate: selectedDate.toISOString(),
+      cycleTimingContext: timingContext ?? undefined,
       signal: controller.signal,
       apiKey: remoteClaudeKey ?? undefined,
       claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
@@ -706,7 +1240,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, fallbackPeriodContent]);
+  }, [selectedDate, cycles, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, fallbackPeriodContent]);
 
   useEffect(() => {
     if (!selectedDate || !horoscopeVisible) {
@@ -810,10 +1344,16 @@ const ModernNastiaApp: React.FC = () => {
       remoteClaudeKey ?? undefined,
       remoteClaudeProxyUrl ?? undefined,
       remoteOpenAIKey ?? undefined,
+      cyclesRef.current,
+      horoscopeMemoryRef.current,
     )
       .then(result => {
         if (controller.signal.aborted) {
           return;
+        }
+        const memoryEntry = result.memoryEntry;
+        if (memoryEntry) {
+          setHoroscopeMemory(prev => mergeHoroscopeMemoryEntries(prev, memoryEntry));
         }
         setDailyHoroscope(result);
         setDailyHoroscopeStatus('idle');
@@ -894,12 +1434,18 @@ const ModernNastiaApp: React.FC = () => {
       remoteClaudeKey ?? undefined,
       remoteClaudeProxyUrl ?? undefined,
       remoteOpenAIKey ?? undefined,
+      cyclesRef.current,
+      horoscopeMemoryRef.current,
     )
       .then(result => {
         if (controller.signal.aborted) {
           return;
         }
         sergeyRequestControllerRef.current = null;
+        const memoryEntry = result.memoryEntry;
+        if (memoryEntry) {
+          setHoroscopeMemory(prev => mergeHoroscopeMemoryEntries(prev, memoryEntry));
+        }
         setSergeyHoroscope(result);
         setSergeyHoroscopeStatus('success');
       })
@@ -1193,11 +1739,28 @@ const ModernNastiaApp: React.FC = () => {
       if (cloudSync.isConfigured()) {
         try {
           const cloudData = await cloudSync.downloadFromCloud();
-          if (cloudData && cloudData.cycles.length > 0) {
-            setCycles(cloudData.cycles);
-            // Сохраняем локально как резерв
-            saveData(cloudData);
-            return;
+          if (cloudData) {
+            const convertedCycles = (cloudData.cycles ?? []).map((cycle: any) => ({
+              ...cycle,
+              startDate: new Date(cycle.startDate),
+              endDate: cycle.endDate ? new Date(cycle.endDate) : undefined,
+            }));
+            const cloudMemory = Array.isArray(cloudData.horoscopeMemory)
+              ? cloudData.horoscopeMemory
+              : [];
+            const trimmedCloudMemory = cloudMemory.slice(-HOROSCOPE_MEMORY_LIMIT);
+
+            if (convertedCycles.length > 0 || trimmedCloudMemory.length > 0) {
+              setCycles(convertedCycles);
+              setHoroscopeMemory(trimmedCloudMemory);
+              // Сохраняем локально как резерв
+              saveData({
+                ...cloudData,
+                cycles: convertedCycles,
+                horoscopeMemory: trimmedCloudMemory,
+              });
+              return;
+            }
           }
         } catch (error) {
           console.error('Cloud load error:', error);
@@ -1208,10 +1771,18 @@ const ModernNastiaApp: React.FC = () => {
       const localData = loadData();
       if (localData) {
         setCycles(localData.cycles);
+        const localMemory = (localData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT);
+        setHoroscopeMemory(localMemory);
         // Если есть локальные данные и облако настроено, загружаем в облако
-        if (localData.cycles.length > 0 && cloudSync.isConfigured()) {
+        if (
+          (localData.cycles.length > 0 || localMemory.length > 0) &&
+          cloudSync.isConfigured()
+        ) {
           try {
-            await cloudSync.uploadToCloud(localData);
+            await cloudSync.uploadToCloud({
+              ...localData,
+              horoscopeMemory: localMemory,
+            });
           } catch (error) {
             console.error('Cloud upload error:', error);
           }
@@ -1219,12 +1790,16 @@ const ModernNastiaApp: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading initial data:', error);
+    } finally {
+      dataHydratedRef.current = true;
     }
   };
 
   // Сохранение данных при изменении
   useEffect(() => {
-    if (cycles.length === 0) return; // Не сохраняем пустые данные при инициализации
+    if (!dataHydratedRef.current) {
+      return;
+    }
 
     const nastiaData: NastiaData = {
       cycles,
@@ -1233,16 +1808,17 @@ const ModernNastiaApp: React.FC = () => {
         periodLength: 5,
         notifications: true,
       },
+      horoscopeMemory,
     };
-    
+
     // Сохраняем локально
     saveData(nastiaData);
-    
-    // Автоматически сохраняем в облако
-    if (cloudSync.isConfigured()) {
+
+    // Автоматически сохраняем в облако, если есть что синхронизировать
+    if (cloudSync.isConfigured() && (cycles.length > 0 || horoscopeMemory.length > 0)) {
       syncToCloud(nastiaData);
     }
-  }, [cycles]);
+  }, [cycles, horoscopeMemory]);
 
   // Тихая синхронизация с облаком
   const syncToCloud = async (data: NastiaData) => {
@@ -1272,7 +1848,7 @@ const ModernNastiaApp: React.FC = () => {
           // Сначала пытаемся загрузить данные из облака
           try {
             const cloudData = await cloudSync.downloadFromCloud();
-            if (cloudData && cloudData.cycles.length > 0) {
+            if (cloudData && (cloudData.cycles.length > 0 || (cloudData.horoscopeMemory?.length ?? 0) > 0)) {
               // Если в облаке есть данные, загружаем их
               // Конвертируем строки дат в Date объекты
               const convertedCycles = cloudData.cycles.map((cycle: any) => ({
@@ -1280,10 +1856,15 @@ const ModernNastiaApp: React.FC = () => {
                 startDate: new Date(cycle.startDate),
                 endDate: cycle.endDate ? new Date(cycle.endDate) : undefined,
               }));
+              const cloudMemory = Array.isArray(cloudData.horoscopeMemory)
+                ? cloudData.horoscopeMemory
+                : [];
+              const trimmedCloudMemory = cloudMemory.slice(-HOROSCOPE_MEMORY_LIMIT);
               setCycles(convertedCycles);
-              saveData({ ...cloudData, cycles: convertedCycles });
-              alert(`Загружено ${cloudData.cycles.length} циклов из облака`);
-            } else if (cycles.length > 0) {
+              setHoroscopeMemory(trimmedCloudMemory);
+              saveData({ ...cloudData, cycles: convertedCycles, horoscopeMemory: trimmedCloudMemory });
+              alert(`Загружено ${convertedCycles.length} циклов и ${trimmedCloudMemory.length} заметок из облака`);
+            } else if (cycles.length > 0 || horoscopeMemory.length > 0) {
               // Если в облаке пусто, но есть локальные данные - загружаем их в облако
               const nastiaData: NastiaData = {
                 cycles,
@@ -1292,6 +1873,7 @@ const ModernNastiaApp: React.FC = () => {
                   periodLength: 5,
                   notifications: true,
                 },
+                horoscopeMemory: horoscopeMemory.slice(-HOROSCOPE_MEMORY_LIMIT),
               };
               await syncToCloud(nastiaData);
               alert('Локальные данные загружены в облако');
@@ -1931,85 +2513,233 @@ const ModernNastiaApp: React.FC = () => {
         )}
 
         {/* Вкладка: История всех циклов */}
-        {activeTab === 'history' && cycles.length > 0 && (
+        {activeTab === 'history' && (
           <>
-            {showHistoryIntro && historyIntro ? (
-              <div className={styles.historyIntroContainer}>
-                <div className={styles.historyIntroEmoji}>{historyIntro.emoji}</div>
-                <div className={styles.historyIntroText}>
-                  {typedText}
-                  {typedText.length === historyIntro.text.length && !showPunchline && (
-                    <span className={styles.historyEllipsis}>...</span>
+            {historyStoryMode === 'story' && (
+              <div className={styles.historyChatContainer}>
+                <div className={styles.historyStoryHeader}>
+                  <span className={styles.historyStoryLabel}>История</span>
+                  <div className={styles.historyStoryHeaderActions}>
+                    <div className={styles.historyStoryAuthorTag}>{historyStoryAuthor.name}</div>
+                    <button
+                      type="button"
+                      className={styles.historyStoryMenuButton}
+                      ref={historyStoryMenuButtonRef}
+                      onClick={() => setHistoryStoryMenuOpen(prev => !prev)}
+                      aria-label="Меню истории"
+                    >
+                      ⋮
+                    </button>
+                    {historyStoryMenuOpen && (
+                      <div ref={historyStoryMenuRef} className={styles.historyStoryMenu}>
+                        <button
+                          type="button"
+                          className={styles.historyStoryMenuItem}
+                          onClick={() => {
+                            setHistoryStoryMenuOpen(false);
+                            initiateHistoryStory();
+                          }}
+                          disabled={historyStoryLoading || historyStoryTyping}
+                        >
+                          Начать заново
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.historyStoryMenuItem}
+                          onClick={() => {
+                            setHistoryStoryMenuOpen(false);
+                            handleShowHistoryCycles();
+                          }}
+                        >
+                          Показать циклы
+                        </button>
+                        <div className={styles.historyStoryMenuDivider} />
+                        <div className={styles.historyStoryMenuSectionTitle}>Сменить автора</div>
+                        {STORY_AUTHORS.map(author => (
+                          <button
+                            key={author.id}
+                            type="button"
+                            className={`${styles.historyStoryMenuItem} ${author.id === historyStoryAuthor.id ? styles.historyStoryMenuItemActive : ''}`}
+                            onClick={() => {
+                              setHistoryStoryAuthor(author);
+                              setHistoryStoryMenuOpen(false);
+                            }}
+                            disabled={author.id === historyStoryAuthor.id}
+                          >
+                            {author.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className={styles.historyChatMessages} ref={historyMessagesRef}>
+                  {showHistoryIntro && historyIntro ? (
+                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}>
+                      <div className={styles.historyChatIntroEmoji}>{historyIntro.emoji}</div>
+                      <div>{historyIntro.text}</div>
+                    </div>
+                  ) : null}
+                  {historyStorySegments.map(segment => {
+                    const timestamp = new Date(segment.timestamp);
+                    const timeStr = timestamp.toLocaleTimeString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+
+                    return (
+                      <div
+                        key={segment.id}
+                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
+                      >
+                        <div className={styles.historyChatSender}>{segment.authorName}</div>
+                        <div className={styles.historyChatMessageWrapper}>
+                          <div className={styles.historyChatTextBlock}>
+                            <div className={styles.historyChatContent}>{segment.text}</div>
+                          </div>
+                          <div className={styles.historyChatTimestamp}>{timeStr}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}>
+                      <div className={styles.historyChatSender}>{historyStoryAuthor.name}</div>
+                      <div className={styles.historyChatTyping}>
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                    </div>
                   )}
                 </div>
-                {showPunchline && (
-                  <div className={styles.historyPunchline}>{historyIntro.punchline}</div>
+                {historyStoryError && (
+                  <div className={styles.historyStoryError}>
+                    <span>{historyStoryError}</span>
+                    <button
+                      type="button"
+                      className={styles.historyStoryRetry}
+                      onClick={handleHistoryRetry}
+                      disabled={historyStoryLoading}
+                    >
+                      Попробовать снова
+                    </button>
+                  </div>
+                )}
+                {!historyStoryTyping && historyStoryOptions.length > 0 && (
+                  <div className={`${styles.historyChatReplies} ${historyButtonsHiding ? styles.historyChatRepliesHiding : ''}`}>
+                    {historyStoryOptions.map((option, index) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`${styles.historyChatReplyButton} ${index < visibleButtonsCount ? styles.visible : ''}`}
+                        onClick={() => handleHistoryOptionSelect(option)}
+                        disabled={historyStoryLoading}
+                      >
+                        <span className={styles.historyChatReplyTitle}>{option.title}</span>
+                        <span className={styles.historyChatReplyDescription}>{option.description}</span>
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={`${styles.historyChatReplyButton} ${styles.historyChatReplySecondary} ${historyStoryOptions.length <= visibleButtonsCount ? styles.visible : ''}`}
+                      onClick={handleShowHistoryCycles}
+                    >
+                      <span className={styles.historyChatReplyTitle}>Показать циклы</span>
+                      <span className={styles.historyChatReplyDescription}>
+                        Хочу увидеть реальные данные
+                      </span>
+                    </button>
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className={styles.cyclesList}>
-                <h3 className={styles.statsTitle}>Все циклы ({cycles.length})</h3>
-                <div className={styles.cyclesListContainer}>
-                  {cycles
-                    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-                    .map((cycle, index, sortedCycles) => {
-                      const nextCycle = sortedCycles[index + 1];
-                      const daysBetween = nextCycle
-                        ? diffInDays(new Date(cycle.startDate), new Date(nextCycle.startDate))
-                        : null;
-                      const isVisible = visibleCycleIds.includes(cycle.id);
+            )}
+            {historyStoryMode === 'cycles' && (
+              <div className={`${styles.card} ${styles.historyCyclesCard}`}>
+                <div className={styles.historyCyclesHeader}>
+                  <h3 className={styles.statsTitle}>Все циклы ({cycles.length})</h3>
+                  <button
+                    type="button"
+                    className={styles.historyStoryRestartButton}
+                    onClick={handleReturnToStory}
+                  >
+                    Вернуться к истории
+                  </button>
+                </div>
+                {cycles.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <p>Нет записанных циклов</p>
+                    <p className={styles.emptyStateHint}>
+                      Перейдите на вкладку "Календарь" и нажмите на дату начала цикла
+                    </p>
+                  </div>
+                ) : (
+                  <div className={styles.cyclesListContainer}>
+                    {cycles
+                      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                      .map((cycle, index, sortedCycles) => {
+                        const nextCycle = sortedCycles[index + 1];
+                        const daysBetween = nextCycle
+                          ? diffInDays(new Date(cycle.startDate), new Date(nextCycle.startDate))
+                          : null;
+                        const isVisible = visibleCycleIds.includes(cycle.id);
+                        const isLastCycle = !nextCycle;
+                        const isFirstCycle = index === 0;
 
-                      return (
-                        <React.Fragment key={cycle.id}>
-                          <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
-                            <div className={styles.cycleInfo}>
-                              <div className={styles.cycleDate}>
-                                {formatDate(new Date(cycle.startDate))}
-                              </div>
-                              {cycle.notes && (
-                                <div className={styles.cycleNotes}>{cycle.notes}</div>
+                        return (
+                          <div
+                            key={cycle.id}
+                            className={`${styles.timelineItem} ${isVisible ? styles.timelineItemVisible : ''}`}
+                          >
+                            <div
+                              className={`${styles.timelineRail} ${isFirstCycle ? styles.timelineRailFirst : ''} ${
+                                isLastCycle ? styles.timelineRailLast : ''
+                              }`}
+                            >
+                              {!isFirstCycle && <div className={styles.timelineConnector}></div>}
+                              <div className={styles.timelineDot}></div>
+                              {daysBetween !== null ? (
+                                <div className={styles.timelineGapGroup}>
+                                  <div className={styles.timelineConnector}></div>
+                                  <div className={styles.timelineGapBadge}>
+                                    <span className={styles.timelineGapDays}>{daysBetween}</span>
+                                    <span className={styles.timelineGapLabel}>
+                                      {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
+                                    </span>
+                                  </div>
+                                  <div className={styles.timelineConnector}></div>
+                                </div>
+                              ) : (
+                                !isLastCycle && <div className={styles.timelineConnector}></div>
                               )}
                             </div>
-                            <div className={styles.cycleActions}>
-                              <button
-                                onClick={() => deleteCycle(cycle.id)}
-                                className={styles.cycleActionButton}
-                                title="Удалить цикл"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                            <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
+                              <div className={styles.cycleInfo}>
+                                <div className={styles.cycleDate}>
+                                  {formatDate(new Date(cycle.startDate))}
+                                </div>
+                                {cycle.notes && (
+                                  <div className={styles.cycleNotes}>{cycle.notes}</div>
+                                )}
+                              </div>
+                              <div className={styles.cycleActions}>
+                                <button
+                                  onClick={() => deleteCycle(cycle.id)}
+                                  className={styles.cycleActionButton}
+                                  title="Удалить цикл"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </div>
                           </div>
-                          {daysBetween !== null && (
-                            <div className={`${styles.cycleSeparator} ${isVisible ? styles.cycleSeparatorVisible : ''}`}>
-                              <div className={styles.cycleSeparatorLine}></div>
-                              <div className={styles.cycleSeparatorBadge}>
-                                <span className={styles.cycleSeparatorDays}>{daysBetween}</span>
-                                <span className={styles.cycleSeparatorLabel}>
-                                  {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
-                                </span>
-                              </div>
-                              <div className={styles.cycleSeparatorLine}></div>
-                            </div>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             )}
           </>
-        )}
-
-        {activeTab === 'history' && cycles.length === 0 && (
-          <div className={styles.card}>
-            <div className={styles.emptyState}>
-              <p>Нет записанных циклов</p>
-              <p className={styles.emptyStateHint}>
-                Перейдите на вкладку "Календарь" и нажмите на дату начала цикла
-              </p>
-            </div>
-          </div>
         )}
       </div>
 
@@ -2406,7 +3136,7 @@ const ModernNastiaApp: React.FC = () => {
                       <p key={index}>{paragraph.replace(/\*\*/g, '').replace(/\*\*/g, '')}</p>
                     ))}
                   </div>
-                  {!sergeyBannerDismissed && (
+                  {activeTab === 'calendar' && !sergeyBannerDismissed && (
                     <div className={styles.sergeyBanner} aria-live="polite">
                       <div className={styles.sergeyBannerTitle}>А что там у Сережи?</div>
                       {sergeyHoroscopeStatus === 'loading' ? (

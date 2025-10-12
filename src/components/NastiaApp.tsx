@@ -8,7 +8,7 @@ import {
   Upload,
   Trash2
 } from 'lucide-react';
-import { CycleData, NastiaData } from '../types';
+import { CycleData, HoroscopeMemoryEntry, NastiaData } from '../types';
 import { 
   formatDate, 
   formatShortDate, 
@@ -23,22 +23,27 @@ import {
 } from '../utils/cycleUtils';
 import { saveData, loadData, exportData, importData } from '../utils/storage';
 
+const HOROSCOPE_MEMORY_LIMIT = 12;
+
 const NastiaApp: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const [horoscopeMemory, setHoroscopeMemory] = useState<HoroscopeMemoryEntry[]>([]);
 
   // Загрузка данных при запуске
   useEffect(() => {
     const savedData = loadData();
     if (savedData) {
       setCycles(savedData.cycles);
+      setHoroscopeMemory((savedData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT));
     }
   }, []);
 
   // Сохранение данных при изменении
   useEffect(() => {
+    const trimmedMemory = horoscopeMemory.slice(-HOROSCOPE_MEMORY_LIMIT);
     const nastiaData: NastiaData = {
       cycles,
       settings: {
@@ -46,9 +51,10 @@ const NastiaApp: React.FC = () => {
         periodLength: 5,
         notifications: true,
       },
+      horoscopeMemory: trimmedMemory,
     };
     saveData(nastiaData);
-  }, [cycles]);
+  }, [cycles, horoscopeMemory]);
 
   // Получение дней месяца для календаря
   const getMonthDays = (date: Date) => {
@@ -120,6 +126,7 @@ const NastiaApp: React.FC = () => {
 
   // Экспорт данных
   const handleExport = () => {
+    const trimmedMemory = horoscopeMemory.slice(-HOROSCOPE_MEMORY_LIMIT);
     const nastiaData: NastiaData = {
       cycles,
       settings: {
@@ -127,6 +134,7 @@ const NastiaApp: React.FC = () => {
         periodLength: 5,
         notifications: true,
       },
+      horoscopeMemory: trimmedMemory,
     };
     const dataStr = exportData(nastiaData);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -148,6 +156,7 @@ const NastiaApp: React.FC = () => {
           const jsonString = e.target?.result as string;
           const importedData = importData(jsonString);
           setCycles(importedData.cycles);
+          setHoroscopeMemory((importedData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT));
         } catch (error) {
           alert('Ошибка при импорте данных');
         }

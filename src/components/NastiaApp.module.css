@@ -613,17 +613,414 @@
 .cyclesList {
   margin-bottom: 1.5rem;
   padding: 0;
+  position: relative;
 }
 
-/* Стили для вступительной истории */
-.historyIntroContainer {
+.cyclesList::before {
+  content: '';
+  position: absolute;
+  left: 2.25rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(138, 89, 237, 0.25), rgba(138, 89, 237, 0.35), rgba(138, 89, 237, 0.25));
+  border-radius: 999px;
+  z-index: 0;
+}
+
+.historyChatContainer {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  background: transparent;
+  min-height: 70vh;
+}
+
+.historyStoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
+  border-bottom: 1px solid rgba(219, 112, 147, 0.15);
+  margin: -0.5rem -0.5rem 0.5rem -0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.historyStoryLabel {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0;
+}
+
+.historyStoryHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+}
+
+.historyStoryAuthorTag {
+  background: #f0f0f0;
+  color: #666;
+  font-weight: 500;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: none;
+}
+
+.historyStoryMenuButton {
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.historyStoryMenuButton:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.historyStoryMenu {
+  position: absolute;
+  top: 2.8rem;
+  right: 0;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e0e0e0;
+  padding: 0.4rem;
+  z-index: 5;
+}
+
+.historyStoryMenuItem {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.historyStoryMenuItem:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.historyStoryMenuItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.historyStoryMenuItemActive {
+  background: var(--nastia-light);
+  color: var(--nastia-purple);
+  font-weight: 600;
+}
+
+.historyStoryMenuDivider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0.3rem 0;
+}
+
+.historyStoryMenuSectionTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0.3rem 0 0.2rem;
+  padding: 0 0.7rem;
+}
+
+.historyStoryRestartButton {
+  border: 1px solid #e0e0e0;
+  background: white;
+  color: #666;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.historyStoryRestartButton:hover:not(:disabled) {
+  background: #f9f9f9;
+  border-color: var(--nastia-purple);
+  color: var(--nastia-purple);
+}
+
+.historyStoryRestartButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.historyStoryError {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  background: #fff3f3;
+  border: 1px solid #ffcccc;
+  border-radius: 0.75rem;
+  color: #d32f2f;
+  font-size: 0.875rem;
+}
+
+.historyStoryRetry {
+  border: none;
+  background: var(--nastia-purple);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.historyStoryRetry:hover:not(:disabled) {
+  background: var(--nastia-dark);
+}
+
+.historyStoryRetry:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.historyChatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 6.5rem;
+  padding-bottom: 1rem;
+}
+
+.historyChatBubble {
+  position: relative;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  animation: slideInMessage 0.25s ease;
+  transform-origin: left;
+}
+
+.historyChatIncoming {
+  align-self: flex-start;
+  border-bottom-left-radius: 0.125rem;
+  background: #ffffff;
+}
+
+.historyChatSender {
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--nastia-purple);
+  font-weight: 600;
+}
+
+.historyChatContent {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+.historyChatMessageWrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.historyChatTextBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.historyChatTimestamp {
+  font-size: 0.7rem;
+  color: #999;
+  white-space: nowrap;
+  align-self: flex-end;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+
+.historyChatIntroEmoji {
+  font-size: 1.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.historyChatTyping {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  width: auto;
+  padding: 0.6rem 0;
   justify-content: flex-start;
-  padding: 0;
-  padding-top: 1rem;
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeInUp 0.3s ease;
+}
+
+.historyChatTyping span {
+  display: inline-block;
+  width: 0.3rem;
+  height: 0.3rem;
+  background: #888;
+  border-radius: 50%;
+  animation: typingPulse 1.2s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+.historyChatTyping span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.historyChatTyping span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.historyChatReplies {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.historyChatRepliesHiding {
+  pointer-events: none;
+}
+
+.historyChatRepliesHiding .historyChatReplyButton:nth-child(1) {
+  animation: fadeOut 0.35s ease forwards;
+  animation-delay: 0s;
+}
+
+.historyChatRepliesHiding .historyChatReplyButton:nth-child(2) {
+  animation: fadeOut 0.35s ease forwards;
+  animation-delay: 0.08s;
+}
+
+.historyChatRepliesHiding .historyChatReplyButton:nth-child(3) {
+  animation: fadeOut 0.35s ease forwards;
+  animation-delay: 0.16s;
+}
+
+.historyChatReplyButton {
+  border: 2px solid var(--nastia-purple);
+  background: transparent;
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--nastia-purple);
+  width: 100%;
+  box-shadow: none;
+  align-self: flex-start;
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+.historyChatReplyButton.visible {
+  animation: slideInButton 0.3s ease forwards;
+}
+
+.historyChatReplyButton:hover:not(:disabled) {
+  background: rgba(138, 89, 237, 0.08);
+  border-color: var(--nastia-dark);
+  transform: translateY(-1px);
+}
+
+.historyChatReplyButton:active:not(:disabled) {
+  transform: translateY(0);
+  background: rgba(138, 89, 237, 0.15);
+}
+
+.historyChatReplyButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.historyChatReplyTitle {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.historyChatReplyDescription {
+  font-size: 0.75rem;
+  color: #666;
+  line-height: 1.3;
+}
+
+.historyChatReplySecondary {
+  border-color: var(--nastia-pink);
+}
+
+.historyChatReplySecondary .historyChatReplyTitle {
+  color: #333;
+}
+
+.historyChatReplySecondary .historyChatReplyDescription {
+  color: #666;
+}
+
+.historyChatReplySecondary:hover:not(:disabled) {
+  background: rgba(255, 102, 140, 0.08);
+  border-color: var(--nastia-pink);
+}
+
+.historyCyclesCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem 1.75rem;
+}
+
+.historyCyclesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
 }
 
 @keyframes fadeIn {
@@ -634,6 +1031,56 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes slideInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideInButton {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+  40% {
+    opacity: 0.6;
+    transform: translateY(-5px) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.88);
+    filter: blur(8px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -661,7 +1108,7 @@
 .historyIntroText {
   font-size: 1.125rem;
   font-weight: 500;
-  color: var(--nastia-dark);
+  color: inherit;
   text-align: left;
   line-height: 1.7;
   width: 100%;
@@ -686,7 +1133,7 @@
   margin-top: 1.5rem;
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--nastia-purple);
+  color: inherit;
   text-align: left;
   width: 100%;
   animation: slideUp 0.5s ease-out;
@@ -704,15 +1151,30 @@
 }
 
 .cycleItem {
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 0.75rem;
-  background-color: var(--nastia-light);
-  border-radius: 0.75rem;
+  gap: 1rem;
+  padding: 0.9rem 1.15rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f0e6ff 100%);
+  border-radius: 1rem;
+  border: 1px solid rgba(138, 89, 237, 0.14);
+  box-shadow: 0 8px 20px rgba(138, 89, 237, 0.1);
   opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  transform: translateY(-18px);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out, box-shadow 0.2s ease-out;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.cycleItem::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+  pointer-events: none;
 }
 
 .cycleItem.cycleItemVisible {
@@ -720,29 +1182,33 @@
   transform: translateY(0);
 }
 
-.cycleItem:last-of-type {
-  margin-bottom: 0;
+.cycleItem:hover {
+  box-shadow: 0 12px 28px rgba(138, 89, 237, 0.15);
 }
 
 .cycleInfo {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .cycleDate {
-  font-weight: 600;
-  color: var(--nastia-dark);
+  font-weight: 700;
+  color: #2c0356;
   font-size: 1rem;
 }
 
 .cycleNotes {
-  font-size: 1rem;
-  color: var(--gray-600);
-  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: rgba(44, 3, 86, 0.65);
+  line-height: 1.4;
 }
 
 .cycleActions {
   display: flex;
   gap: 0.5rem;
+  margin-left: auto;
 }
 
 .cycleActionButton {
@@ -758,92 +1224,119 @@
   color: var(--nastia-red);
 }
 
-/* Стили для связок между циклами */
-.cycleSeparator {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1rem 0;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.4s ease-out 0.2s, transform 0.4s ease-out 0.2s;
-}
-
-.cycleSeparator.cycleSeparatorVisible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.cycleSeparatorLine {
-  flex: 1;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--nastia-purple-light) 20%,
-    var(--nastia-purple) 50%,
-    var(--nastia-purple-light) 80%,
-    transparent
-  );
-  position: relative;
-  overflow: hidden;
-}
-
-.cycleSeparatorLine::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.6),
-    transparent
-  );
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-.cycleSeparatorBadge {
+/* Вертикальная лента циклов */
+.timelineItem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--nastia-purple) 0%, var(--nastia-dark) 100%);
-  border-radius: 1rem;
-  box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
+  margin-bottom: 1.45rem;
+  opacity: 0;
+  transform: translateY(-18px);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+  width: 100%;
+}
+
+.timelineItem:last-of-type {
+  margin-bottom: 0;
+}
+
+.timelineItemVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timelineNode {
   position: relative;
-  animation: badgePulse 2s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  height: 100%;
 }
 
-@keyframes badgePulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(138, 89, 237, 0.4);
-  }
+.timelineConnector {
+  display: none;
 }
 
-.cycleSeparatorBadge::before {
+.timelineConnectorMid {
+  display: none;
+}
+
+.timelineConnectorTop {
+  display: none;
+}
+
+.timelineConnectorBottom {
+  display: none;
+}
+
+.timelineConnectorGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.timelineConnectorGroupCompact {
+  gap: 0;
+}
+
+.timelineConnectorGroupCompact .timelineConnectorBottom {
+  margin-top: 0;
+}
+
+.timelineDot {
+  display: none;
+}
+
+.timelineDot::before {
+  display: none;
+}
+
+.timelineDot::after {
+  display: none;
+}
+
+.timelineGapBadge {
+  position: relative;
+  z-index: 1;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff 0%, #f5edff 100%);
+  border: 1px solid rgba(138, 89, 237, 0.18);
+  box-shadow: 0 14px 30px rgba(138, 89, 237, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  text-transform: lowercase;
+  color: #301050;
+  font-weight: 650;
+}
+
+.timelineGapBadge::before {
   content: '✨';
   position: absolute;
-  top: -8px;
-  right: -8px;
-  font-size: 1rem;
-  animation: sparkle 1.5s ease-in-out infinite;
+  top: -0.6rem;
+  right: -0.05rem;
+  font-size: 0.85rem;
+  animation: sparkle 1.8s ease-in-out infinite;
+}
+
+.timelineGapDays {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.timelineGapLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(48, 16, 80, 0.7);
 }
 
 @keyframes sparkle {
@@ -855,20 +1348,6 @@
     transform: scale(1.2) rotate(180deg);
     opacity: 1;
   }
-}
-
-.cycleSeparatorDays {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: white;
-  line-height: 1;
-}
-
-.cycleSeparatorLabel {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.85);
-  text-transform: lowercase;
-  margin-top: 0.125rem;
 }
 
 .modal {
@@ -1804,8 +2283,7 @@
 
 /* Стили для списка циклов */
 .cyclesListContainer {
-  max-height: 60vh;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 .cyclesListContainer::-webkit-scrollbar {

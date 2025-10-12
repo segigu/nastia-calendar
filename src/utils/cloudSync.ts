@@ -69,14 +69,7 @@ export class CloudSync {
 
       if (response.status === 404) {
         // Файл не существует, возвращаем пустые данные
-        return {
-          cycles: [],
-          settings: {
-            averageCycleLength: 28,
-            periodLength: 5,
-            notifications: true,
-          },
-        };
+        return ensureNastiaData(null);
       }
 
       if (!response.ok) {
@@ -85,8 +78,8 @@ export class CloudSync {
       }
 
       const fileData = await response.json();
-      const content = atob(fileData.content.replace(/\n/g, ''));
-      return JSON.parse(content);
+      const decoded = decodeBase64Unicode(fileData.content.replace(/\n/g, ''));
+      return ensureNastiaData(JSON.parse(decoded));
 
     } catch (error) {
       console.error('Error downloading from cloud:', error);
@@ -101,8 +94,12 @@ export class CloudSync {
     }
 
     try {
-      const content = JSON.stringify(data, null, 2);
-      const encodedContent = btoa(content);
+      const payload: NastiaData = {
+        ...data,
+        horoscopeMemory: data.horoscopeMemory ?? [],
+      };
+      const content = JSON.stringify(payload, null, 2);
+      const encodedContent = encodeBase64Unicode(content);
       
       // Получаем SHA существующего файла (если есть)
       let sha = '';
@@ -175,3 +172,78 @@ export class CloudSync {
 }
 
 export const cloudSync = new CloudSync();
+
+function ensureNastiaData(raw: any): NastiaData {
+  const defaultSettings = {
+    averageCycleLength: 28,
+    periodLength: 5,
+    notifications: true,
+  };
+
+  if (!raw || typeof raw !== 'object') {
+    return {
+      cycles: [],
+      settings: defaultSettings,
+      horoscopeMemory: [],
+    };
+  }
+
+  const settings = {
+    averageCycleLength: typeof raw?.settings?.averageCycleLength === 'number'
+      ? raw.settings.averageCycleLength
+      : defaultSettings.averageCycleLength,
+    periodLength: typeof raw?.settings?.periodLength === 'number'
+      ? raw.settings.periodLength
+      : defaultSettings.periodLength,
+    notifications: typeof raw?.settings?.notifications === 'boolean'
+      ? raw.settings.notifications
+      : defaultSettings.notifications,
+  };
+
+  const cycles = Array.isArray(raw.cycles) ? raw.cycles : [];
+  const horoscopeMemory = Array.isArray(raw.horoscopeMemory) ? raw.horoscopeMemory : [];
+
+  return {
+    cycles,
+    settings,
+    horoscopeMemory,
+  };
+}
+
+function encodeBase64Unicode(value: string): string {
+  if (typeof TextEncoder !== 'undefined') {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(value);
+    let binary = '';
+    const chunkSize = 0x8000; // avoid call stack limits
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      let chunkString = '';
+      for (let j = 0; j < chunk.length; j += 1) {
+        chunkString += String.fromCharCode(chunk[j]!);
+      }
+      binary += chunkString;
+    }
+    return btoa(binary);
+  }
+
+  // Fallback для окружений без TextEncoder
+  return btoa(unescape(encodeURIComponent(value)));
+}
+
+function decodeBase64Unicode(value: string): string {
+  const clean = value.replace(/\s/g, '');
+  const binary = atob(clean);
+
+  if (typeof TextDecoder !== 'undefined') {
+    const length = binary.length;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  }
+
+  // Fallback
+  return decodeURIComponent(escape(binary));
+}

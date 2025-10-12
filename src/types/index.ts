@@ -16,6 +16,19 @@ export interface CycleData {
   days?: DayData[]; // Данные по каждому дню цикла
 }
 
+export type HoroscopeMemorySource = 'daily' | 'weekly' | 'sergey';
+
+export interface HoroscopeMemoryEntry {
+  id: string;
+  source: HoroscopeMemorySource;
+  date: string; // ISO date
+  summary: string;
+  keyThemes: string[];
+  avoidPhrases: string[];
+  tone: 'positive' | 'neutral' | 'negative' | 'mixed';
+  createdAt: string; // ISO timestamp
+}
+
 export interface CycleStats {
   averageLength: number;
   lastCycleLength: number;
@@ -41,6 +54,7 @@ export interface NastiaData {
     periodLength: number;
     notifications: boolean;
   };
+  horoscopeMemory?: HoroscopeMemoryEntry[];
 }
 
 export type NotificationCategory =

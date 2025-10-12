@@ -2,7 +2,7 @@ import { buildAstroHighlights } from './astro';
 import type { AIRequestOptions, AIMessage } from './aiClient';
 import { fetchDailyWeatherSummary, fetchWeeklyWeatherSummary } from './weather';
 import { buildDailyCycleHint, buildSergeyCycleHint, buildWeeklyCycleHint } from './cyclePrompt';
-import type { CycleData } from '../types';
+import type { CycleData, HoroscopeMemoryEntry } from '../types';
 
 export interface DailyHoroscope {
   text: string;
@@ -10,11 +10,178 @@ export interface DailyHoroscope {
   provider?: 'claude' | 'openai' | 'fallback';
   weekRange?: string;
   highlights?: string[];
+  memoryEntry?: HoroscopeMemoryEntry;
 }
 
 export interface HoroscopeLoadingMessage {
   emoji: string;
   text: string;
+}
+
+const MAX_MEMORY_KEEP = 12;
+const DAILY_MEMORY_LOOKBACK = 4;
+const STATIC_AVOID_THEMES = [
+  'Титаник',
+  'сосик',
+  'подливает чай',
+  'концерт',
+  'истерика из-за планшета',
+  'третью бутылку компота',
+];
+const STATIC_SERGEY_AVOID_THEMES = [
+  'угрюм',
+  'мрачн',
+  'ходит тенью',
+  'бурчит молча',
+  'темно-серый день',
+  'вечно выжатый',
+  'бардак',
+  'берлога',
+  'хаос в офисе',
+];
+
+function sortMemoryByRecency(entries: HoroscopeMemoryEntry[] | undefined): HoroscopeMemoryEntry[] {
+  if (!entries?.length) {
+    return [];
+  }
+  return [...entries].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function selectRecentMemory(
+  entries: HoroscopeMemoryEntry[] | undefined,
+  source: HoroscopeMemoryEntry['source'],
+  limit = DAILY_MEMORY_LOOKBACK,
+): HoroscopeMemoryEntry[] {
+  return sortMemoryByRecency(entries)
+    .filter(entry => entry.source === source)
+    .slice(0, limit);
+}
+
+function formatMemoryDateLabel(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+  }).format(parsed);
+}
+
+function buildDailyMemoryReminders(
+  memoryEntries: HoroscopeMemoryEntry[] | undefined,
+): string[] {
+  const reminders: string[] = [
+    '- Семейный фон — лишь фон. Упоминай Дамира, Мишель, Свету или Серёжу только при свежем поводе, не по инерции.',
+    `- Заезженные образы (${STATIC_AVOID_THEMES.join(', ')}) либо обходи, либо радикально переосмысляй.`,
+  ];
+
+  const recent = selectRecentMemory(memoryEntries, 'daily');
+  if (!recent.length) {
+    return reminders;
+  }
+
+  const historyPieces = recent.map(entry => {
+    const label = formatMemoryDateLabel(entry.date);
+    const mainTheme = entry.keyThemes?.length
+      ? entry.keyThemes.slice(0, 2).join(' / ')
+      : entry.summary;
+    return `${label} — ${mainTheme}`;
+  });
+
+  reminders.push(
+    `- Из недавних дней уже звучало: ${historyPieces.join('; ')}. Найди свежий ракурс и новые детали.`,
+  );
+
+  const avoidPhrases = Array.from(
+    new Set(
+      recent
+        .flatMap(entry => entry.avoidPhrases ?? [])
+        .filter((phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0),
+    ),
+  ).slice(0, 3);
+
+  if (avoidPhrases.length > 0) {
+    const formatted = avoidPhrases.map(phrase => `«${phrase}»`).join(', ');
+      reminders.push(`- Не повторяй дословно формулировки ${formatted} — переупакуй мысли иначе.`);
+  }
+
+  const staleThemeSet = new Set(
+    new Set(
+      recent
+        .flatMap(entry => entry.keyThemes ?? [])
+        .filter((theme): theme is string => typeof theme === 'string' && theme.trim().length > 0),
+    ),
+  );
+  STATIC_AVOID_THEMES.forEach(theme => staleThemeSet.delete(theme));
+  const staleThemes = Array.from(staleThemeSet).slice(0, 4);
+
+  if (staleThemes.length > 0) {
+    reminders.push(
+      `- Темы ${staleThemes.join(', ')} уже звучали. Придумай другой повод или конфликт.`,
+    );
+  }
+
+  return reminders;
+}
+
+function buildSergeyMemoryReminders(
+  memoryEntries: HoroscopeMemoryEntry[] | undefined,
+): string[] {
+  const reminders: string[] = [
+    '- Шути язвительнее: находи новые бытовые приколы про Серёжу, не повторяй вчерашние мемы.',
+    `- Не своди Серёжу к «угрюмому» или «бардаку». Запрещённые клише: ${STATIC_SERGEY_AVOID_THEMES.join(', ')}.`,
+  ];
+
+  const recent = selectRecentMemory(memoryEntries, 'sergey');
+  if (!recent.length) {
+    return reminders;
+  }
+
+  const historyPieces = recent.map(entry => {
+    const label = formatMemoryDateLabel(entry.date);
+    const mainTheme = entry.keyThemes?.length
+      ? entry.keyThemes.slice(0, 2).join(' / ')
+      : entry.summary;
+    return `${label} — ${mainTheme}`;
+  });
+
+  reminders.push(
+    `- Уже звучало: ${historyPieces.join('; ')}. Найди свежую тему или новый поворот.`,
+  );
+
+  const avoidPhrases = Array.from(
+    new Set(
+      recent
+        .flatMap(entry => entry.avoidPhrases ?? [])
+        .filter((phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0),
+    ),
+  ).slice(0, 3);
+
+  if (avoidPhrases.length > 0) {
+    const formatted = avoidPhrases.map(phrase => `«${phrase}»`).join(', ');
+    reminders.push(`- Не повторяй дословно формулировки ${formatted} — придумай новую подачу.`);
+  }
+
+  const staleThemeSet = new Set(
+    new Set(
+      recent
+        .flatMap(entry => entry.keyThemes ?? [])
+        .filter((theme): theme is string => typeof theme === 'string' && theme.trim().length > 0),
+    ),
+  );
+  STATIC_SERGEY_AVOID_THEMES.forEach(theme => staleThemeSet.delete(theme));
+  const staleThemes = Array.from(staleThemeSet).slice(0, 4);
+
+  if (staleThemes.length > 0) {
+    reminders.push(
+      `- Темы ${staleThemes.join(', ')} уже были. Найди другой повод, лучше смешной.`,
+    );
+  }
+
+  return reminders;
 }
 
 // Настя родилась 12 апреля 1992 года
@@ -62,10 +229,12 @@ const SERGEY_SYSTEM_PROMPT = `Ты пишешь едкий дневной гор
 ${SERGEY_CONTEXT}
 
 СТИЛЬ:
-- Адресуй текст Насте. Обращайся к ней «ты», описывая, что творится у Серёжи (используй «у него», «ему» и т.д.).
-- Настю не критикуй. Подчёркивай, что она молодец и держится, а вот Серёжа — источник сарказма.
-- Тёмный юмор и жёсткий сарказм в адрес Серёжи и обстоятельств, мат по делу допустим.
-- Не подбадривай Серёжу и не обещай ему светлого будущего. Финал должен звучать без позитива, максимум сухое «ну держись».
+- Адресуй текст Насте. Обращайся к ней «ты», описывая, что творится у Серёжи (используй «у него», «ему», «его», «ты»).
+- Настю не критикуй. Подчёркивай, что она молодец и держится, а Серёжу язвительно тролль.
+- Юмор обязателен: вставляй свежие шутки и конкретные бытовые наблюдения, не повторяя вчерашние.
+- Не превращай Серёжу в «вечного угрюмца» — ищи другие поводья для сарказма (его привычки, хаос вокруг и т.д.).
+- Мат используем по делу, чтобы усилить сарказм, а не заменить его.
+- Не подбадривай Серёжу и не обещай ему светлого будущего. Финал — сухой или ехидный, без лучиков надежды.
 
 ФОРМАТ:
 - Один плотный абзац (3–4 предложения), начни с подходящего эмодзи и пробела.
@@ -218,7 +387,7 @@ function buildWeeklyPrompt(
 ${examContext ? `- ${examContext}
 ` : ''}- ОБЯЗАТЕЛЬНО используй нормальный мат (хуй, нахуй, блядь, пиздец, пиздато, хуево, охуенно, ебанутый, ёбнутый и так далее) — не эвфемизмы, а прямо. Мат должен быть уместным и усиливать сарказм. Например: "послать на хуй", "какого хуя", "пиздец как устала" и т.д.
 - ТАБУ: Маму Свету нельзя посылать на хуй в тексте!
-- ИМЕНА: варьируй имена (Сергей/Сереженька/Серёжа, Света/мама/мамуля, Дамир/Дамирка, Мишель/Мишелька). Не используй одно и то же обращение постоянно.
+- ИМЕНА: варьируй обращения (Сергей/Сереженька/Серёжа, Дамир/Дамирка, Мишель/Мишелька), но Свету называй только «мама». Не используй одно и то же обращение постоянно.
 - НЕ упоминай знаки зодиака других людей в тексте (типа "Сергей-Стрелец")
 - НЕ пиши "Овен", "твой знак", даты — это уже в заголовке
 - НЕ используй markdown (**, ##, ---)
@@ -235,6 +404,7 @@ function buildDailyPrompt(
   astroHighlights: string[],
   weatherSummary?: string | null,
   cycleHint?: string | null,
+  memoryEntries?: HoroscopeMemoryEntry[],
 ): string {
   const date = new Date(isoDate);
   const formatter = new Intl.DateTimeFormat('ru-RU', {
@@ -245,6 +415,7 @@ function buildDailyPrompt(
   });
   const formattedDate = formatter.format(date);
   const examContext = getExamContext(isoDate);
+  const memoryReminders = buildDailyMemoryReminders(memoryEntries);
 
   return `Составь язвительный дневной гороскоп для Насти на сегодня (дата для тебя: ${formattedDate}, но в тексте её не называй).
 
@@ -253,8 +424,9 @@ function buildDailyPrompt(
 - Сарказм и мат на месте, как у лучшей подруги, но без перебора
 - Фокус: дела дня, дети, взаимодействие с Серёжей, бытовуха в Германии, тоска по дому
 - Если упоминаешь Серёжу — показывай реальное взаимодействие, не выдумывай новых людей
+- Про маму говори только «мама», без имени Света.
 ${examContext ? `- ${examContext}
-` : ''}- Используй факты ниже, чтобы привязать события к реальным транзитам. Не перечисляй их как список и не ссылайся на "транзит" — просто интегрируй смысл.
+` : ''}${memoryReminders.length ? `${memoryReminders.join('\n')}\n` : ''}- Используй факты ниже, чтобы привязать события к реальным транзитам. Не перечисляй их как список и не ссылайся на "транзит" — просто интегрируй смысл.
 - Не упоминай про недели, только про этот день
 - Финал — жёстко поддерживающий, законченная мысль
 ${weatherSummary ? `- Погода на день: ${weatherSummary}. Вплети это в текст саркастично и без упоминания города.` : ''}
@@ -262,7 +434,7 @@ ${cycleHint ? `- Цикл: ${cycleHint}` : ''}
 
 ${astroHighlights.length ? `Вспомогательные заметки (для тебя, не перечисляй их дословно):
 ${astroHighlights.map((item, index) => `${index + 1}. ${item}`).join('\n')}
-` : ''}${weatherSummary ? `Справка по погоде: ${weatherSummary}. Просто сделай ехидный заход в тексте, не раскрывая локацию.\n` : ''}${cycleHint ? `Справка по циклу: ${cycleHint} Используй это обязательно, чтоб подколоть и поддержать Настю.` : ''}Пиши цельный текст сразу, без вступлений.`;
+` : ''}${weatherSummary ? `Справка по погоде: ${weatherSummary}. Просто сделай ехидный заход в тексте, не раскрывая локацию.\n` : ''}${cycleHint ? `Справка по циклу: ${cycleHint}. Используй это обязательно, чтоб подколоть и поддержать Настю.\n` : ''}${memoryReminders.length ? `Эти ограничения про повторы учти, но не перечисляй явно — просто меняй сюжет.` : ''}Пиши цельный текст сразу, без вступлений.`;
 }
 
 function buildSergeyDailyPrompt(
@@ -270,6 +442,7 @@ function buildSergeyDailyPrompt(
   astroHighlights: string[],
   weatherSummary?: string | null,
   cycleHint?: string | null,
+  memoryEntries?: HoroscopeMemoryEntry[],
 ): string {
   const date = new Date(isoDate);
   const formatter = new Intl.DateTimeFormat('ru-RU', {
@@ -279,16 +452,19 @@ function buildSergeyDailyPrompt(
     year: 'numeric',
   });
   const formattedDate = formatter.format(date);
+  const memoryReminders = buildSergeyMemoryReminders(memoryEntries);
 
   return `Составь едкий дневной гороскоп про Сергея на сегодня (для тебя дата: ${formattedDate}, но не пиши её в тексте).
 
 ТРЕБОВАНИЯ:
 - Один цельный абзац из 3–4 коротких предложений, начни его с подходящего эмодзи и пробела.
 - Пиши, как будто сообщаешь Насте новости о Серёже: «у него», «ему», «его», «ты, Настя, держишься» и т.д.
-- Настю держи в позитивном свете, можешь её прикольно похвалить. Серёжу — тролль язвительно.
-- Тон: усталый, язвительный, с матом по делу; никакого вдохновляющего оптимизма для Серёжи.
+- Настю держи в позитивном свете, можешь её прикольно похвалить. Серёжу — тролль смешно и язвительно.
+- Тон: колкий, с матом по делу; никакого вдохновляющего оптимизма для Серёжи.
 - Финал — саркастично-жёсткий, без лучика надежды.
-${astroHighlights.length ? `- Используй нижние подсказки как фон (вплетай смысл, не повторяй дословно):
+- Если вспоминаешь маму, называй её только «мама».
+- Не выдумывай бардак: у Серёжи порядок и чистота, шути на других контрастах.
+${memoryReminders.length ? `${memoryReminders.join('\n')}\n` : ''}${astroHighlights.length ? `- Используй нижние подсказки как фон (вплетай смысл, не повторяй дословно):
 ${astroHighlights.map((item, index) => `${index + 1}. ${item}`).join('\n')}
 ` : ''}${weatherSummary ? `- У Серёжи на улице ${weatherSummary}. Обязательно намекни на погодный вайб без цифр и конкретных значений.` : ''}${cycleHint ? `- ${cycleHint}` : ''}- Не используй списки и markdown. Верни только готовый текст.`;
 }
@@ -510,22 +686,33 @@ export async function fetchDailyHoroscopeForDate(
   claudeProxyUrl?: string,
   openAIApiKey?: string,
   cycles?: CycleData[],
+  memory?: HoroscopeMemoryEntry[],
 ): Promise<DailyHoroscope> {
   try {
     const astroHighlights = buildAstroHighlights(isoDate, 3);
     const weatherSummary = await fetchDailyWeatherSummary(isoDate, signal);
     const cycleHint = cycles ? buildDailyCycleHint(cycles, isoDate) : null;
-    const prompt = buildDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint);
+    const prompt = buildDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint, memory);
     if (astroHighlights.length > 0) {
       console.log('[Horoscope] Daily astro highlights:', astroHighlights);
     }
 
-    const result = await requestHoroscopeText(prompt, {
+    const requestOptions: HoroscopeRequestOptions = {
       signal,
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
-    }, 600, 850);
+    };
+
+    const result = await requestHoroscopeText(prompt, requestOptions, 600, 850);
+
+    let memoryEntry: HoroscopeMemoryEntry | undefined;
+    if (result.text) {
+      const extracted = await extractHoroscopeMemoryEntry(result.text, isoDate, 'daily', requestOptions);
+      if (extracted) {
+        memoryEntry = extracted;
+      }
+    }
 
     console.log(`Generated daily horoscope using ${result.provider}`);
 
@@ -534,6 +721,7 @@ export async function fetchDailyHoroscopeForDate(
       date: isoDate ?? null,
       provider: result.provider,
       highlights: astroHighlights,
+      memoryEntry,
     };
   } catch (error) {
     console.error('Failed to generate daily horoscope:', error);
@@ -553,6 +741,7 @@ export async function fetchSergeyDailyHoroscopeForDate(
   claudeProxyUrl?: string,
   openAIApiKey?: string,
   cycles?: CycleData[],
+  memory?: HoroscopeMemoryEntry[],
 ): Promise<DailyHoroscope> {
   try {
     const allHighlights = buildAstroHighlights(isoDate, 6);
@@ -563,20 +752,30 @@ export async function fetchSergeyDailyHoroscopeForDate(
     const rawWeatherSummary = await fetchDailyWeatherSummary(isoDate, signal);
     const weatherSummary = simplifyWeatherSummary(rawWeatherSummary);
     const cycleHint = cycles ? buildSergeyCycleHint(cycles, isoDate) : null;
-    const prompt = buildSergeyDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint);
+    const prompt = buildSergeyDailyPrompt(isoDate, astroHighlights, weatherSummary, cycleHint, memory);
+
+    const requestOptions: HoroscopeRequestOptions = {
+      signal,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
+    };
 
     const result = await requestHoroscopeText(
       prompt,
-      {
-        signal,
-        claudeApiKey,
-        claudeProxyUrl,
-        openAIApiKey,
-      },
+      requestOptions,
       520,
       680,
       SERGEY_SYSTEM_PROMPT,
     );
+
+    let memoryEntry: HoroscopeMemoryEntry | undefined;
+    if (result.text) {
+      const extracted = await extractHoroscopeMemoryEntry(result.text, isoDate, 'sergey', requestOptions);
+      if (extracted) {
+        memoryEntry = extracted;
+      }
+    }
 
     console.log(`Generated Sergey daily horoscope using ${result.provider}`);
 
@@ -585,6 +784,7 @@ export async function fetchSergeyDailyHoroscopeForDate(
       date: isoDate ?? null,
       provider: result.provider,
       highlights: astroHighlights,
+      memoryEntry,
     };
   } catch (error) {
     console.error('Failed to generate Sergey daily horoscope:', error);
@@ -595,4 +795,124 @@ export async function fetchSergeyDailyHoroscopeForDate(
       highlights: [],
     };
   }
+}
+
+async function extractHoroscopeMemoryEntry(
+  text: string,
+  isoDate: string,
+  source: HoroscopeMemoryEntry['source'],
+  options: HoroscopeRequestOptions,
+): Promise<HoroscopeMemoryEntry | null> {
+  if (!text.trim()) {
+    return null;
+  }
+
+  try {
+    const { callAI } = await import('./aiClient');
+    const prompt = `Проанализируй дневной гороскоп (источник: ${source}) и кратко зафиксируй, о чём он.
+
+Текст:
+"""
+${text}
+"""
+
+Верни JSON вида {
+  "summary": "одно предложение, объясняющее главный конфликт/сюжет",
+  "keyThemes": ["2-4 ключевых темы короткими фразами"],
+  "avoidPhrases": ["1-3 внятных формулировки из текста, которые не стоит повторять дословно завтра"],
+  "tone": "positive | neutral | negative | mixed"
+}
+
+Без пояснений, только JSON.`;
+
+    const response = await callAI({
+      system: 'Ты выделяешь заметки о содержании гороскопов. Отвечай строго JSON-объектом.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 320,
+      signal: options.signal,
+      claudeApiKey: options.claudeApiKey,
+      claudeProxyUrl: options.claudeProxyUrl,
+      openAIApiKey: options.openAIApiKey,
+    });
+
+    const cleaned = response.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned) as {
+      summary?: unknown;
+      keyThemes?: unknown;
+      avoidPhrases?: unknown;
+      tone?: unknown;
+    };
+
+    const summary =
+      typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+        ? parsed.summary.trim()
+        : '';
+    if (!summary) {
+      return null;
+    }
+
+    const keyThemes = Array.isArray(parsed.keyThemes)
+      ? parsed.keyThemes
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, 4)
+          .map(item => item.trim())
+      : [];
+
+    const avoidPhrases = Array.isArray(parsed.avoidPhrases)
+      ? parsed.avoidPhrases
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, 3)
+          .map(item => item.trim())
+      : [];
+
+    const tone =
+      parsed.tone === 'positive' ||
+      parsed.tone === 'neutral' ||
+      parsed.tone === 'negative' ||
+      parsed.tone === 'mixed'
+        ? parsed.tone
+        : 'mixed';
+
+    const entry: HoroscopeMemoryEntry = {
+      id: `${source}-${isoDate}`,
+      source,
+      date: isoDate,
+      summary,
+      keyThemes,
+      avoidPhrases,
+      tone,
+      createdAt: new Date().toISOString(),
+    };
+
+    return entry;
+  } catch (error) {
+    console.warn('Failed to extract horoscope memory entry:', error);
+    return null;
+  }
+}
+
+export function mergeHoroscopeMemoryEntries(
+  existing: HoroscopeMemoryEntry[],
+  next: HoroscopeMemoryEntry,
+  maxEntries = MAX_MEMORY_KEEP,
+): HoroscopeMemoryEntry[] {
+  const deduped = existing.filter(
+    entry => !(entry.source === next.source && entry.date === next.date),
+  );
+
+  const merged = [...deduped, next].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+
+  if (merged.length > maxEntries) {
+    return merged.slice(merged.length - maxEntries);
+  }
+
+  return merged;
 }
