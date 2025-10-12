@@ -16,7 +16,6 @@ import {
   NotificationCategory,
   NotificationItem,
 } from '../types';
-import nastiaLogo from '../assets/nastia-header-logo.png';
 import {
   formatDate,
   formatShortDate,
@@ -72,7 +71,7 @@ import {
   type DailyHoroscope,
   type HoroscopeLoadingMessage,
   type SergeyBannerCopy,
-  SERGEY_LOADING_FALLBACK,
+  getSergeyLoadingFallback,
 } from '../utils/horoscope';
 import {
   generatePeriodModalContent,
@@ -380,8 +379,9 @@ const ModernNastiaApp: React.FC = () => {
   const [sergeyHoroscope, setSergeyHoroscope] = useState<DailyHoroscope | null>(null);
   const [sergeyHoroscopeStatus, setSergeyHoroscopeStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [sergeyHoroscopeError, setSergeyHoroscopeError] = useState<string | null>(null);
+  const initialSergeyLoadingMessages = useMemo(() => getSergeyLoadingFallback(), []);
   const [sergeyLoadingIndex, setSergeyLoadingIndex] = useState(0);
-  const [sergeyLoadingMessages, setSergeyLoadingMessages] = useState<HoroscopeLoadingMessage[]>(() => [...SERGEY_LOADING_FALLBACK]);
+  const [sergeyLoadingMessages, setSergeyLoadingMessages] = useState<HoroscopeLoadingMessage[]>(initialSergeyLoadingMessages);
   const [sergeyLoadingMaxHeight, setSergeyLoadingMaxHeight] = useState<number | null>(null);
   const [sergeyBannerCopy, setSergeyBannerCopy] = useState<SergeyBannerCopy | null>(null);
   const [sergeyBannerCopyStatus, setSergeyBannerCopyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -708,6 +708,7 @@ const ModernNastiaApp: React.FC = () => {
   const horoscopeMemoryRef = useRef<HoroscopeMemoryEntry[]>([]);
   const cyclesRef = useRef<CycleData[]>([]);
   const dailyHoroscopeBodyRef = useRef<HTMLDivElement | null>(null);
+  const sergeyBannerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     readIdsRef.current = readIds;
@@ -799,14 +800,14 @@ const ModernNastiaApp: React.FC = () => {
 
   useEffect(() => {
     if (activeTab !== 'history') {
-      resetHistoryStoryState();
+      setHistoryStoryMenuOpen(false);
       return;
     }
 
     if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading && !historyStoryTyping) {
       initiateHistoryStory();
     }
-  }, [activeTab, historyStoryLoading, historyStoryTyping, initiateHistoryStory, resetHistoryStoryState]);
+  }, [activeTab, historyStoryLoading, historyStoryTyping, initiateHistoryStory]);
 
   useEffect(() => {
     if (historyStoryMode !== 'cycles' || cycles.length === 0) {
@@ -1101,7 +1102,7 @@ const ModernNastiaApp: React.FC = () => {
   const currentSergeyLoadingMessage =
     sergeyLoadingMessages.length > 0
       ? sergeyLoadingMessages[sergeyLoadingIndex % sergeyLoadingMessages.length]
-      : SERGEY_LOADING_FALLBACK[0];
+      : initialSergeyLoadingMessages[0];
   const effectiveSergeyBannerCopy = useMemo(
     () => sergeyBannerCopy ?? DEFAULT_SERGEY_BANNER_COPY,
     [sergeyBannerCopy]
@@ -1392,7 +1393,7 @@ const ModernNastiaApp: React.FC = () => {
       setSergeyHoroscopeStatus('idle');
       setSergeyHoroscopeError(null);
       setSergeyLoadingIndex(0);
-      setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+      setSergeyLoadingMessages(getSergeyLoadingFallback());
       setSergeyLoadingMaxHeight(null);
       setSergeyBannerCopy(null);
       setSergeyBannerCopyStatus('idle');
@@ -1427,7 +1428,7 @@ const ModernNastiaApp: React.FC = () => {
     setSergeyBannerCopyStatus('loading');
     setSergeyBannerCopyError(null);
     setSergeyLoadingIndex(0);
-    setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+    setSergeyLoadingMessages(getSergeyLoadingFallback());
     setSergeyLoadingMaxHeight(null);
 
     fetchHoroscopeLoadingMessages(
@@ -1521,7 +1522,7 @@ const ModernNastiaApp: React.FC = () => {
         if (messages.length > 0) {
           setSergeyLoadingMessages(messages);
         } else {
-          setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+          setSergeyLoadingMessages(getSergeyLoadingFallback());
         }
       })
       .catch(error => {
@@ -1530,7 +1531,7 @@ const ModernNastiaApp: React.FC = () => {
         }
         console.warn('Не удалось получить статусы загрузки Серёжи:', error);
         sergeyLoadingControllerRef.current = null;
-        setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+        setSergeyLoadingMessages(getSergeyLoadingFallback());
       });
 
     return () => {
@@ -1614,18 +1615,18 @@ const ModernNastiaApp: React.FC = () => {
   }, [sergeyLoadingMessages, showDailyHoroscopeModal]);
 
   useEffect(() => {
-    if (!showDailyHoroscopeModal) {
+    if (
+      !showDailyHoroscopeModal ||
+      (sergeyHoroscopeStatus !== 'loading' && sergeyHoroscopeStatus !== 'success')
+    ) {
       return;
     }
-    if (sergeyHoroscopeStatus !== 'loading' && sergeyHoroscopeStatus !== 'success') {
-      return;
-    }
-    const container = dailyHoroscopeBodyRef.current;
-    if (!container) {
+    const banner = sergeyBannerRef.current;
+    if (!banner) {
       return;
     }
     const frame = window.requestAnimationFrame(() => {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
+      banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -2327,22 +2328,25 @@ const ModernNastiaApp: React.FC = () => {
             </div>
           )}
 
-          <div className={styles.titleWrapper}>
-            <img
-              src={nastiaLogo}
-              alt="Nastia"
-              className={styles.logo}
-            />
-          </div>
-
-          <div className={styles.headerCorner}>
+          <div className={styles.headerHoroscopeCard}>
+            <button
+              className={styles.headerHoroscopeButton}
+              onClick={() => setShowDailyHoroscopeModal(true)}
+              type="button"
+            >
+              <span className={styles.dailyHoroscopeIcon} aria-hidden="true">🔮</span>
+              <div>
+                <div className={styles.dailyHoroscopeTitle}>Гороскоп на сегодня</div>
+                <div className={styles.dailyHoroscopeSubtitle}>Правда, только правда.</div>
+              </div>
+            </button>
             <button
               onClick={handleOpenNotifications}
-              className={styles.notificationBellButton}
+              className={styles.headerNotificationButton}
               type="button"
               aria-label={unreadCount > 0 ? `Есть ${unreadCount} новых уведомлений` : 'Открыть уведомления'}
             >
-              <Bell size={24} />
+              <Bell size={22} />
               {unreadCount > 0 && (
                 <span className={styles.notificationBadge}>
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -2444,23 +2448,6 @@ const ModernNastiaApp: React.FC = () => {
 
           </div>
         )}
-
-        {activeTab === 'calendar' && (
-          <div className={styles.dailyHoroscopeCTAWrapper}>
-            <button
-              type="button"
-              className={styles.dailyHoroscopeButton}
-              onClick={() => setShowDailyHoroscopeModal(true)}
-            >
-              <span className={styles.dailyHoroscopeIcon}>🔮</span>
-              <div>
-                <div className={styles.dailyHoroscopeTitle}>Гороскоп на сегодня</div>
-                <div className={styles.dailyHoroscopeSubtitle}>Правда, только правда.</div>
-              </div>
-            </button>
-          </div>
-        )}
-
         {/* Insights панель */}
         {cycles.length >= 2 && activeTab === 'calendar' && (
           <div className={styles.insightsCard}>
@@ -2924,12 +2911,12 @@ const ModernNastiaApp: React.FC = () => {
                             </div>
                             <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
                               <div className={styles.cycleInfo}>
-                                <div className={styles.cycleDate}>
-                                  {formatDate(new Date(cycle.startDate))}
+                                <div className={styles.cycleDateRow}>
+                                  <span className={styles.cycleDateMarker} aria-hidden="true" />
+                                  <span className={styles.cycleDateText}>
+                                    {formatDate(new Date(cycle.startDate))}
+                                  </span>
                                 </div>
-                                {cycle.notes && (
-                                  <div className={styles.cycleNotes}>{cycle.notes}</div>
-                                )}
                               </div>
                               <div className={styles.cycleActions}>
                                 <button
@@ -3346,7 +3333,11 @@ const ModernNastiaApp: React.FC = () => {
                     ))}
                   </div>
                   {activeTab === 'calendar' && !sergeyBannerDismissed && (
-                    <div className={styles.sergeyBanner} aria-live="polite">
+                    <div
+                      className={styles.sergeyBanner}
+                      aria-live="polite"
+                      ref={sergeyBannerRef}
+                    >
                       {sergeyBannerCopyStatus === 'loading' ? (
                         <div className={styles.sergeyBannerTitle} aria-hidden="true">
                           <span className={styles.sergeyBannerSkeletonTitle} />
