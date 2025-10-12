@@ -66,11 +66,13 @@ import {
   fetchDailyHoroscopeForDate,
   fetchHoroscopeLoadingMessages,
   fetchSergeyBannerCopy,
+  fetchSergeyLoadingMessages,
   fetchSergeyDailyHoroscopeForDate,
   mergeHoroscopeMemoryEntries,
   type DailyHoroscope,
   type HoroscopeLoadingMessage,
   type SergeyBannerCopy,
+  SERGEY_LOADING_FALLBACK,
 } from '../utils/horoscope';
 import {
   generatePeriodModalContent,
@@ -318,14 +320,6 @@ const STORY_AUTHORS: StoryAuthor[] = [
   },
 ];
 
-const SERGEY_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
-  { emoji: '🧯', text: 'Марс проверяет, чем тушить очередной пожар, пока Серёжа дышит на пепелище.' },
-  { emoji: '🛠️', text: 'Сатурн выдал Серёже новые ключи — чинить то, что рухнуло за ночь.' },
-  { emoji: '🧾', text: 'Меркурий переписывает список дел Серёжи, потому что прежний уже сгорел нахуй.' },
-  { emoji: '🚬', text: 'Плутон подкуривает Серёже сигарету и шепчет, что отдохнуть всё равно не выйдет.' },
-  { emoji: '📦', text: 'Юпитер навалил задач, пока Серёжа таскал коробки и матерился сквозь зубы.' },
-];
-
 const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
   title: 'А что там у Сережи?',
   subtitle: 'Серёжа опять что-то мудрит. Подглянем, что ему сулят звёзды на сегодня?',
@@ -387,6 +381,8 @@ const ModernNastiaApp: React.FC = () => {
   const [sergeyHoroscopeStatus, setSergeyHoroscopeStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [sergeyHoroscopeError, setSergeyHoroscopeError] = useState<string | null>(null);
   const [sergeyLoadingIndex, setSergeyLoadingIndex] = useState(0);
+  const [sergeyLoadingMessages, setSergeyLoadingMessages] = useState<HoroscopeLoadingMessage[]>(() => [...SERGEY_LOADING_FALLBACK]);
+  const [sergeyLoadingMaxHeight, setSergeyLoadingMaxHeight] = useState<number | null>(null);
   const [sergeyBannerCopy, setSergeyBannerCopy] = useState<SergeyBannerCopy | null>(null);
   const [sergeyBannerCopyStatus, setSergeyBannerCopyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [, setSergeyBannerCopyError] = useState<string | null>(null);
@@ -706,9 +702,12 @@ const ModernNastiaApp: React.FC = () => {
   const isMountedRef = useRef(true);
   const sergeyRequestControllerRef = useRef<AbortController | null>(null);
   const sergeyBannerCopyControllerRef = useRef<AbortController | null>(null);
+  const sergeyLoadingControllerRef = useRef<AbortController | null>(null);
+  const sergeyLoadingMeasureRef = useRef<HTMLDivElement | null>(null);
   const dataHydratedRef = useRef(false);
   const horoscopeMemoryRef = useRef<HoroscopeMemoryEntry[]>([]);
   const cyclesRef = useRef<CycleData[]>([]);
+  const dailyHoroscopeBodyRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     readIdsRef.current = readIds;
@@ -1099,7 +1098,10 @@ const ModernNastiaApp: React.FC = () => {
   );
 
   const currentDailyLoadingMessage = dailyLoadingMessages[dailyLoadingIndex] ?? DEFAULT_LOADING_MESSAGES[0];
-  const currentSergeyLoadingMessage = SERGEY_LOADING_MESSAGES[sergeyLoadingIndex] ?? SERGEY_LOADING_MESSAGES[0];
+  const currentSergeyLoadingMessage =
+    sergeyLoadingMessages.length > 0
+      ? sergeyLoadingMessages[sergeyLoadingIndex % sergeyLoadingMessages.length]
+      : SERGEY_LOADING_FALLBACK[0];
   const effectiveSergeyBannerCopy = useMemo(
     () => sergeyBannerCopy ?? DEFAULT_SERGEY_BANNER_COPY,
     [sergeyBannerCopy]
@@ -1390,6 +1392,8 @@ const ModernNastiaApp: React.FC = () => {
       setSergeyHoroscopeStatus('idle');
       setSergeyHoroscopeError(null);
       setSergeyLoadingIndex(0);
+      setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+      setSergeyLoadingMaxHeight(null);
       setSergeyBannerCopy(null);
       setSergeyBannerCopyStatus('idle');
       setSergeyBannerCopyError(null);
@@ -1401,12 +1405,18 @@ const ModernNastiaApp: React.FC = () => {
         sergeyBannerCopyControllerRef.current.abort();
         sergeyBannerCopyControllerRef.current = null;
       }
+      if (sergeyLoadingControllerRef.current) {
+        sergeyLoadingControllerRef.current.abort();
+        sergeyLoadingControllerRef.current = null;
+      }
       return;
     }
 
     const controller = new AbortController();
     const sergeyCopyController = new AbortController();
+    const sergeyLoadingController = new AbortController();
     sergeyBannerCopyControllerRef.current = sergeyCopyController;
+    sergeyLoadingControllerRef.current = sergeyLoadingController;
     const todayIso = new Date().toISOString().split('T')[0];
 
     setDailyHoroscopeStatus('loading');
@@ -1416,6 +1426,9 @@ const ModernNastiaApp: React.FC = () => {
     setSergeyBannerCopy(null);
     setSergeyBannerCopyStatus('loading');
     setSergeyBannerCopyError(null);
+    setSergeyLoadingIndex(0);
+    setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+    setSergeyLoadingMaxHeight(null);
 
     fetchHoroscopeLoadingMessages(
       remoteClaudeKey ?? undefined,
@@ -1494,11 +1507,41 @@ const ModernNastiaApp: React.FC = () => {
         );
       });
 
+    fetchSergeyLoadingMessages(
+      remoteClaudeKey ?? undefined,
+      remoteClaudeProxyUrl ?? undefined,
+      remoteOpenAIKey ?? undefined,
+      sergeyLoadingController.signal,
+    )
+      .then(messages => {
+        if (sergeyLoadingController.signal.aborted) {
+          return;
+        }
+        sergeyLoadingControllerRef.current = null;
+        if (messages.length > 0) {
+          setSergeyLoadingMessages(messages);
+        } else {
+          setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+        }
+      })
+      .catch(error => {
+        if (sergeyLoadingController.signal.aborted) {
+          return;
+        }
+        console.warn('Не удалось получить статусы загрузки Серёжи:', error);
+        sergeyLoadingControllerRef.current = null;
+        setSergeyLoadingMessages([...SERGEY_LOADING_FALLBACK]);
+      });
+
     return () => {
       controller.abort();
       sergeyCopyController.abort();
+      sergeyLoadingController.abort();
       if (sergeyBannerCopyControllerRef.current === sergeyCopyController) {
         sergeyBannerCopyControllerRef.current = null;
+      }
+      if (sergeyLoadingControllerRef.current === sergeyLoadingController) {
+        sergeyLoadingControllerRef.current = null;
       }
     };
   }, [showDailyHoroscopeModal, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey]);
@@ -1518,18 +1561,76 @@ const ModernNastiaApp: React.FC = () => {
   }, [showDailyHoroscopeModal, dailyHoroscopeStatus, dailyLoadingMessages]);
 
   useEffect(() => {
-    if (!showDailyHoroscopeModal || sergeyHoroscopeStatus !== 'loading') {
+    if (
+      !showDailyHoroscopeModal ||
+      sergeyHoroscopeStatus !== 'loading' ||
+      sergeyLoadingMessages.length === 0
+    ) {
       return () => undefined;
     }
 
     const interval = window.setInterval(() => {
-      setSergeyLoadingIndex(prev => (prev + 1) % SERGEY_LOADING_MESSAGES.length);
+      setSergeyLoadingIndex(prev => (prev + 1) % sergeyLoadingMessages.length);
     }, 2600);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [showDailyHoroscopeModal, sergeyHoroscopeStatus]);
+  }, [showDailyHoroscopeModal, sergeyHoroscopeStatus, sergeyLoadingMessages.length]);
+
+  useEffect(() => {
+    setSergeyLoadingIndex(0);
+  }, [sergeyLoadingMessages]);
+
+  useEffect(() => {
+    if (!showDailyHoroscopeModal) {
+      setSergeyLoadingMaxHeight(null);
+      return;
+    }
+    if (sergeyLoadingMessages.length === 0) {
+      setSergeyLoadingMaxHeight(null);
+      return;
+    }
+
+    const measure = () => {
+      const container = sergeyLoadingMeasureRef.current;
+      if (!container) {
+        return;
+      }
+      const heights = Array.from(container.children).map(child =>
+        (child as HTMLElement).getBoundingClientRect().height,
+      );
+      if (heights.length === 0) {
+        setSergeyLoadingMaxHeight(null);
+        return;
+      }
+      setSergeyLoadingMaxHeight(Math.max(...heights));
+    };
+
+    const raf = window.requestAnimationFrame(measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [sergeyLoadingMessages, showDailyHoroscopeModal]);
+
+  useEffect(() => {
+    if (!showDailyHoroscopeModal) {
+      return;
+    }
+    if (sergeyHoroscopeStatus !== 'loading' && sergeyHoroscopeStatus !== 'success') {
+      return;
+    }
+    const container = dailyHoroscopeBodyRef.current;
+    if (!container) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [sergeyHoroscopeStatus, showDailyHoroscopeModal]);
 
   const handleSergeyBannerDismiss = useCallback(() => {
     if (sergeyRequestControllerRef.current) {
@@ -3207,7 +3308,7 @@ const ModernNastiaApp: React.FC = () => {
               </button>
             </div>
 
-            <div className={styles.dailyHoroscopeBody}>
+            <div className={styles.dailyHoroscopeBody} ref={dailyHoroscopeBodyRef}>
               {dailyHoroscopeStatus === 'loading' ? (
                 <div className={styles.dailyHoroscopeLoading}>
                   <div className={styles.starsBackground}>
@@ -3253,9 +3354,29 @@ const ModernNastiaApp: React.FC = () => {
                       ) : (
                         <div className={styles.sergeyBannerTitle}>{effectiveSergeyBannerCopy.title}</div>
                       )}
+                      <div
+                        className={styles.sergeyBannerLoadingMeasure}
+                        ref={sergeyLoadingMeasureRef}
+                        aria-hidden="true"
+                      >
+                        {sergeyLoadingMessages.map((message, index) => (
+                          <div
+                            key={`sergey-loading-measure-${index}-${message.text}`}
+                            className={styles.sergeyBannerLoading}
+                          >
+                            <div className={styles.sergeyBannerLoadingContent}>
+                              <span className={styles.sergeyBannerEmoji}>{message.emoji}</span>
+                              <span className={styles.sergeyBannerLoadingText}>{message.text}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                       {sergeyHoroscopeStatus === 'loading' ? (
                         <>
-                          <div className={styles.sergeyBannerLoading}>
+                          <div
+                            className={styles.sergeyBannerLoading}
+                            style={sergeyLoadingMaxHeight ? { minHeight: sergeyLoadingMaxHeight } : undefined}
+                          >
                             <div
                               key={`sergey-loading-${sergeyLoadingIndex}-${currentSergeyLoadingMessage.text}`}
                               className={styles.sergeyBannerLoadingContent}
