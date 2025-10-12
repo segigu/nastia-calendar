@@ -3012,21 +3012,21 @@ const ModernNastiaApp: React.FC = () => {
                   {historyStoryFinalSummary && !historyStoryTyping && (
                     <div className={`${styles.historyChatBubble} ${styles.historyFinalSummaryBubble}`}>
                       <div className={styles.historyFinalSummaryHeader}>
-                        <div className={styles.historyFinalSummaryLabel}>Финал</div>
-                        <div className={styles.historyFinalSummaryToggle}>
+                        <div className={styles.historyFinalSummaryLabel}>Что мы о тебе узнали</div>
+                        <div className={styles.insightStyleToggle}>
                           <button
                             type="button"
-                            className={`${styles.historyFinalSummaryToggleButton} ${finaleInterpretationMode === 'human' ? styles.active : ''}`}
+                            className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'human' ? styles.active : ''}`}
                             onClick={() => setFinaleInterpretationMode('human')}
                           >
-                            Человеческое
+                            На человеческом
                           </button>
                           <button
                             type="button"
-                            className={`${styles.historyFinalSummaryToggleButton} ${finaleInterpretationMode === 'astrological' ? styles.active : ''}`}
+                            className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'astrological' ? styles.active : ''}`}
                             onClick={() => setFinaleInterpretationMode('astrological')}
                           >
-                            Астрологическое
+                            На астрологическом
                           </button>
                         </div>
                       </div>
