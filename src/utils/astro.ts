@@ -6,7 +6,7 @@ import {
   type AstroProfile,
 } from '../data/astroProfiles';
 
-type PlanetId =
+export type PlanetId =
   | 'Sun'
   | 'Moon'
   | 'Mercury'
@@ -58,6 +58,19 @@ const PLANETS: PlanetDefinition[] = [
   { id: 'Pluto', body: Astronomy.Body.Pluto, transitLabel: 'транзитный Плутон', natalAccusative: 'Плутон' },
 ];
 
+const PLANET_NAMES: Record<PlanetId, string> = {
+  Sun: 'Солнце',
+  Moon: 'Луна',
+  Mercury: 'Меркурий',
+  Venus: 'Венера',
+  Mars: 'Марс',
+  Jupiter: 'Юпитер',
+  Saturn: 'Сатурн',
+  Uranus: 'Уран',
+  Neptune: 'Нептун',
+  Pluto: 'Плутон',
+};
+
 const ASPECTS: AspectDefinition[] = [
   { name: 'conjunction', angle: 0, orb: 6 },
   { name: 'sextile', angle: 60, orb: 4 },
@@ -94,6 +107,36 @@ const ASPECT_EFFECTS: Record<AspectName, string> = {
   trine: 'Можно прогрессировать без особых усилий.',
   opposition: 'Важно найти баланс, иначе качнёт в крайности.',
 };
+
+const ASPECT_LABELS: Record<AspectName, string> = {
+  conjunction: 'соединение с',
+  sextile: 'секстиль к',
+  square: 'квадрат к',
+  trine: 'трин к',
+  opposition: 'оппозиция к',
+};
+
+const NATAL_ASPECT_SUMMARY: Record<Exclude<AspectName, 'conjunction'>, string> = {
+  sextile: 'Мягкая связка: талант, который раскрывается, когда даёшь себе шанс.',
+  square: 'Напряжение: внутренний конфликт, который заставляет действовать и искать выход.',
+  trine: 'Лёгкая поддержка: энергия течёт свободно, остаётся пользоваться ею сознательно.',
+  opposition: 'Полярность: две стороны тянут в разные стороны, важно держать баланс и договариваться с собой.',
+};
+
+const ZODIAC_SIGNS = [
+  { name: 'Овен', prepositional: 'Овне' },
+  { name: 'Телец', prepositional: 'Тельце' },
+  { name: 'Близнецы', prepositional: 'Близнецах' },
+  { name: 'Рак', prepositional: 'Раке' },
+  { name: 'Лев', prepositional: 'Льве' },
+  { name: 'Дева', prepositional: 'Деве' },
+  { name: 'Весы', prepositional: 'Весах' },
+  { name: 'Скорпион', prepositional: 'Скорпионе' },
+  { name: 'Стрелец', prepositional: 'Стрельце' },
+  { name: 'Козерог', prepositional: 'Козероге' },
+  { name: 'Водолей', prepositional: 'Водолее' },
+  { name: 'Рыбы', prepositional: 'Рыбах' },
+] as const;
 
 const RELATIONSHIP_PLANETS: PlanetId[] = ['Venus', 'Mars', 'Moon'];
 
@@ -253,4 +296,92 @@ export function buildAstroHighlights(isoDate: string, maxPerPerson = 4): string[
   }
 
   return highlights;
+}
+
+export interface NatalChartAnalysis {
+  corePlacements: string[];
+  hardAspects: string[];
+  softAspects: string[];
+}
+
+function formatPlacement(planet: PlanetPosition): string {
+  const normalized = normalizeAngle(planet.longitude);
+  let signIndex = Math.floor(normalized / 30) % ZODIAC_SIGNS.length;
+  let within = normalized - signIndex * 30;
+  let degree = Math.floor(within);
+  let minutes = Math.round((within - degree) * 60);
+
+  if (minutes === 60) {
+    minutes = 0;
+    degree += 1;
+    if (degree === 30) {
+      degree = 0;
+      signIndex = (signIndex + 1) % ZODIAC_SIGNS.length;
+    }
+  }
+
+  const sign = ZODIAC_SIGNS[signIndex];
+  const minutesText = minutes.toString().padStart(2, '0');
+  return `${PLANET_NAMES[planet.planet]} в ${sign.prepositional} (${degree}°${minutesText}') — ${PLANET_THEMES[planet.planet]}.`;
+}
+
+interface NatalAspectDetail {
+  planetA: PlanetId;
+  planetB: PlanetId;
+  aspect: AspectName;
+  orb: number;
+}
+
+function computeNatalAspects(positions: PlanetPosition[]): NatalAspectDetail[] {
+  const aspects: NatalAspectDetail[] = [];
+
+  for (let i = 0; i < positions.length; i += 1) {
+    for (let j = i + 1; j < positions.length; j += 1) {
+      const planetA = positions[i];
+      const planetB = positions[j];
+      const diff = smallestAngleDiff(planetA.longitude, planetB.longitude);
+      const aspect = findAspect(diff);
+      if (!aspect || aspect.name === 'conjunction') {
+        continue;
+      }
+      aspects.push({
+        planetA: planetA.planet,
+        planetB: planetB.planet,
+        aspect: aspect.name,
+        orb: Math.abs(diff - aspect.angle),
+      });
+    }
+  }
+
+  return aspects;
+}
+
+function formatNatalAspect(detail: NatalAspectDetail): string {
+  const { planetA, planetB, aspect, orb } = detail;
+  const aspectMeaning = aspect !== 'conjunction' ? NATAL_ASPECT_SUMMARY[aspect] : '';
+  const orbText = orb < 0.15 ? 'точное' : `орб ≈${orb.toFixed(1)}°`;
+  return `${PLANET_NAMES[planetA]} ${ASPECT_LABELS[aspect]} ${PLANET_NAMES[planetB]} (${orbText}). Темы: ${PLANET_THEMES[planetA]} ↔ ${PLANET_THEMES[planetB]}. ${aspectMeaning}`.trim();
+}
+
+function pickTopAspects(details: NatalAspectDetail[], targetAspects: AspectName[], limit: number): string[] {
+  return details
+    .filter(detail => targetAspects.includes(detail.aspect))
+    .sort((a, b) => a.orb - b.orb)
+    .slice(0, limit)
+    .map(formatNatalAspect);
+}
+
+export function buildNatalChartAnalysis(profileId: AstroProfile['id'] = PRIMARY_PROFILE_ID): NatalChartAnalysis {
+  const positions = getNatalPositions(profileId);
+  const placements = positions.map(formatPlacement);
+
+  const natalAspects = computeNatalAspects(positions);
+  const hard = pickTopAspects(natalAspects, ['square', 'opposition'], 4);
+  const soft = pickTopAspects(natalAspects, ['trine', 'sextile'], 4);
+
+  return {
+    corePlacements: placements,
+    hardAspects: hard,
+    softAspects: soft,
+  };
 }

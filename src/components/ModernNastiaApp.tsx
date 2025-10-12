@@ -86,6 +86,7 @@ import {
 } from '../utils/insightContent';
 import {
   generateHistoryStoryChunk,
+  type HistoryStoryMeta,
   type HistoryStoryOption,
 } from '../utils/historyStory';
 import styles from './NastiaApp.module.css';
@@ -93,6 +94,7 @@ import styles from './NastiaApp.module.css';
 const PRIMARY_USER_NAME = 'Настя';
 const MAX_STORED_NOTIFICATIONS = 200;
 const HOROSCOPE_MEMORY_LIMIT = 12;
+const STORY_ARC_LIMIT = 6;
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
@@ -258,64 +260,64 @@ interface StoryAuthor {
 
 const STORY_AUTHORS: StoryAuthor[] = [
   {
-    id: 'petrushevskaya-mystic',
-    name: 'Людмила Петрушевская',
+    id: 'globa-mystic',
+    name: 'Павел Глоба',
     genre: 'мистика',
-    prompt: 'Передавай вязкую мистическую атмосферу, где нормальность растворяется в тревожных деталях. Используй короткие, прямые фразы и детали, которые тревожат.',
+    prompt: 'Смешивай бытовые детали и тревожную странность, наращивай тихое напряжение без громких эффектов. Фразы должны быть короткими, прямыми и чуть холодными.',
   },
   {
-    id: 'starobinets-thriller',
-    name: 'Анна Старобинец',
+    id: 'shestopalov-thriller',
+    name: 'Сергей Шестопалов',
     genre: 'триллер',
-    prompt: 'Создавай нарастающее напряжение, дозируй шок и держи тайну в полумраке. Пользуйся визуальными деталями как в кадре, избегай развернутых метафор.',
+    prompt: 'Строй сцену как кинематографичный саспенс: густой воздух, навязчивые детали, ощущение, что за углом кто-то дышит. Держи кадр чётким и чувственным.',
   },
   {
-    id: 'rubina-romance',
-    name: 'Дина Рубина',
+    id: 'levina-psy',
+    name: 'Светлана Левина',
+    genre: 'психологическая драма',
+    prompt: 'Показывай внутреннюю трансформацию через диалог с миром; философский тон держи мягким, но конкретные детали тела и пространства делай ощутимыми.',
+  },
+  {
+    id: 'volguine-stream',
+    name: 'Александр Волгин',
+    genre: 'психологическая драма',
+    prompt: 'Веди поток сознания плавно, через дыхание, свет и крошечные жесты. Детали должны цепляться друг за друга, создавая ощущение хрупкого равновесия.',
+  },
+  {
+    id: 'zhuravel-dystopia',
+    name: 'Олеся Журавель',
+    genre: 'антиутопия',
+    prompt: 'Соединяй иронию и холодную аналитику; показывай, как тело и быт реагируют на систему. Делай язык точным, с лёгким сарказмом.',
+  },
+  {
+    id: 'kopaev-intense',
+    name: 'Константин Дараган',
+    genre: 'психологическая драма',
+    prompt: 'Пиши с пронзительной интимностью: контраст между хрупкостью и яростью, телесные детали и откровенный внутренний монолог.',
+  },
+  {
+    id: 'zaharov-introspective',
+    name: 'Михаил Захаров',
+    genre: 'психологическая драма',
+    prompt: 'Исследуй внутренний монолог, задавай острые вопросы к себе, соединяй абстракцию и конкретные вещи, оставляя лёгкую загадку.',
+  },
+  {
+    id: 'kopaev-gothic',
+    name: 'Денис Куталёв',
+    genre: 'мистика',
+    prompt: 'Сочетай чувственность и готическую мрачность: шелк, кровь, свечи, мрамор. Пусть темнота будет соблазнительной и тягучей.',
+  },
+  {
+    id: 'safonova-thriller',
+    name: 'Вероника Сафонова',
+    genre: 'триллер',
+    prompt: 'Строй сцену как расследование: тихо, точно, с вниманием к запахам и фактам. Держи напряжение в каждом наблюдении.',
+  },
+  {
+    id: 'geraskina-romance',
+    name: 'Елена Герасимова',
     genre: 'роман',
-    prompt: 'Придавай сценам эмоциональную насыщенность и внутренний монолог, но говори просто и конкретно. Покажи противоречие между страхом и тягой к близости без длинных образов.',
-  },
-  {
-    id: 'yahina-drama',
-    name: 'Гузель Яхина',
-    genre: 'психологическая драма',
-    prompt: 'Раскрывай переживания через детали окружающего мира и телесные ощущения. Сохраняй деликатную, но прямую интонацию и накапливай скрытое напряжение.',
-  },
-  {
-    id: 'dyachenko-postapoc',
-    name: 'Марина Дяченко',
-    genre: 'постапокалипсис',
-    prompt: 'Покажи мир после катастрофы через контрасты света и тени. Соединяй хрупкую надежду и опасность прямыми штрихами, не объясняя причину разрушения.',
-  },
-  {
-    id: 'rowling-mystery',
-    name: 'Джоан Роулинг',
-    genre: 'мистика',
-    prompt: 'Создавай ощущение скрытого мира рядом. Давай ясные детали и лаконичные загадки, будто читатель уже в центре событий.',
-  },
-  {
-    id: 'christie-thriller',
-    name: 'Агата Кристи',
-    genre: 'триллер',
-    prompt: 'Строй сцены как спокойный, но напряженный допрос. Подавай факты экономно, оставляй место для подозрений и неожиданных поворотов.',
-  },
-  {
-    id: 'jackson-mystery',
-    name: 'Ширли Джексон',
-    genre: 'мистика',
-    prompt: 'Смешивай повседневность и странность так, чтобы тревога нарастала незаметно. Используй простые образы, заставляющие читателя сомневаться.',
-  },
-  {
-    id: 'atwood-postapoc',
-    name: 'Маргарет Этвуд',
-    genre: 'постапокалипсис',
-    prompt: 'Соединяй холодный анализ и сочувствие. Пиши точными фразами, показывая, как общество и тело реагируют на катастрофу.',
-  },
-  {
-    id: 'leguin-drama',
-    name: 'Урсула Ле Гуин',
-    genre: 'психологическая драма',
-    prompt: 'Показывай внутренний выбор через диалог с миром. Используй простые описания, в которых чувствуется философская глубина.',
+    prompt: 'Подчёркивай социальные нюансы и внутренние сомнения. Лёгкая ирония, чёткие детали быта и эмоций, никаких лишних украшений.',
   },
 ];
 
@@ -326,12 +328,19 @@ const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
   secondaryButton: 'Мне пофиг',
 };
 
+type HistoryStorySegmentKind = 'arc' | 'finale';
+
 interface HistoryStorySegment {
   id: string;
+  kind: HistoryStorySegmentKind;
+  arcNumber?: number;
+  stageLabel?: string;
   text: string;
   authorId: string;
   authorName: string;
   option?: HistoryStoryOption;
+  choices?: HistoryStoryOption[];
+  selectedOptionId?: string;
   timestamp: string; // ISO timestamp
 }
 
@@ -457,6 +466,8 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStorySegments, setHistoryStorySegments] = useState<HistoryStorySegment[]>([]);
   const historyStorySegmentsRef = useRef<HistoryStorySegment[]>([]);
   const historyStorySummaryRef = useRef('');
+  const [historyStoryMeta, setHistoryStoryMeta] = useState<HistoryStoryMeta | null>(null);
+  const historyStoryMetaRef = useRef<HistoryStoryMeta | null>(null);
   const [historyStoryOptions, setHistoryStoryOptions] = useState<HistoryStoryOption[]>([]);
   const [historyStoryLoading, setHistoryStoryLoading] = useState(false);
   const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
@@ -464,6 +475,8 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryTyping, setHistoryStoryTyping] = useState(false);
   const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
+  const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
+  const [finaleInterpretationMode, setFinaleInterpretationMode] = useState<'human' | 'astrological'>('human');
   const historyStoryPendingOptionsRef = useRef<HistoryStoryOption[] | null>(null);
   const buttonAnimationTimeoutsRef = useRef<number[]>([]);
   const historyStoryPendingChoiceRef = useRef<HistoryStoryOption | undefined>(undefined);
@@ -502,8 +515,11 @@ const ModernNastiaApp: React.FC = () => {
     historyStoryPendingChoiceRef.current = undefined;
     historyStorySegmentsRef.current = [];
     historyStorySummaryRef.current = '';
+    historyStoryMetaRef.current = null;
     setHistoryStorySegments([]);
     setHistoryStoryOptions([]);
+    setHistoryStoryMeta(null);
+    setHistoryStoryFinalSummary(null);
     setHistoryStoryError(null);
     setHistoryStoryLoading(false);
     setHistoryStoryTyping(false);
@@ -552,12 +568,14 @@ const ModernNastiaApp: React.FC = () => {
 
   const updateHistoryStorySummary = useCallback((segments: HistoryStorySegment[]) => {
     const CONTEXT_SEGMENTS = 4;
-    if (segments.length <= CONTEXT_SEGMENTS) {
+    const arcSegments = segments.filter(segment => segment.kind === 'arc');
+
+    if (arcSegments.length <= CONTEXT_SEGMENTS) {
       historyStorySummaryRef.current = '';
       return;
     }
 
-    const older = segments.slice(0, segments.length - CONTEXT_SEGMENTS);
+    const older = arcSegments.slice(0, arcSegments.length - CONTEXT_SEGMENTS);
     const summaryChunks = older.map((segment, index) => {
       const prefix = index + 1;
       return `${prefix}. ${segment.authorName}: ${segment.text}`;
@@ -589,10 +607,13 @@ const ModernNastiaApp: React.FC = () => {
         if (!activeAuthor) {
           throw new Error('History story author is not available');
         }
-        const recentSegments = historyStorySegmentsRef.current.slice(-4);
+
+        const arcSegments = historyStorySegmentsRef.current.filter(segment => segment.kind === 'arc');
+        const recentSegments = arcSegments.slice(-4);
         const response = await generateHistoryStoryChunk({
-          segments: recentSegments.map(segment => ({
+          segments: recentSegments.map((segment, index) => ({
             text: segment.text,
+            arc: segment.arcNumber ?? arcSegments.length - recentSegments.length + index + 1,
             optionTitle: segment.option?.title,
             optionDescription: segment.option?.description,
           })),
@@ -603,6 +624,10 @@ const ModernNastiaApp: React.FC = () => {
             stylePrompt: activeAuthor.prompt,
             genre: activeAuthor.genre,
           },
+          arcLimit: STORY_ARC_LIMIT,
+          mode: 'arc',
+          currentArc: arcSegments.length + 1,
+          contract: historyStoryMetaRef.current?.contract,
           signal: controller.signal,
           claudeApiKey: remoteClaudeKey ?? undefined,
           claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
@@ -613,12 +638,21 @@ const ModernNastiaApp: React.FC = () => {
           return;
         }
 
+        if (response.meta) {
+          setHistoryStoryMeta(response.meta);
+          historyStoryMetaRef.current = response.meta;
+        }
+
         const newSegment: HistoryStorySegment = {
           id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-          text: response.continuation,
+          kind: 'arc',
+          arcNumber: response.node?.arc ?? arcSegments.length + 1,
+          stageLabel: response.node?.stage,
+          text: response.node?.scene ?? '',
           authorId: activeAuthor.id,
           authorName: activeAuthor.name,
           option: choice,
+          choices: response.options,
           timestamp: new Date().toISOString(),
         };
 
@@ -641,7 +675,114 @@ const ModernNastiaApp: React.FC = () => {
         }
       }
     },
-    [abortHistoryStoryRequest, historyStoryAuthor, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, startTypingHistorySegment],
+    [
+      abortHistoryStoryRequest,
+      historyStoryAuthor,
+      remoteClaudeKey,
+      remoteClaudeProxyUrl,
+      remoteOpenAIKey,
+      startTypingHistorySegment,
+    ],
+  );
+
+  const fetchHistoryStoryFinale = useCallback(
+    async (choice?: HistoryStoryOption) => {
+      abortHistoryStoryRequest();
+
+      const controller = new AbortController();
+      historyStoryFetchControllerRef.current = controller;
+
+      setHistoryStoryLoading(true);
+      setHistoryStoryError(null);
+      historyStoryPendingChoiceRef.current = choice;
+
+      try {
+        const activeAuthor = historyStoryAuthor;
+        if (!activeAuthor) {
+          throw new Error('History story author is not available');
+        }
+
+        const arcSegments = historyStorySegmentsRef.current.filter(segment => segment.kind === 'arc');
+        const recentSegments = arcSegments.slice(-4);
+
+        const response = await generateHistoryStoryChunk({
+          segments: recentSegments.map((segment, index) => ({
+            text: segment.text,
+            arc: segment.arcNumber ?? arcSegments.length - recentSegments.length + index + 1,
+            optionTitle: segment.option?.title,
+            optionDescription: segment.option?.description,
+          })),
+          currentChoice: choice,
+          summary: historyStorySummaryRef.current || undefined,
+          author: {
+            name: activeAuthor.name,
+            stylePrompt: activeAuthor.prompt,
+            genre: activeAuthor.genre,
+          },
+          arcLimit: STORY_ARC_LIMIT,
+          mode: 'finale',
+          contract: historyStoryMetaRef.current?.contract,
+          signal: controller.signal,
+          claudeApiKey: remoteClaudeKey ?? undefined,
+          claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
+          openAIApiKey: remoteOpenAIKey ?? undefined,
+        });
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (response.meta) {
+          setHistoryStoryMeta(response.meta);
+          historyStoryMetaRef.current = response.meta;
+        }
+
+        historyStoryPendingOptionsRef.current = null;
+        setHistoryStoryOptions([]);
+
+        if (response.finale) {
+          const finaleSegment: HistoryStorySegment = {
+            id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+            kind: 'finale',
+            stageLabel: 'Финал',
+            text: response.finale.resolution,
+            authorId: activeAuthor.id,
+            authorName: activeAuthor.name,
+            option: choice,
+            timestamp: new Date().toISOString(),
+          };
+          startTypingHistorySegment(finaleSegment);
+          setHistoryStoryFinalSummary({
+            human: response.finale.humanInterpretation,
+            astrological: response.finale.astrologicalInterpretation,
+          });
+        } else {
+          setHistoryStoryFinalSummary(null);
+        }
+
+        historyStoryPendingChoiceRef.current = undefined;
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error('Failed to generate history story finale', error);
+        setHistoryStoryError('Не удалось сформировать финал. Попробуй ещё раз.');
+        setHistoryStoryTyping(false);
+      } finally {
+        if (!controller.signal.aborted) {
+          setHistoryStoryLoading(false);
+          historyStoryFetchControllerRef.current = null;
+        }
+      }
+    },
+    [
+      abortHistoryStoryRequest,
+      historyStoryAuthor,
+      remoteClaudeKey,
+      remoteClaudeProxyUrl,
+      remoteOpenAIKey,
+      startTypingHistorySegment,
+    ],
   );
 
   const initiateHistoryStory = useCallback(() => {
@@ -651,19 +792,43 @@ const ModernNastiaApp: React.FC = () => {
     void fetchHistoryStoryChunk(undefined, persona);
   }, [fetchHistoryStoryChunk, resetHistoryStoryState]);
 
-  const handleHistoryOptionSelect = useCallback((option: HistoryStoryOption) => {
-    setHistoryStoryMode('story');
-    setHistoryButtonsHiding(true);
-    clearButtonAnimationTimers();
-    setVisibleButtonsCount(0);
+  const handleHistoryOptionSelect = useCallback(
+    (option: HistoryStoryOption) => {
+      setHistoryStoryMode('story');
+      setHistoryButtonsHiding(true);
+      clearButtonAnimationTimers();
+      setVisibleButtonsCount(0);
 
-    // Ждем завершения анимации скрытия (с учетом задержек между кнопками)
-    setTimeout(() => {
-      setHistoryStoryOptions([]);
-      setHistoryButtonsHiding(false);
-      void fetchHistoryStoryChunk(option);
-    }, 550); // 350ms анимация + 160ms последняя задержка + запас
-  }, [fetchHistoryStoryChunk, clearButtonAnimationTimers]);
+      setHistoryStorySegments(prevSegments => {
+        const updated = [...prevSegments];
+        for (let index = updated.length - 1; index >= 0; index -= 1) {
+          const segment = updated[index];
+          if (segment.kind === 'arc') {
+            if (segment.selectedOptionId === option.id) {
+              break;
+            }
+            updated[index] = { ...segment, selectedOptionId: option.id };
+            break;
+          }
+        }
+        historyStorySegmentsRef.current = updated;
+        return updated;
+      });
+
+      const arcCount = historyStorySegmentsRef.current.filter(segment => segment.kind === 'arc').length;
+
+      setTimeout(() => {
+        setHistoryStoryOptions([]);
+        setHistoryButtonsHiding(false);
+        if (arcCount >= STORY_ARC_LIMIT) {
+          void fetchHistoryStoryFinale(option);
+        } else {
+          void fetchHistoryStoryChunk(option);
+        }
+      }, 550); // 350ms анимация + 160ms последняя задержка + запас
+    },
+    [clearButtonAnimationTimers, fetchHistoryStoryChunk, fetchHistoryStoryFinale],
+  );
 
   const handleShowHistoryCycles = useCallback(() => {
     setHistoryStoryMode('cycles');
@@ -683,20 +848,31 @@ const ModernNastiaApp: React.FC = () => {
       return;
     }
 
+    const arcSegments = historyStorySegmentsRef.current.filter(segment => segment.kind === 'arc');
+    const isFinalPhase = arcSegments.length >= STORY_ARC_LIMIT;
+
     const pendingChoice = historyStoryPendingChoiceRef.current;
     if (pendingChoice) {
-      void fetchHistoryStoryChunk(pendingChoice);
+      if (isFinalPhase) {
+        void fetchHistoryStoryFinale(pendingChoice);
+      } else {
+        void fetchHistoryStoryChunk(pendingChoice);
+      }
       return;
     }
 
     const lastSegment = historyStorySegmentsRef.current[historyStorySegmentsRef.current.length - 1];
     if (lastSegment?.option) {
-      void fetchHistoryStoryChunk(lastSegment.option);
+      if (isFinalPhase) {
+        void fetchHistoryStoryFinale(lastSegment.option);
+      } else {
+        void fetchHistoryStoryChunk(lastSegment.option);
+      }
       return;
     }
 
     initiateHistoryStory();
-  }, [fetchHistoryStoryChunk, historyStoryLoading, initiateHistoryStory]);
+  }, [fetchHistoryStoryChunk, fetchHistoryStoryFinale, historyStoryLoading, initiateHistoryStory]);
   const readIdsRef = useRef(readIds);
   const notificationsRequestSeqRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -713,6 +889,10 @@ const ModernNastiaApp: React.FC = () => {
   useEffect(() => {
     readIdsRef.current = readIds;
   }, [readIds]);
+
+  useEffect(() => {
+    historyStoryMetaRef.current = historyStoryMeta;
+  }, [historyStoryMeta]);
 
   useEffect(() => {
     historyStorySegmentsRef.current = historyStorySegments;
@@ -2781,25 +2961,40 @@ const ModernNastiaApp: React.FC = () => {
                     )}
                   </div>
                 </div>
+                {historyStorySegments.length > 0 && (
+                  <div className={styles.historyStoryMetaBar}>
+                    <div className={styles.historyStoryMetaItem}>
+                      <span className={styles.historyStoryMetaLabel}>Жанр:</span>
+                      <span className={styles.historyStoryMetaText}>{historyStoryMeta?.genre ?? historyStoryAuthor.genre}</span>
+                    </div>
+                    <div className={styles.historyStoryMetaItem}>
+                      <span className={styles.historyStoryMetaLabel}>Контракт:</span>
+                      <span className={styles.historyStoryMetaText}>{historyStoryMeta?.contract ?? 'Контракт формируется'}</span>
+                    </div>
+                  </div>
+                )}
                 <div className={styles.historyChatMessages} ref={historyMessagesRef}>
-                  {historyStorySegments.map(segment => {
+                  {historyStorySegments.map((segment, segmentIndex) => {
                     const timestamp = new Date(segment.timestamp);
                     const timeStr = timestamp.toLocaleTimeString('ru-RU', {
                       hour: '2-digit',
                       minute: '2-digit',
                     });
+                    const metaAuthor = historyStoryMeta?.author ?? segment.authorName;
 
                     return (
                       <div
                         key={segment.id}
                         className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
                       >
-                        <div className={styles.historyChatSender}>{segment.authorName}</div>
+                        <div className={styles.historyChatSender}>{metaAuthor}</div>
                         <div className={styles.historyChatMessageWrapper}>
                           <div className={styles.historyChatTextBlock}>
-                            <div className={styles.historyChatContent}>{segment.text}</div>
+                            <div className={styles.historyChatContent}>
+                              <div className={styles.historyChatScene}>{segment.text}</div>
+                              <div className={styles.historyChatTime}>{timeStr}</div>
+                            </div>
                           </div>
-                          <div className={styles.historyChatTimestamp}>{timeStr}</div>
                         </div>
                       </div>
                     );
@@ -2811,6 +3006,32 @@ const ModernNastiaApp: React.FC = () => {
                         <span />
                         <span />
                         <span />
+                      </div>
+                    </div>
+                  )}
+                  {historyStoryFinalSummary && !historyStoryTyping && (
+                    <div className={`${styles.historyChatBubble} ${styles.historyFinalSummaryBubble}`}>
+                      <div className={styles.historyFinalSummaryHeader}>
+                        <div className={styles.historyFinalSummaryLabel}>Финал</div>
+                        <div className={styles.historyFinalSummaryToggle}>
+                          <button
+                            type="button"
+                            className={`${styles.historyFinalSummaryToggleButton} ${finaleInterpretationMode === 'human' ? styles.active : ''}`}
+                            onClick={() => setFinaleInterpretationMode('human')}
+                          >
+                            Человеческое
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.historyFinalSummaryToggleButton} ${finaleInterpretationMode === 'astrological' ? styles.active : ''}`}
+                            onClick={() => setFinaleInterpretationMode('astrological')}
+                          >
+                            Астрологическое
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.historyFinalSummaryText}>
+                        {finaleInterpretationMode === 'human' ? historyStoryFinalSummary.human : historyStoryFinalSummary.astrological}
                       </div>
                     </div>
                   )}
@@ -2883,32 +3104,7 @@ const ModernNastiaApp: React.FC = () => {
                         const isFirstCycle = index === 0;
 
                         return (
-                          <div
-                            key={cycle.id}
-                            className={`${styles.timelineItem} ${isVisible ? styles.timelineItemVisible : ''}`}
-                          >
-                            <div
-                              className={`${styles.timelineRail} ${isFirstCycle ? styles.timelineRailFirst : ''} ${
-                                isLastCycle ? styles.timelineRailLast : ''
-                              }`}
-                            >
-                              {!isFirstCycle && <div className={styles.timelineConnector}></div>}
-                              <div className={styles.timelineDot}></div>
-                              {daysBetween !== null ? (
-                                <div className={styles.timelineGapGroup}>
-                                  <div className={styles.timelineConnector}></div>
-                                  <div className={styles.timelineGapBadge}>
-                                    <span className={styles.timelineGapDays}>{daysBetween}</span>
-                                    <span className={styles.timelineGapLabel}>
-                                      {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
-                                    </span>
-                                  </div>
-                                  <div className={styles.timelineConnector}></div>
-                                </div>
-                              ) : (
-                                !isLastCycle && <div className={styles.timelineConnector}></div>
-                              )}
-                            </div>
+                          <React.Fragment key={cycle.id}>
                             <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
                               <div className={styles.cycleInfo}>
                                 <div className={styles.cycleDateRow}>
@@ -2928,7 +3124,19 @@ const ModernNastiaApp: React.FC = () => {
                                 </button>
                               </div>
                             </div>
-                          </div>
+                            {daysBetween !== null && (
+                              <div className={`${styles.timelineGap} ${isVisible ? styles.timelineGapVisible : ''}`}>
+                                <div className={styles.timelineGapLine} />
+                                <div className={styles.timelineGapBadge}>
+                                  <span className={styles.timelineGapDays}>{daysBetween}</span>
+                                  <span className={styles.timelineGapLabel}>
+                                    {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
+                                  </span>
+                                </div>
+                                <div className={styles.timelineGapLine} />
+                              </div>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                   </div>

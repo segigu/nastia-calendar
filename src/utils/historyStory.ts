@@ -1,4 +1,13 @@
 import { callAI, type AIMessage } from './aiClient';
+import {
+  ASTRO_PROFILES,
+  PRIMARY_PROFILE_ID,
+  type AstroProfile,
+} from '../data/astroProfiles';
+import {
+  buildNatalChartAnalysis,
+  type NatalChartAnalysis,
+} from './astro';
 
 export interface HistoryStoryOption {
   id: string;
@@ -6,9 +15,30 @@ export interface HistoryStoryOption {
   description: string;
 }
 
+export interface HistoryStoryMeta {
+  author: string;
+  genre: string;
+  contract: string;
+  arcLimit: number;
+}
+
+export interface HistoryStoryNodeInfo {
+  arc: number;
+  stage: string;
+  scene: string;
+}
+
+export interface HistoryStoryFinale {
+  resolution: string;
+  humanInterpretation: string;
+  astrologicalInterpretation: string;
+}
+
 export interface HistoryStoryResponse {
-  continuation: string;
+  meta?: HistoryStoryMeta;
+  node?: HistoryStoryNodeInfo;
   options: HistoryStoryOption[];
+  finale?: HistoryStoryFinale;
 }
 
 export interface HistoryStoryContextSegment {
@@ -16,6 +46,10 @@ export interface HistoryStoryContextSegment {
    * Text that has already been shown to the user.
    */
   text: string;
+  /**
+   * Arc number associated with this segment.
+   */
+  arc: number;
   /**
    * Optional short title of the option that lead to this segment.
    */
@@ -51,6 +85,22 @@ export interface HistoryStoryRequestOptions {
    */
   author: HistoryStoryAuthorStyle;
   /**
+   * Total number of arcs expected in the story.
+   */
+  arcLimit: number;
+  /**
+   * Generation mode: either next arc or finale.
+   */
+  mode: 'arc' | 'finale';
+  /**
+   * Arc number that should be produced (required for arc mode).
+   */
+  currentArc?: number;
+  /**
+   * Previously established story contract, if any.
+   */
+  contract?: string;
+  /**
    * Optional AbortSignal to cancel the AI request.
    */
   signal?: AbortSignal;
@@ -68,82 +118,305 @@ export interface HistoryStoryRequestOptions {
   openAIApiKey?: string;
 }
 
-const FALLBACK_RESPONSE: HistoryStoryResponse = {
-  continuation:
-    'Ты вырываешься из сна, понимая, что комната чужая, а окна заколочены. В воздухе пахнет озоном и мокрыми стенами, как после грозы, которой никто не слышал. Перед тобой дрожит синеватый свет, сзади тянется тень, будто у неё собственное мнение. Ты не знаешь, в какой момент всё пошло иначе, но выбора больше нет.',
-  options: [
-    {
-      id: 'open-the-door',
-      title: 'Приоткрыть дверь',
-      description: 'Ты решаешь проверить источник света, затаив дыхание и охватывая ручку пальцами.',
-    },
-    {
-      id: 'hide-in-shadow',
-      title: 'Раствориться в тени',
-      description: 'Ты скользишь к стене, надеясь исчезнуть в темноте прежде, чем свет увидит тебя.',
-    },
-  ],
+const STORY_STAGE_NAMES = [
+  'Погружение',
+  'Конфликт',
+  'Отражение',
+  'Испытание',
+  'Поворот',
+  'Финал',
+] as const;
+
+const STORY_STAGE_GUIDANCE: Record<string, string> = {
+  Погружение: 'Брось читателя в сцену без объяснений; сделай ощущение странности и телесной вовлечённости.',
+  Конфликт: 'Выведи на поверхность внутреннюю дилемму и покажи, как она распирает изнутри.',
+  Отражение: 'Столкни героиню с образом или персонажем, которые зеркалят её состояние.',
+  Испытание: 'Поставь выбор между иллюзией и ясностью, усили конфликт желаний.',
+  Поворот: 'Покажи действие, которое запускает цепь последствий; сделай ставки ощутимыми.',
+  Финал: 'Доведите напряжение до кульминации: принятие, потеря или трансформация без побега.',
 };
 
-function buildBaseInstructions(genre: string): string {
-  return `Создай интерактивный рассказ в жанре ${genre}.
-Главная героиня — девушка, но её имя не упоминается.
-Повествование ведётся от второго лица («ты»).
-Начни сцену с действия, ощущения или пробуждения без объяснений предыстории.
-Стиль — кинематографичный, с атмосферой присутствия и короткими, конкретными фразами.
-Используй простой, ясный язык, избегай витиеватых метафор и длинных сравнений.
-Продолжение должно быть одним абзацем из 3–5 предложений длиной 55–85 слов.
-Абзац подводит к развилке и оставляет тайну, не раскрывая полностью происходящее.
-Добавь ощущение, что читатель принимает решения шаг за шагом.
-После абзаца сформируй ровно два варианта выбора, ведущих к разным эмоциональным и сюжетным линиям. Каждый вариант — объект формата:
-{
-  "id": "уникальный_kebab-case",
-  "title": "до 32 символов",
-  "description": "одно предложение до 90 символов"
-}
-Сделай варианты контрастными по тону и исходу, без клише «продолжить» или «вариант 1».
-Ответь строго в формате JSON:
-{
-  "continuation": "абзац истории",
-  "options": [ { ... }, { ... } ]
-}
-Не добавляй пояснений, комментариев, Markdown и эмодзи.`;
+const CONTEXT_LIMIT = 4;
+
+const FALLBACK_OPTIONS: [HistoryStoryOption, HistoryStoryOption] = [
+  {
+    id: 'open-the-door',
+    title: 'Приоткрыть дверь',
+    description: 'Ты решаешь проверить источник света, задерживая дыхание.',
+  },
+  {
+    id: 'hide-in-shadow',
+    title: 'Раствориться в тени',
+    description: 'Ты скользишь к стене, надеясь исчезнуть прежде, чем свет заметит тебя.',
+  },
+];
+
+const DEFAULT_CONTRACT = 'Что останется от истины, если убрать мечту?';
+
+const DEFAULT_SCENE =
+  'Ты вырываешься из сна, понимая, что комната чужая, а окна заколочены. В воздухе пахнет озоном и мокрыми стенами, как после грозы, которой никто не слышал. Перед тобой дрожит синеватый свет, а тень за спиной будто решила жить своей жизнью. Ты не знаешь, в какой момент всё пошло иначе, но выбора больше нет.';
+
+const DEFAULT_RESOLUTION =
+  'Ты задерживаешь взгляд на синеватом свете и делаешь шаг вперёд. Воздух густеет, но вместо страха приходит ясность: комната — не ловушка, а зеркало твоих решений. Ты трогаешь заколоченное окно, слышишь скрип досок и понимаешь, что снаружи нет готового ответа. Есть только ты и то, что решишь открыть.';
+
+const DEFAULT_HUMAN_INTERPRETATION =
+  'История напоминает: когда ты смотришь прямо в собственный страх, он перестаёт командовать. Ты готова открывать двери, даже если впереди снова темнота — потому что доверяешь себе больше, чем чужим обещаниям.';
+
+const DEFAULT_ASTROLOGICAL_INTERPRETATION =
+  'Луна в Близнецах дала тебе быструю реакцию на новое, но квадрат Сатурна добавил внутреннего контроля. Солнце в Раке усилило интуицию и потребность в безопасности. Венера в Деве проявилась в стремлении к порядку даже в хаосе. Твои выборы показывают классическую борьбу между потребностью в защите и желанием исследовать.';
+
+const NASTIA_PROFILE = ASTRO_PROFILES[PRIMARY_PROFILE_ID];
+const NASTIA_CHART_ANALYSIS = buildNatalChartAnalysis(PRIMARY_PROFILE_ID);
+const BIRTH_DATA_TEXT = serializeBirthData(NASTIA_PROFILE);
+const CHART_ANALYSIS_TEXT = serializeChartAnalysis(NASTIA_CHART_ANALYSIS);
+
+function serializeBirthData(profile: AstroProfile): string {
+  const locationNote = profile.notes?.split('(')[0]?.trim() ?? 'Тикси, Россия';
+  const time = profile.birthTime ?? '12:00';
+  return `{
+  "date": "${profile.birthDate}",
+  "time": "${time}",
+  "timezone": "${profile.timeZone}",
+  "location": "${locationNote}",
+  "latitude": ${profile.latitude},
+  "longitude": ${profile.longitude}
+}`;
 }
 
-const CONTEXT_LIMIT = 6;
+function serializeChartAnalysis(analysis: NatalChartAnalysis): string {
+  const formatSection = (label: string, values: string[]): string => {
+    if (!values.length) {
+      return `${label}: []`;
+    }
+    return `${label}:\n- ${values.join('\n- ')}`;
+  };
 
-function buildContextDescription(
+  return [
+    formatSection('core_placements', analysis.corePlacements),
+    formatSection('hard_aspects', analysis.hardAspects),
+    formatSection('soft_aspects', analysis.softAspects),
+  ].join('\n');
+}
+
+function indent(text: string, spaces = 2): string {
+  const pad = ' '.repeat(spaces);
+  return text
+    .split('\n')
+    .map(line => (line.length ? pad + line : line))
+    .join('\n');
+}
+
+function getStageName(arc: number, arcLimit: number): string {
+  const index = Math.max(0, Math.min(STORY_STAGE_NAMES.length - 1, arc - 1));
+  return STORY_STAGE_NAMES[index] ?? STORY_STAGE_NAMES[STORY_STAGE_NAMES.length - 1];
+}
+
+function getStageGuidance(stage: string): string {
+  return STORY_STAGE_GUIDANCE[stage] ?? '';
+}
+
+function buildStorySoFar(
   segments: HistoryStoryContextSegment[],
-  choice?: HistoryStoryOption,
+  arcLimit: number,
   summary?: string,
 ): string {
-  if (segments.length === 0) {
-    const base = 'Это начало истории. Начни сразу с действия или ощущения, без пояснений предыстории и без имени героини.';
-    if (!choice) {
-      return summary ? `${summary}\n\n${base}` : base;
-    }
-    const choiceLine = `Сразу веди сцену к направлению выбора: «${choice.title}»${choice.description ? ` (${choice.description})` : ''}.`;
-    return summary ? `${summary}\n\n${base}\n${choiceLine}` : `${base}\n${choiceLine}`;
+  if (!segments.length) {
+    return 'История ещё не началась.';
   }
 
   const recentSegments = segments.slice(-CONTEXT_LIMIT);
 
-  const parts = recentSegments.map((segment, index) => {
-    const stepNumber = segments.length - recentSegments.length + index + 1;
-    const choice = segment.optionTitle
-      ? `Выбранное направление: «${segment.optionTitle}»${segment.optionDescription ? ` (${segment.optionDescription})` : ''}.`
+  const parts = recentSegments.map(segment => {
+    const stage = getStageName(segment.arc, arcLimit);
+    const choiceLine = segment.optionTitle
+      ? `Выбор: «${segment.optionTitle}»${
+          segment.optionDescription ? ` (${segment.optionDescription})` : ''
+        }.`
       : 'Начальный фрагмент.';
-    return `Шаг ${stepNumber}. ${choice}\nТекст:\n${segment.text}`;
+    return `Arc ${segment.arc} — ${stage}.\n${choiceLine}\nСцена:\n${segment.text}`;
   });
 
-  const summaryPart = summary ? `${summary}\n\n` : '';
-  const base = `${summaryPart}Вот что уже рассказано:\n\n${parts.join('\n\n')}\n\nПродолжи историю так, чтобы сцена следовала за последним фрагментом, усиливала напряжение и оставляла тайну. Сохраняй второе лицо и короткие кинематографичные фразы.`;
-
-  if (!choice) {
-    return base;
+  if (summary && summary.trim().length > 0) {
+    return `${summary.trim()}\n\n${parts.join('\n\n')}`;
   }
 
-  return `${base}\nСледующий фрагмент должен соответствовать выбору пользователя: «${choice.title}»${choice.description ? ` (${choice.description})` : ''}.`;
+  return parts.join('\n\n');
+}
+
+function buildInputDataBlock(genre: string, arcLimit: number): string {
+  return `🔹 ВХОДНЫЕ ДАННЫЕ
+
+user_name: ${NASTIA_PROFILE.name}
+birth_data:
+${indent(BIRTH_DATA_TEXT, 2)}
+chart_analysis:
+${indent(CHART_ANALYSIS_TEXT, 2)}
+story_genre: ${genre}
+arc_limit: ${arcLimit}
+language: ru`;
+}
+
+interface ArcPromptArgs {
+  segments: HistoryStoryContextSegment[];
+  currentChoice?: HistoryStoryOption;
+  summary?: string;
+  author: HistoryStoryAuthorStyle;
+  arcLimit: number;
+  currentArc: number;
+  contract?: string;
+}
+
+function buildArcPrompt(args: ArcPromptArgs): string {
+  const {
+    segments,
+    currentChoice,
+    summary,
+    author,
+    arcLimit,
+    currentArc,
+    contract,
+  } = args;
+
+  const stage = getStageName(currentArc, arcLimit);
+  const stageGuidance = getStageGuidance(stage);
+  const storyContext = buildStorySoFar(segments, arcLimit, summary);
+
+  const choiceInstruction = currentChoice
+    ? `Учитывай, что предыдущий выбор Насти: «${currentChoice.title}»${
+        currentChoice.description ? ` (${currentChoice.description})` : ''
+      }.`
+    : 'Это первый узел — начинай без пояснений, сразу в действие.';
+
+  const contractInstruction = contract
+    ? `Контракт истории уже задан: «${contract}». Сохраняй формулировку без изменений и напоминай себе о нём при создании сцен.`
+    : 'Сформулируй контракт истории — короткий парадоксальный вопрос или тезис, который удерживает конфликт (до 90 символов). Используй его на всех узлах.';
+
+  return `${buildInputDataBlock(author.genre, arcLimit)}
+
+🔹 ПРОМПТ (ядро для модели)
+
+Создай персональную интерактивную историю в жанре ${author.genre}.
+Основывай тему и конфликт на ключевых аспектах натальной карты пользователя Насти:
+chart_analysis подключён выше — используй соответствующие мотивы и напряжения.
+Авторский стиль: ${author.stylePrompt}
+
+Героиня — женщина, имя не упоминается.
+Повествование ведётся от второго лица («ты»).
+
+Структура истории:
+1. Погружение — стартовая сцена без объяснений.
+2. Конфликт — столкновение с внутренней дилеммой.
+3. Отражение — встреча с символом себя.
+4. Испытание — выбор между иллюзией и ясностью.
+5. Поворот — действие с последствиями.
+6. Финал — принятие, потеря или трансформация.
+
+Сейчас нужно создать узел ${currentArc} из ${arcLimit} — «${stage}».
+Фокус этого узла: ${stageGuidance}
+${choiceInstruction}
+${contractInstruction}
+
+Контекст истории:
+${storyContext}
+
+Требования к сцене:
+- один абзац из 3–5 предложений (55–85 слов), кинематографичный, ощутимый;
+- используй конкретные детали, основанные на мотивах из chart_analysis;
+- оставь тайну, не раскрывай полностью происходящее;
+- завершай ощущением, что впереди развилка.
+
+После сцены подготовь два контрастных варианта выбора (без клише «продолжить»):
+- title — до 32 символов;
+- description — одно предложение до 90 символов.
+
+Ответь строго в формате JSON:
+{
+  "meta": {
+    "author": "${author.name}",
+    "genre": "${author.genre}",
+    "contract": "строка",
+    "arc_limit": ${arcLimit}
+  },
+  "node": {
+    "arc": ${currentArc},
+    "stage": "${stage}",
+    "scene": "абзац истории"
+  },
+  "choices": [
+    { "id": "уникальный-kebab-case", "title": "…", "description": "…" },
+    { "id": "уникальный-kebab-case", "title": "…", "description": "…" }
+  ]
+}
+
+Не добавляй пояснений, комментариев, Markdown и эмодзи.`;
+}
+
+interface FinalePromptArgs {
+  segments: HistoryStoryContextSegment[];
+  currentChoice?: HistoryStoryOption;
+  summary?: string;
+  author: HistoryStoryAuthorStyle;
+  arcLimit: number;
+  contract?: string;
+}
+
+function buildFinalePrompt(args: FinalePromptArgs): string {
+  const {
+    segments,
+    currentChoice,
+    summary,
+    author,
+    arcLimit,
+    contract,
+  } = args;
+
+  const storyContext = buildStorySoFar(segments, arcLimit, summary);
+
+  const choiceInstruction = currentChoice
+    ? `Это итоговый выбор Насти: «${currentChoice.title}»${
+        currentChoice.description ? ` (${currentChoice.description})` : ''
+      }. Построй развязку как прямое последствие этого шага.`
+    : 'Считай, что итоговый выбор сделан в пользу ясности — покажи последствия.';
+
+  const contractInstruction = contract
+    ? `Контракт истории: «${contract}». Придерживайся его тона в развязке.`
+    : 'Сформулированный тобой контракт должен проявиться в выводах финала.';
+
+  return `${buildInputDataBlock(author.genre, arcLimit)}
+
+🔹 ПРОМПТ (ядро для модели)
+
+Ты завершишь интерактивную историю для Насти.
+${contractInstruction}
+${choiceInstruction}
+Удерживай авторский стиль: ${author.stylePrompt}
+
+Контекст истории:
+${storyContext}
+
+Сформируй финальный блок:
+- resolution — один абзац из 3–5 предложений (60–90 слов), который завершает сюжет, показывает последствия выбора и закрывает напряжение;
+- human_interpretation — 2–4 предложения, тихое человеческое осознание без астрологических терминов (не упоминай Сатурн, Нептун и т.д.), без морализаторства;
+- astrological_interpretation — 3–5 предложений с астрологическим анализом: упомяни ключевые позиции планет и аспекты из chart_analysis, объясни, как они проявились в выборах Насти и почему она действовала именно так.
+
+Сохраняй второе лицо и атмосферность, не добавляй новых развилок.
+
+Ответь строго в формате JSON:
+{
+  "meta": {
+    "author": "${author.name}",
+    "genre": "${author.genre}",
+    "contract": "строка",
+    "arc_limit": ${arcLimit}
+  },
+  "finale": {
+    "resolution": "абзац-развязка",
+    "human_interpretation": "2–4 предложения без астрологических терминов",
+    "astrological_interpretation": "3–5 предложений с астрологическим анализом"
+  }
+}
+
+Никаких пояснений, только JSON.`;
 }
 
 function sanitizeOption(
@@ -169,27 +442,116 @@ function sanitizeOption(
   return { id, title, description };
 }
 
-function normalizeResponse(raw: unknown): HistoryStoryResponse {
-  if (!raw || typeof raw !== 'object') {
-    return FALLBACK_RESPONSE;
+interface NormalizeOptions {
+  mode: 'arc' | 'finale';
+  authorName: string;
+  genre: string;
+  arcLimit: number;
+  currentArc: number;
+  contract?: string;
+}
+
+function normalizeResponse(raw: unknown, options: NormalizeOptions): HistoryStoryResponse {
+  const contract = options.contract ?? DEFAULT_CONTRACT;
+
+  if (options.mode === 'finale') {
+    const metaSource = (raw as any)?.meta;
+    const finaleSource = (raw as any)?.finale ?? raw;
+
+    const resolvedContract =
+      typeof metaSource?.contract === 'string' && metaSource.contract.trim().length > 0
+        ? metaSource.contract.trim()
+        : contract;
+
+    const resolution =
+      typeof finaleSource?.resolution === 'string' && finaleSource.resolution.trim().length > 0
+        ? finaleSource.resolution.trim()
+        : DEFAULT_RESOLUTION;
+
+    const humanInterpretation =
+      typeof finaleSource?.human_interpretation === 'string' && finaleSource.human_interpretation.trim().length > 0
+        ? finaleSource.human_interpretation.trim()
+        : typeof finaleSource?.interpretation === 'string' && finaleSource.interpretation.trim().length > 0
+          ? finaleSource.interpretation.trim()
+          : DEFAULT_HUMAN_INTERPRETATION;
+
+    const astrologicalInterpretation =
+      typeof finaleSource?.astrological_interpretation === 'string' && finaleSource.astrological_interpretation.trim().length > 0
+        ? finaleSource.astrological_interpretation.trim()
+        : DEFAULT_ASTROLOGICAL_INTERPRETATION;
+
+    return {
+      meta: {
+        author: typeof metaSource?.author === 'string' && metaSource.author.trim().length > 0
+          ? metaSource.author.trim()
+          : options.authorName,
+        genre: typeof metaSource?.genre === 'string' && metaSource.genre.trim().length > 0
+          ? metaSource.genre.trim()
+          : options.genre,
+        contract: resolvedContract,
+        arcLimit: Number.isFinite(metaSource?.arc_limit)
+          ? Number(metaSource.arc_limit)
+          : options.arcLimit,
+      },
+      options: [],
+      finale: {
+        resolution,
+        humanInterpretation,
+        astrologicalInterpretation,
+      },
+    };
   }
 
-  const data = raw as Partial<HistoryStoryResponse>;
+  const metaSource = (raw as any)?.meta ?? (raw as any);
+  const nodeSource = (raw as any)?.node ?? (raw as any);
+  const choicesSource = Array.isArray((raw as any)?.choices)
+    ? (raw as any).choices
+    : Array.isArray((raw as any)?.options)
+      ? (raw as any).options
+      : [];
 
-  const continuation = typeof data.continuation === 'string' && data.continuation.trim().length > 0
-    ? data.continuation.trim()
-    : FALLBACK_RESPONSE.continuation;
+  const resolvedContract =
+    typeof metaSource?.contract === 'string' && metaSource.contract.trim().length > 0
+      ? metaSource.contract.trim()
+      : contract;
 
-  const optionsArray = Array.isArray(data.options) ? data.options : [];
+  const sceneText =
+    typeof nodeSource?.scene === 'string' && nodeSource.scene.trim().length > 0
+      ? nodeSource.scene.trim()
+      : DEFAULT_SCENE;
 
-  const normalizedOptions: HistoryStoryOption[] = [];
-  normalizedOptions.push(
-    sanitizeOption(optionsArray[0], FALLBACK_RESPONSE.options[0]),
-    sanitizeOption(optionsArray[1], FALLBACK_RESPONSE.options[1]),
-  );
+  const stageName =
+    typeof nodeSource?.stage === 'string' && nodeSource.stage.trim().length > 0
+      ? nodeSource.stage.trim()
+      : getStageName(options.currentArc, options.arcLimit);
+
+  const arcNumber = Number.isFinite(nodeSource?.arc)
+    ? Math.max(1, Number(nodeSource.arc))
+    : options.currentArc;
+
+  const normalizedOptions: HistoryStoryOption[] = [
+    sanitizeOption(choicesSource[0], FALLBACK_OPTIONS[0]),
+    sanitizeOption(choicesSource[1], FALLBACK_OPTIONS[1]),
+  ];
 
   return {
-    continuation,
+    meta: {
+      author: typeof metaSource?.author === 'string' && metaSource.author.trim().length > 0
+        ? metaSource.author.trim()
+        : options.authorName,
+      genre: typeof metaSource?.genre === 'string' && metaSource.genre.trim().length > 0
+        ? metaSource.genre.trim()
+        : options.genre,
+      contract: resolvedContract,
+      arcLimit: Number.isFinite(metaSource?.arc_limit)
+        ? Number(metaSource.arc_limit)
+        : options.arcLimit,
+    },
+    node: {
+      arc: arcNumber,
+      stage: stageName,
+      scene: sceneText,
+    },
     options: normalizedOptions,
   };
 }
@@ -199,35 +561,57 @@ export async function generateHistoryStoryChunk({
   currentChoice,
   summary,
   author,
+  arcLimit,
+  mode,
+  currentArc,
+  contract,
   signal,
   claudeApiKey,
   claudeProxyUrl,
   openAIApiKey,
 }: HistoryStoryRequestOptions): Promise<HistoryStoryResponse> {
-  const contextDescription = buildContextDescription(segments, currentChoice, summary);
-  const authorInstruction = `Пиши как ${author.name}. ${author.stylePrompt}. Сохраняй интонацию уверенной собеседницы, не раскрывай тайну до конца и не объясняй правила истории. Используй короткие, понятные предложения без лишней лирики.`;
-  const baseInstructions = buildBaseInstructions(author.genre);
+  const targetArc = mode === 'arc' ? (currentArc ?? 1) : arcLimit;
+
+  const prompt =
+    mode === 'finale'
+      ? buildFinalePrompt({
+          segments,
+          currentChoice,
+          summary,
+          author,
+          arcLimit,
+          contract,
+        })
+      : buildArcPrompt({
+          segments,
+          currentChoice,
+          summary,
+          author,
+          arcLimit,
+          currentArc: targetArc,
+          contract,
+        });
 
   const messages: AIMessage[] = [
     {
       role: 'user',
-      content: `${contextDescription}\n\n${authorInstruction}\n\n${baseInstructions}`,
+      content: prompt,
     },
   ];
 
   try {
     const result = await callAI({
-      system: `Ты ${author.name}, русскоязычная писательница, создающая атмосферный интерактивный рассказ во втором лице. Соблюдай формат JSON без Markdown и не добавляй вступлений.`,
+      system: `Ты ${author.name}, русскоязычная писательница, создающая атмосферную интерактивную историю во втором лице для Насти. Соблюдай формат JSON без Markdown и выполняй все требования пользователя.`,
       messages,
       temperature: 0.85,
-      maxTokens: 450,
+      maxTokens: mode === 'finale' ? 550 : 600,
       signal,
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
     });
 
-    console.log(`[HistoryStory] Generated chunk using ${result.provider}`);
+    console.log(`[HistoryStory] Generated ${mode} using ${result.provider}`);
 
     const cleanText = result.text
       .replace(/```json\s*/gi, '')
@@ -235,12 +619,26 @@ export async function generateHistoryStoryChunk({
       .trim();
 
     const parsed = JSON.parse(cleanText);
-    return normalizeResponse(parsed);
+    return normalizeResponse(parsed, {
+      mode,
+      authorName: author.name,
+      genre: author.genre,
+      arcLimit,
+      currentArc: targetArc,
+      contract,
+    });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
-    console.error('[HistoryStory] Failed to generate chunk, using fallback', error);
-    return FALLBACK_RESPONSE;
+    console.error(`[HistoryStory] Failed to generate ${mode}, using fallback`, error);
+    return normalizeResponse(null, {
+      mode,
+      authorName: author.name,
+      genre: author.genre,
+      arcLimit,
+      currentArc: targetArc,
+      contract,
+    });
   }
 }
