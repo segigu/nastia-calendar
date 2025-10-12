@@ -1551,6 +1551,7 @@
   border: none;
   background: transparent;
   padding: 0.5rem;
+  padding-right: 1rem;
   border-radius: 999px;
   cursor: pointer;
   transition: background-color 0.2s ease;
@@ -1584,7 +1585,6 @@
   justify-content: center;
   font-weight: 700;
   padding: 0 0.25rem;
-  box-shadow: 0 0 0 2px #ffffff;
 }
 
 .notificationsModal {
@@ -2950,6 +2950,61 @@
   font-size: 1.075rem;
   color: rgba(48, 36, 110, 0.88);
   line-height: 1.6;
+}
+
+.sergeyBannerSkeletonTitle,
+.sergeyBannerSkeletonLine,
+.sergeyBannerSkeletonLineShort,
+.sergeyBannerSkeletonButton,
+.sergeyBannerSkeletonButtonSecondary {
+  display: block;
+  background: linear-gradient(90deg, rgba(211, 214, 255, 0.25), rgba(211, 214, 255, 0.6), rgba(211, 214, 255, 0.25));
+  background-size: 220% 100%;
+  animation: notificationSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.sergeyBannerSkeletonTitle {
+  height: 1.3rem;
+  width: 68%;
+  border-radius: 0.75rem;
+}
+
+.sergeyBannerSkeletonBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.sergeyBannerSkeletonLine {
+  height: 1.05rem;
+  border-radius: 0.7rem;
+}
+
+.sergeyBannerSkeletonLineShort {
+  height: 0.95rem;
+  border-radius: 0.7rem;
+  width: 78%;
+}
+
+.sergeyBannerSkeletonButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.sergeyBannerSkeletonButton,
+.sergeyBannerSkeletonButtonSecondary {
+  height: 2.9rem;
+  border-radius: 0.85rem;
+}
+
+.sergeyBannerSkeletonButton {
+  width: 100%;
+}
+
+.sergeyBannerSkeletonButtonSecondary {
+  width: 80%;
+  align-self: flex-start;
 }
 
 @keyframes sergeyLoadingFade {

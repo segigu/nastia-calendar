@@ -65,10 +65,12 @@ import {
   fetchDailyHoroscope,
   fetchDailyHoroscopeForDate,
   fetchHoroscopeLoadingMessages,
+  fetchSergeyBannerCopy,
   fetchSergeyDailyHoroscopeForDate,
   mergeHoroscopeMemoryEntries,
   type DailyHoroscope,
   type HoroscopeLoadingMessage,
+  type SergeyBannerCopy,
 } from '../utils/horoscope';
 import {
   generatePeriodModalContent,
@@ -324,6 +326,13 @@ const SERGEY_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
   { emoji: '📦', text: 'Юпитер навалил задач, пока Серёжа таскал коробки и матерился сквозь зубы.' },
 ];
 
+const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
+  title: 'А что там у Сережи?',
+  subtitle: 'Серёжа опять что-то мудрит. Подглянем, что ему сулят звёзды на сегодня?',
+  primaryButton: 'Посмотреть гороскоп',
+  secondaryButton: 'Мне пофиг',
+};
+
 interface HistoryStorySegment {
   id: string;
   text: string;
@@ -378,6 +387,9 @@ const ModernNastiaApp: React.FC = () => {
   const [sergeyHoroscopeStatus, setSergeyHoroscopeStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [sergeyHoroscopeError, setSergeyHoroscopeError] = useState<string | null>(null);
   const [sergeyLoadingIndex, setSergeyLoadingIndex] = useState(0);
+  const [sergeyBannerCopy, setSergeyBannerCopy] = useState<SergeyBannerCopy | null>(null);
+  const [sergeyBannerCopyStatus, setSergeyBannerCopyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [, setSergeyBannerCopyError] = useState<string | null>(null);
   const [showQuestionBubble, setShowQuestionBubble] = useState(false);
   const [showJokeBubble, setShowJokeBubble] = useState(false);
 
@@ -693,6 +705,7 @@ const ModernNastiaApp: React.FC = () => {
   const notificationsRequestSeqRef = useRef(0);
   const isMountedRef = useRef(true);
   const sergeyRequestControllerRef = useRef<AbortController | null>(null);
+  const sergeyBannerCopyControllerRef = useRef<AbortController | null>(null);
   const dataHydratedRef = useRef(false);
   const horoscopeMemoryRef = useRef<HoroscopeMemoryEntry[]>([]);
   const cyclesRef = useRef<CycleData[]>([]);
@@ -1087,6 +1100,10 @@ const ModernNastiaApp: React.FC = () => {
 
   const currentDailyLoadingMessage = dailyLoadingMessages[dailyLoadingIndex] ?? DEFAULT_LOADING_MESSAGES[0];
   const currentSergeyLoadingMessage = SERGEY_LOADING_MESSAGES[sergeyLoadingIndex] ?? SERGEY_LOADING_MESSAGES[0];
+  const effectiveSergeyBannerCopy = useMemo(
+    () => sergeyBannerCopy ?? DEFAULT_SERGEY_BANNER_COPY,
+    [sergeyBannerCopy]
+  );
 
   useEffect(() => {
     if (!showNotifications) {
@@ -1368,25 +1385,37 @@ const ModernNastiaApp: React.FC = () => {
       setDailyHoroscopeError(null);
       setDailyLoadingMessages([]);
       setDailyLoadingIndex(0);
-       setSergeyBannerDismissed(false);
-       setSergeyHoroscope(null);
-       setSergeyHoroscopeStatus('idle');
-       setSergeyHoroscopeError(null);
-       setSergeyLoadingIndex(0);
-       if (sergeyRequestControllerRef.current) {
-         sergeyRequestControllerRef.current.abort();
-         sergeyRequestControllerRef.current = null;
-       }
+      setSergeyBannerDismissed(false);
+      setSergeyHoroscope(null);
+      setSergeyHoroscopeStatus('idle');
+      setSergeyHoroscopeError(null);
+      setSergeyLoadingIndex(0);
+      setSergeyBannerCopy(null);
+      setSergeyBannerCopyStatus('idle');
+      setSergeyBannerCopyError(null);
+      if (sergeyRequestControllerRef.current) {
+        sergeyRequestControllerRef.current.abort();
+        sergeyRequestControllerRef.current = null;
+      }
+      if (sergeyBannerCopyControllerRef.current) {
+        sergeyBannerCopyControllerRef.current.abort();
+        sergeyBannerCopyControllerRef.current = null;
+      }
       return;
     }
 
     const controller = new AbortController();
+    const sergeyCopyController = new AbortController();
+    sergeyBannerCopyControllerRef.current = sergeyCopyController;
     const todayIso = new Date().toISOString().split('T')[0];
 
     setDailyHoroscopeStatus('loading');
     setDailyHoroscopeError(null);
     setDailyLoadingMessages(DEFAULT_LOADING_MESSAGES);
     setDailyLoadingIndex(0);
+    setSergeyBannerCopy(null);
+    setSergeyBannerCopyStatus('loading');
+    setSergeyBannerCopyError(null);
 
     fetchHoroscopeLoadingMessages(
       remoteClaudeKey ?? undefined,
@@ -1436,8 +1465,41 @@ const ModernNastiaApp: React.FC = () => {
         setDailyHoroscopeError('Не удалось загрузить гороскоп. Попробуй ещё раз позже.');
       });
 
+    fetchSergeyBannerCopy(
+      todayIso,
+      sergeyCopyController.signal,
+      remoteClaudeKey ?? undefined,
+      remoteClaudeProxyUrl ?? undefined,
+      remoteOpenAIKey ?? undefined,
+      horoscopeMemoryRef.current,
+    )
+      .then(copy => {
+        if (sergeyCopyController.signal.aborted) {
+          return;
+        }
+        sergeyBannerCopyControllerRef.current = null;
+        setSergeyBannerCopy(copy);
+        setSergeyBannerCopyStatus('success');
+      })
+      .catch(error => {
+        if (sergeyCopyController.signal.aborted) {
+          return;
+        }
+        sergeyBannerCopyControllerRef.current = null;
+        console.error('Не удалось получить тексты карточки Серёжи:', error);
+        setSergeyBannerCopy(DEFAULT_SERGEY_BANNER_COPY);
+        setSergeyBannerCopyStatus('error');
+        setSergeyBannerCopyError(
+          error instanceof Error ? error.message : 'Не удалось придумать новые фразы.',
+        );
+      });
+
     return () => {
       controller.abort();
+      sergeyCopyController.abort();
+      if (sergeyBannerCopyControllerRef.current === sergeyCopyController) {
+        sergeyBannerCopyControllerRef.current = null;
+      }
     };
   }, [showDailyHoroscopeModal, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey]);
 
@@ -2179,7 +2241,7 @@ const ModernNastiaApp: React.FC = () => {
               type="button"
               aria-label={unreadCount > 0 ? `Есть ${unreadCount} новых уведомлений` : 'Открыть уведомления'}
             >
-              <Bell size={20} />
+              <Bell size={24} />
               {unreadCount > 0 && (
                 <span className={styles.notificationBadge}>
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -3184,7 +3246,13 @@ const ModernNastiaApp: React.FC = () => {
                   </div>
                   {activeTab === 'calendar' && !sergeyBannerDismissed && (
                     <div className={styles.sergeyBanner} aria-live="polite">
-                      <div className={styles.sergeyBannerTitle}>А что там у Сережи?</div>
+                      {sergeyBannerCopyStatus === 'loading' ? (
+                        <div className={styles.sergeyBannerTitle} aria-hidden="true">
+                          <span className={styles.sergeyBannerSkeletonTitle} />
+                        </div>
+                      ) : (
+                        <div className={styles.sergeyBannerTitle}>{effectiveSergeyBannerCopy.title}</div>
+                      )}
                       {sergeyHoroscopeStatus === 'loading' ? (
                         <>
                           <div className={styles.sergeyBannerLoading}>
@@ -3222,10 +3290,19 @@ const ModernNastiaApp: React.FC = () => {
                               {line.replace(/\*\*/g, '')}
                             </p>
                           ))
+                      ) : sergeyBannerCopyStatus === 'loading' ? (
+                        <div className={styles.sergeyBannerSkeletonBody} aria-hidden="true">
+                          <span className={styles.sergeyBannerSkeletonLine} />
+                          <span className={styles.sergeyBannerSkeletonLineShort} />
+                          <div className={styles.sergeyBannerSkeletonButtons}>
+                            <span className={styles.sergeyBannerSkeletonButton} />
+                            <span className={styles.sergeyBannerSkeletonButtonSecondary} />
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <p className={styles.sergeyBannerSubtitle}>
-                            Серёжа опять что-то мудрит. Подглянем, что ему сулят звёзды на сегодня?
+                            {effectiveSergeyBannerCopy.subtitle}
                           </p>
                           <div className={styles.sergeyBannerActions}>
                             <button
@@ -3233,14 +3310,14 @@ const ModernNastiaApp: React.FC = () => {
                               className={`${styles.sergeyBannerButton} ${styles.sergeyBannerPrimary}`}
                               onClick={handleSergeyHoroscopeRequest}
                             >
-                              <span>Посмотреть гороскоп</span>
+                              <span>{effectiveSergeyBannerCopy.primaryButton}</span>
                             </button>
                             <button
                               type="button"
                               className={`${styles.sergeyBannerButton} ${styles.sergeyBannerSecondary}`}
                               onClick={handleSergeyBannerDismiss}
                             >
-                              Мне пофиг
+                              {effectiveSergeyBannerCopy.secondaryButton}
                             </button>
                           </div>
                         </>

@@ -18,6 +18,13 @@ export interface HoroscopeLoadingMessage {
   text: string;
 }
 
+export interface SergeyBannerCopy {
+  title: string;
+  subtitle: string;
+  primaryButton: string;
+  secondaryButton: string;
+}
+
 const MAX_MEMORY_KEEP = 12;
 const DAILY_MEMORY_LOOKBACK = 4;
 const STATIC_AVOID_THEMES = [
@@ -794,6 +801,96 @@ export async function fetchSergeyDailyHoroscopeForDate(
       provider: 'fallback',
       highlights: [],
     };
+  }
+}
+
+const SERGEY_BANNER_SYSTEM_PROMPT = `Ты — язвительная копирайтерша, которая помогает Насте формулировать карточку про Серёжу. Отвечай легко, по-современному и без пафоса.`;
+
+function buildSergeyBannerPrompt(
+  isoDate: string,
+  memoryEntries?: HoroscopeMemoryEntry[],
+): string {
+  const parsedDate = new Date(isoDate);
+  const formattedDate = Number.isNaN(parsedDate.getTime())
+    ? 'сегодня'
+    : new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+      }).format(parsedDate);
+
+  const memoryReminders = buildSergeyMemoryReminders(memoryEntries);
+  const remindersSection = memoryReminders.length
+    ? `Дополнительные подсказки по тону и темам:\n${memoryReminders.join('\n')}\n`
+    : '';
+
+  return `Нужно обновить тексты карточки «Что там у Серёжи?» на ${formattedDate}.
+
+Дай четыре короткие фразы с тем же смыслом, но в новых формулировках:
+- title — вопрос на 4-7 слов с интригой вроде «А что там у Серёжи?» (оставь имя Серёжи в любом падеже).
+- subtitle — 1-2 предложения, где Настя замечает, что Серёжа снова мутит что-то, и предлагает взглянуть его гороскоп именно на сегодня.
+- primaryButton — 2-3 слова, призыв заглянуть в гороскоп.
+- secondaryButton — 1-2 слова, играющая отмазка в духе «Мне пофиг».
+
+Правила:
+- Разговорный русский, можно лёгкий сарказм, но без мата и оскорблений.
+- Никаких эмодзи и кавычек.
+- Подписи на кнопках без точки на конце.
+- Подзаголовок должен явно намекать, что речь про сегодняшний день.
+${remindersSection}Верни ровно одну строку JSON без комментариев:
+{"title":"...","subtitle":"...","primaryButton":"...","secondaryButton":"..."}
+`;
+}
+
+export async function fetchSergeyBannerCopy(
+  isoDate: string,
+  signal?: AbortSignal,
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+  memory?: HoroscopeMemoryEntry[],
+): Promise<SergeyBannerCopy> {
+  const prompt = buildSergeyBannerPrompt(isoDate, memory);
+
+  try {
+    const { callAI } = await import('./aiClient');
+    const response = await callAI({
+      system: SERGEY_BANNER_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.75,
+      maxTokens: 220,
+      signal,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
+    });
+
+    const cleaned = response.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned) as Partial<SergeyBannerCopy>;
+
+    const normalize = (value: unknown): string =>
+      typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+
+    const result: SergeyBannerCopy = {
+      title: normalize(parsed.title),
+      subtitle: normalize(parsed.subtitle),
+      primaryButton: normalize(parsed.primaryButton),
+      secondaryButton: normalize(parsed.secondaryButton),
+    };
+
+    if (!result.title || !result.subtitle || !result.primaryButton || !result.secondaryButton) {
+      throw new Error('Sergey banner copy is incomplete');
+    }
+
+    console.log('[Horoscope] Generated Sergey banner copy using', response.provider);
+    return result;
+  } catch (error) {
+    console.error('Failed to fetch Sergey banner copy:', error);
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 
