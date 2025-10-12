@@ -13,7 +13,7 @@
 .header {
   margin-bottom: 2rem;
   position: relative;
-  padding-top: 2.5rem;
+  padding-top: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
