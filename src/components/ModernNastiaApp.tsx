@@ -245,180 +245,74 @@ const DEFAULT_LOADING_MESSAGES: HoroscopeLoadingMessage[] = [
   { emoji: '🌕', text: 'Луна примеряет настроение, подбирает идеальный градус драмы.' },
 ];
 
-const HISTORY_INTROS = [
-  {
-    emoji: '📖',
-    text: 'Жили-были дед да баба, и была у них курочка Ряба. Снесла курочка яичко, да не простое — золотое. Дед бил-бил — не разбил. Баба била-била — не разбила. А мышка бежала, хвостиком махнула...',
-    punchline: 'Стоп, не то читаю! Вот твоя реальная история:'
-  },
-  {
-    emoji: '🏰',
-    text: 'Однажды в тридевятом царстве, в тридесятом государстве жила-была принцесса. И не было у неё покоя ни днём, ни ночью. То драконы беспокоят, то злая мачеха интриги плетёт. Но однажды всё изменилось, когда она нашла волшебное зеркало...',
-    punchline: 'Ладно, хватит сказок. Вот настоящие данные:'
-  },
-  {
-    emoji: '🌙',
-    text: 'Давным-давно, когда луна была ближе к земле, а звёзды ярче светили, жил на свете один мудрец. Он знал тайны времён, мог предсказывать будущее и помнил всё прошлое. И вот однажды к нему пришла девушка с вопросом о своей судьбе...',
-    punchline: 'Окей, мудреца не нашли. Зато есть данные:'
-  },
-  {
-    emoji: '🎭',
-    text: 'Это было холодным ноябрьским утром, когда всё началось. Главная героиня даже не подозревала, что её жизнь навсегда изменится. Она открыла дверь, увидела странный конверт на пороге, а в нём было письмо без подписи...',
-    punchline: 'Спойлер: в конверте был календарь. Вот он:'
-  },
-  {
-    emoji: '🌟',
-    text: 'За семью морями, за семью горами, где заканчивается радуга и начинается небо, находилось волшебное королевство. В нём текли молочные реки с кисельными берегами, а время шло не по часам, а по своим законам...',
-    punchline: 'Всё, хватит фантазировать. Реальность:'
-  },
-  {
-    emoji: '📚',
-    text: 'Глава первая. Знакомство. Наша история начинается с того момента, как молодая женщина решила взять свою жизнь под контроль. Она завела дневник, начала вести записи, отмечать важные даты. Это был первый шаг к переменам...',
-    punchline: 'Ладно, это не роман. Просто данные:'
-  },
-  {
-    emoji: '🦋',
-    text: 'Говорят, что в Китае взмахнула крыльями бабочка, и через месяц на другом конце света началась буря. Так и в этой истории — всё началось с малого. С одной даты, с одной записи, с одного решения начать следить за собой...',
-    punchline: 'Серьёзно, без метафор. Факты:'
-  },
-  {
-    emoji: '🕯️',
-    text: 'При свечах, в тишине старинной библиотеки, открывается древний манускрипт. Страницы пожелтели от времени, чернила выцвели, но записи всё ещё можно разобрать. Первая строка гласит: "В начале было слово, а затем..."',
-    punchline: 'Стоп! Не та книга. Вот твоя история:'
-  },
-  {
-    emoji: '🌊',
-    text: 'Море волновалось раз, море волновалось два, море волновалось три — морская фигура на месте замри! Так и циклы природы: приливы и отливы, смена времён года, фазы луны. Всё в этом мире циклично, всё повторяется...',
-    punchline: 'Хватит философии. Вот конкретика:'
-  },
-  {
-    emoji: '🎪',
-    text: 'Дамы и господа, мальчики и девочки! Добро пожаловать в самое удивительное шоу на Земле! Сегодня вы станете свидетелями невероятных событий, головокружительных трюков и потрясающих открытий! Занавес открывается...',
-    punchline: 'Шутка! Вот обычная история циклов:'
-  },
-  {
-    emoji: '🔮',
-    text: 'Хрустальный шар затуманивается, и в его глубинах появляются образы прошлого. Гадалка шепчет: "Вижу даты, вижу числа, вижу закономерности... О, это интересно! Тут целая история скрывается..."',
-    punchline: 'Гадалка врёт. Вот реальные данные:'
-  },
-  {
-    emoji: '🌸',
-    text: 'Пришла весна, зазеленели луга, расцвели первые цветы. Природа пробуждается после долгой зимы, и вместе с ней просыпается жизнь. Всё вокруг меняется, обновляется, начинается новый цикл. И вот тогда-то всё и началось...',
-    punchline: 'Стоп, это не про весну. Вот данные:'
-  },
-  {
-    emoji: '⏳',
-    text: 'Время — самая загадочная вещь в нашем мире. Оно течёт, как песок сквозь пальцы, неумолимо и непрерывно. Мы пытаемся его поймать, измерить, запомнить. Мы ведём календари, отмечаем даты, считаем дни...',
-    punchline: 'Окей, философ из меня никакой. Факты:'
-  },
-  {
-    emoji: '🎬',
-    text: 'СЦЕНА 1. ВНУТРИ. ДЕНЬ. Главная героиня сидит за столом и листает календарь. Она задумчиво смотрит на отмеченные даты. За окном идёт дождь. Она достаёт ручку и начинает делать новые записи...',
-    punchline: 'Режиссёр кричит "Стоп!". Вот реальность:'
-  },
-  {
-    emoji: '🌈',
-    text: 'Где-то на краю света, где небо встречается с землёй, а мечты становятся явью, разворачивалась удивительная история. Это была история о поисках, о надежде, о том, как важно помнить прошлое, чтобы понять будущее...',
-    punchline: 'Перебор с драмой. Вот что есть:'
-  },
-  {
-    emoji: '📜',
-    text: 'В летописях древних сказано: "Было время, когда началось то, что должно было начаться". Мудрецы веками пытались разгадать эту загадку. Что же тогда произошло? Какие силы пришли в движение?...',
-    punchline: 'Всё проще. Вот твоя летопись:'
-  },
-  {
-    emoji: '🎨',
-    text: 'Художник стоит перед чистым холстом. Он берёт кисть, обмакивает в краску и наносит первый мазок. Затем второй, третий... Постепенно на холсте проявляется картина. Это история в красках, история без слов...',
-    punchline: 'Картина готова! Вот она:'
-  },
-  {
-    emoji: '🎵',
-    text: 'Прелюдия. Allegro moderato. Первые ноты симфонии робко звучат в тишине зала. Скрипки вступают, затем виолончели. Мелодия набирает силу, становится всё громче. Это симфония жизни, где каждая нота имеет значение...',
-    punchline: 'Хватит концерта. Вот программка:'
-  },
-  {
-    emoji: '🏛️',
-    text: 'В стенах древнего храма хранятся записи о прошлом. Жрецы веками вели хронику событий, отмечая важные даты, фиксируя закономерности. Каждая запись — это кусочек истории, каждая дата — это ключ к пониманию...',
-    punchline: 'Жрецы отдыхают. Вот современная хроника:'
-  },
-  {
-    emoji: '🗝️',
-    text: 'Старый ключ долго лежал в шкатулке, забытый всеми. Но однажды его нашли, протерли от пыли и попробовали открыть им дверь. Дверь поддалась, и за ней оказался тайный архив. В архиве — папки с датами, записи, документы...',
-    punchline: 'Архив открыт. Вот содержимое:'
-  },
-  {
-    emoji: '🔥',
-    text: 'Из маленькой искры разгорается пламя. Сначала робкое, едва заметное, оно растёт, крепнет, превращается в огонь. Огонь жизни, огонь перемен. Всё началось с малого — с одного решения, с одной даты...',
-    punchline: 'Метафоры в сторону. Данные:'
-  },
-  {
-    emoji: '🌌',
-    text: 'Звёздное небо хранит много тайн. Астрономы изучают движение планет, предсказывают затмения, вычисляют циклы. Всё во Вселенной подчинено ритмам, всё движется по законам. И в этом движении рождается история...',
-    punchline: 'Спустились на Землю. Вот история:'
-  },
-  {
-    emoji: '🏰',
-    text: 'В башне старого замка сидела принцесса. День за днём она смотрела в окно, ожидая перемен. Она вела дневник, записывая туда свои мысли, мечты и даты важных событий. Каждая запись приближала её к разгадке тайны...',
-    punchline: 'Тайна раскрыта. Вот дневник:'
-  },
-  {
-    emoji: '📿',
-    text: 'Как бусины на нитке, нанизываются дни нашей жизни. Одна за другой, образуя узор, создавая рисунок судьбы. Некоторые бусины ярче, некоторые — тусклее. Но все они важны, все они составляют единое ожерелье времени...',
-    punchline: 'Поэзию в сторону. Вот ожерелье:'
-  },
-  {
-    emoji: '🎯',
-    text: 'Каждый выстрел — это история. Лучник целится, натягивает тетиву, отпускает стрелу. Она летит точно в цель, раз за разом, день за днём. Это не случайность, это результат наблюдений, анализа, понимания закономерностей...',
-    punchline: 'Попали в яблочко! Вот результат:'
-  },
-  {
-    emoji: '🌺',
-    text: 'В саду распускаются цветы. Каждый в своё время, каждый по своему расписанию. Садовник знает, когда ожидать первых бутонов, когда придёт пора цветения. Он ведёт записи, отмечает даты, следит за циклами природы...',
-    punchline: 'Ботанику закрыли. Открываем данные:'
-  },
-  {
-    emoji: '🎪',
-    text: 'Цирк приехал в город ранним утром. Акробаты натягивали канаты, клоуны репетировали номера, дрессировщики работали с животными. Всё подчинено расписанию, всё идёт по графику. Представление начнётся ровно в семь...',
-    punchline: 'Представление отменяется. Вот программа:'
-  },
-  {
-    emoji: '🧭',
-    text: 'Путешественник достал компас и карту. Он долго изучал маршрут, отмечая ключевые точки, вычисляя расстояния, планируя остановки. Каждая дата в его дневнике — это веха путешествия, каждая запись — это часть большого пути...',
-    punchline: 'Пришли к финишу. Вот карта:'
-  },
-  {
-    emoji: '🌙',
-    text: 'Луна растёт и убывает, следуя своему вечному циклу. Полнолуние сменяется новолунием, месяц за месяцем, год за годом. Древние люди знали эти циклы наизусть, они строили по ним свои календари, планировали свою жизнь...',
-    punchline: 'Лунный календарь потом. Вот земной:'
-  },
-  {
-    emoji: '🦉',
-    text: 'Мудрая сова сидела на дереве и наблюдала. Она видела, как всё в природе повторяется — времена года, миграции птиц, цветение растений. Она понимала закономерности, предсказывала события. Это была её мудрость, накопленная веками...',
-    punchline: 'Сова улетела. Остались данные:'
-  },
-];
 
 interface StoryAuthor {
   id: string;
   name: string;
   prompt: string;
+  genre: string;
 }
 
 const STORY_AUTHORS: StoryAuthor[] = [
   {
-    id: 'tolstoy',
-    name: 'Лев Толстой',
-    prompt: 'Дай развернутые наблюдения за бытом и эмоциями, используй плавные переходы и внимательные детали.',
+    id: 'petrushevskaya-mystic',
+    name: 'Людмила Петрушевская',
+    genre: 'мистика',
+    prompt: 'Передавай вязкую мистическую атмосферу, где нормальность растворяется в тревожных деталях. Используй короткие, прямые фразы и детали, которые тревожат.',
   },
   {
-    id: 'bulgakov',
-    name: 'Михаил Булгаков',
-    prompt: 'Добавь остроумие, лёгкую сатиру и намёки на мистику, избегай чрезмерного пафоса.',
+    id: 'starobinets-thriller',
+    name: 'Анна Старобинец',
+    genre: 'триллер',
+    prompt: 'Создавай нарастающее напряжение, дозируй шок и держи тайну в полумраке. Пользуйся визуальными деталями как в кадре, избегай развернутых метафор.',
   },
   {
-    id: 'christie',
+    id: 'rubina-romance',
+    name: 'Дина Рубина',
+    genre: 'роман',
+    prompt: 'Придавай сценам эмоциональную насыщенность и внутренний монолог, но говори просто и конкретно. Покажи противоречие между страхом и тягой к близости без длинных образов.',
+  },
+  {
+    id: 'yahina-drama',
+    name: 'Гузель Яхина',
+    genre: 'психологическая драма',
+    prompt: 'Раскрывай переживания через детали окружающего мира и телесные ощущения. Сохраняй деликатную, но прямую интонацию и накапливай скрытое напряжение.',
+  },
+  {
+    id: 'dyachenko-postapoc',
+    name: 'Марина Дяченко',
+    genre: 'постапокалипсис',
+    prompt: 'Покажи мир после катастрофы через контрасты света и тени. Соединяй хрупкую надежду и опасность прямыми штрихами, не объясняя причину разрушения.',
+  },
+  {
+    id: 'rowling-mystery',
+    name: 'Джоан Роулинг',
+    genre: 'мистика',
+    prompt: 'Создавай ощущение скрытого мира рядом. Давай ясные детали и лаконичные загадки, будто читатель уже в центре событий.',
+  },
+  {
+    id: 'christie-thriller',
     name: 'Агата Кристи',
-    prompt: 'Поддерживай напряжение, оставляй крошечные зацепки и деталей для будущих развязок.',
+    genre: 'триллер',
+    prompt: 'Строй сцены как спокойный, но напряженный допрос. Подавай факты экономно, оставляй место для подозрений и неожиданных поворотов.',
+  },
+  {
+    id: 'jackson-mystery',
+    name: 'Ширли Джексон',
+    genre: 'мистика',
+    prompt: 'Смешивай повседневность и странность так, чтобы тревога нарастала незаметно. Используй простые образы, заставляющие читателя сомневаться.',
+  },
+  {
+    id: 'atwood-postapoc',
+    name: 'Маргарет Этвуд',
+    genre: 'постапокалипсис',
+    prompt: 'Соединяй холодный анализ и сочувствие. Пиши точными фразами, показывая, как общество и тело реагируют на катастрофу.',
+  },
+  {
+    id: 'leguin-drama',
+    name: 'Урсула Ле Гуин',
+    genre: 'психологическая драма',
+    prompt: 'Показывай внутренний выбор через диалог с миром. Используй простые описания, в которых чувствуется философская глубина.',
   },
 ];
 
@@ -547,8 +441,6 @@ const ModernNastiaApp: React.FC = () => {
   });
   const [visibleNotificationIds, setVisibleNotificationIds] = useState<string[]>([]);
   const [visibleCycleIds, setVisibleCycleIds] = useState<string[]>([]);
-  const [showHistoryIntro, setShowHistoryIntro] = useState(false);
-  const [historyIntro, setHistoryIntro] = useState<{ emoji: string; text: string; punchline: string } | null>(null);
   const [historyStoryAuthor, setHistoryStoryAuthor] = useState<StoryAuthor>(() => {
     const index = Math.floor(Math.random() * STORY_AUTHORS.length);
     return STORY_AUTHORS[index];
@@ -572,6 +464,9 @@ const ModernNastiaApp: React.FC = () => {
   const historyStoryTypingTimeoutRef = useRef<number | null>(null);
   const historyStoryFetchControllerRef = useRef<AbortController | null>(null);
   const historyMessagesRef = useRef<HTMLDivElement | null>(null);
+  const historyScrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const historyScrollTimeoutRef = useRef<number | null>(null);
+  const historyScrollContainerRef = useRef<HTMLElement | null>(null);
   const clearHistoryStoryTypingTimer = useCallback(() => {
     if (historyStoryTypingTimeoutRef.current !== null) {
       window.clearTimeout(historyStoryTypingTimeoutRef.current);
@@ -605,10 +500,9 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryLoading(false);
     setHistoryStoryTyping(false);
     setHistoryStoryMode('story');
-    setShowHistoryIntro(false);
-    setHistoryIntro(null);
     setHistoryStoryMenuOpen(false);
     setVisibleButtonsCount(0);
+    historyScrollContainerRef.current = null;
   }, [abortHistoryStoryRequest, clearHistoryStoryTypingTimer, clearButtonAnimationTimers]);
 
   const startTypingHistorySegment = useCallback((segment: HistoryStorySegment) => {
@@ -672,7 +566,7 @@ const ModernNastiaApp: React.FC = () => {
   }, []);
 
   const fetchHistoryStoryChunk = useCallback(
-    async (choice?: HistoryStoryOption) => {
+    async (choice?: HistoryStoryOption, authorOverride?: StoryAuthor) => {
       abortHistoryStoryRequest();
 
       const controller = new AbortController();
@@ -683,6 +577,10 @@ const ModernNastiaApp: React.FC = () => {
       historyStoryPendingChoiceRef.current = choice;
 
       try {
+        const activeAuthor = authorOverride ?? historyStoryAuthor;
+        if (!activeAuthor) {
+          throw new Error('History story author is not available');
+        }
         const recentSegments = historyStorySegmentsRef.current.slice(-4);
         const response = await generateHistoryStoryChunk({
           segments: recentSegments.map(segment => ({
@@ -693,8 +591,9 @@ const ModernNastiaApp: React.FC = () => {
           currentChoice: choice,
           summary: historyStorySummaryRef.current || undefined,
           author: {
-            name: historyStoryAuthor.name,
-            stylePrompt: historyStoryAuthor.prompt,
+            name: activeAuthor.name,
+            stylePrompt: activeAuthor.prompt,
+            genre: activeAuthor.genre,
           },
           signal: controller.signal,
           claudeApiKey: remoteClaudeKey ?? undefined,
@@ -709,14 +608,13 @@ const ModernNastiaApp: React.FC = () => {
         const newSegment: HistoryStorySegment = {
           id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
           text: response.continuation,
-          authorId: historyStoryAuthor.id,
-          authorName: historyStoryAuthor.name,
+          authorId: activeAuthor.id,
+          authorName: activeAuthor.name,
           option: choice,
           timestamp: new Date().toISOString(),
         };
 
         historyStoryPendingOptionsRef.current = response.options;
-        setShowHistoryIntro(false);
         startTypingHistorySegment(newSegment);
         historyStoryPendingChoiceRef.current = undefined;
       } catch (error) {
@@ -740,11 +638,9 @@ const ModernNastiaApp: React.FC = () => {
 
   const initiateHistoryStory = useCallback(() => {
     resetHistoryStoryState();
-    const randomIntro = HISTORY_INTROS[Math.floor(Math.random() * HISTORY_INTROS.length)];
-    setHistoryIntro(randomIntro);
-    setShowHistoryIntro(true);
-    setHistoryStoryMode('story');
-    void fetchHistoryStoryChunk();
+    const persona = STORY_AUTHORS[Math.floor(Math.random() * STORY_AUTHORS.length)];
+    setHistoryStoryAuthor(persona);
+    void fetchHistoryStoryChunk(undefined, persona);
   }, [fetchHistoryStoryChunk, resetHistoryStoryState]);
 
   const handleHistoryOptionSelect = useCallback((option: HistoryStoryOption) => {
@@ -864,6 +760,32 @@ const ModernNastiaApp: React.FC = () => {
   }, [cycles]);
 
   useEffect(() => {
+    return () => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      if (historyScrollTimeoutRef.current !== null) {
+        window.clearTimeout(historyScrollTimeoutRef.current);
+        historyScrollTimeoutRef.current = null;
+      }
+      historyScrollContainerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (historyStoryMode !== 'story' && historyScrollTimeoutRef.current !== null) {
+      window.clearTimeout(historyScrollTimeoutRef.current);
+      historyScrollTimeoutRef.current = null;
+    }
+    if (historyStoryMode !== 'story') {
+      historyScrollContainerRef.current = null;
+    }
+  }, [historyStoryMode]);
+
+  useEffect(() => {
     if (activeTab !== 'history') {
       resetHistoryStoryState();
       return;
@@ -898,32 +820,178 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [historyStoryMode, cycles]);
 
-  // Функция для плавного скролла
-  const scrollToBottom = useCallback((delay = 0) => {
-    setTimeout(() => {
-      // Двойной requestAnimationFrame для гарантии что DOM обновился
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (historyMessagesRef.current) {
-            let scrollContainer = historyMessagesRef.current.parentElement;
+  const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
 
-            while (scrollContainer && scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
-              scrollContainer = scrollContainer.parentElement;
-              if (scrollContainer?.tagName === 'BODY') break;
-            }
+    const existing = historyScrollContainerRef.current;
+    if (existing && existing.isConnected) {
+      return existing;
+    }
 
-            if (scrollContainer && scrollContainer.tagName !== 'BODY') {
-              // Скроллим вниз полностью, без отступа
-              scrollContainer.scrollTo({
-                top: scrollContainer.scrollHeight,
-                behavior: 'smooth'
-              });
-            }
-          }
-        });
-      });
-    }, delay);
+    const messagesElement = historyMessagesRef.current;
+    if (!messagesElement) {
+      return null;
+    }
+
+    let current: HTMLElement | null = messagesElement.parentElement;
+
+    while (current) {
+      const style = window.getComputedStyle(current);
+      const overflowY = style.overflowY;
+      const overflow = style.overflow;
+      const isScrollable =
+        overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay' ||
+        overflow === 'auto' ||
+        overflow === 'scroll' ||
+        overflow === 'overlay';
+
+      if (isScrollable) {
+        historyScrollContainerRef.current = current;
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    const documentElement =
+      (document.scrollingElement as HTMLElement | null) ?? document.documentElement ?? document.body ?? null;
+    historyScrollContainerRef.current = documentElement;
+    return documentElement;
   }, []);
+
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+    resolveHistoryScrollContainer();
+  }, [historyStoryMode, resolveHistoryScrollContainer]);
+
+  // Функция для плавного скролла
+  const scrollToBottom = useCallback(
+    ({ delay = 0, behavior = 'smooth' }: { delay?: number; behavior?: ScrollBehavior } = {}) => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const scheduleScroll = () => {
+        if (typeof window === 'undefined') {
+          return;
+        }
+
+        const scrollContainer = resolveHistoryScrollContainer();
+        const anchor =
+          historyScrollAnchorRef.current ??
+          (historyMessagesRef.current?.lastElementChild as HTMLElement | null);
+
+        if (!scrollContainer || !anchor) {
+          return;
+        }
+
+        const execute = () => {
+          if (!scrollContainer.isConnected) {
+            historyScrollContainerRef.current = null;
+            return;
+          }
+
+          const anchorRect = anchor.getBoundingClientRect();
+
+          const containerRect =
+            scrollContainer === document.documentElement || scrollContainer === document.body
+              ? new DOMRect(0, 0, window.innerWidth, window.innerHeight)
+              : scrollContainer.getBoundingClientRect();
+
+          const delta = anchorRect.bottom - containerRect.bottom;
+
+          if (delta <= 1) {
+            return;
+          }
+
+          const scrollByOptions = { top: delta, behavior } as ScrollToOptions;
+
+          if (scrollContainer === document.documentElement || scrollContainer === document.body) {
+            window.scrollBy(scrollByOptions);
+            return;
+          }
+
+          if (typeof scrollContainer.scrollBy === 'function') {
+            scrollContainer.scrollBy(scrollByOptions);
+            return;
+          }
+
+          if (typeof scrollContainer.scrollTo === 'function') {
+            scrollContainer.scrollTo({
+              top: scrollContainer.scrollTop + delta,
+              behavior,
+            });
+            return;
+          }
+
+          scrollContainer.scrollTop += delta;
+        };
+
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(execute);
+        });
+      };
+
+      if (historyScrollTimeoutRef.current !== null) {
+        window.clearTimeout(historyScrollTimeoutRef.current);
+        historyScrollTimeoutRef.current = null;
+      }
+
+      if (delay > 0) {
+        historyScrollTimeoutRef.current = window.setTimeout(() => {
+          scheduleScroll();
+          historyScrollTimeoutRef.current = null;
+        }, delay);
+        return;
+      }
+
+      scheduleScroll();
+    },
+    [resolveHistoryScrollContainer],
+  );
+
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const container = historyMessagesRef.current;
+    if (!container) {
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const observer = new ResizeObserver(entries => {
+      if (!entries.length) {
+        return;
+      }
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        scrollToBottom({ behavior: 'smooth' });
+      });
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [historyStoryMode, scrollToBottom]);
 
   // Автоскролл при появлении typing indicator
   useEffect(() => {
@@ -932,7 +1000,7 @@ const ModernNastiaApp: React.FC = () => {
     }
 
     if (historyStoryTyping) {
-      scrollToBottom(350);
+      scrollToBottom({ delay: 350 });
     }
   }, [historyStoryTyping, historyStoryMode, scrollToBottom]);
 
@@ -943,7 +1011,7 @@ const ModernNastiaApp: React.FC = () => {
     }
 
     if (historyStorySegments.length > 0 && !historyStoryTyping) {
-      scrollToBottom(400);
+      scrollToBottom({ delay: 400 });
     }
   }, [historyStorySegments.length, historyStoryTyping, historyStoryMode, scrollToBottom]);
 
@@ -964,14 +1032,14 @@ const ModernNastiaApp: React.FC = () => {
 
     clearButtonAnimationTimers();
 
-    // Начинаем показывать кнопки по одной (включая кнопку "Показать циклы")
-    const totalButtons = historyStoryOptions.length + 1; // +1 для кнопки "Показать циклы"
+    // Начинаем показывать кнопки по одной
+    const totalButtons = historyStoryOptions.length;
     const delayBetweenButtons = 500; // Задержка между кнопками
 
     for (let i = 0; i < totalButtons; i++) {
       const timeoutId = window.setTimeout(() => {
         setVisibleButtonsCount(i + 1);
-        scrollToBottom(200);
+        scrollToBottom({ delay: 200 });
       }, delayBetweenButtons * (i + 1));
 
       buttonAnimationTimeoutsRef.current.push(timeoutId);
@@ -2520,7 +2588,13 @@ const ModernNastiaApp: React.FC = () => {
                 <div className={styles.historyStoryHeader}>
                   <span className={styles.historyStoryLabel}>История</span>
                   <div className={styles.historyStoryHeaderActions}>
-                    <div className={styles.historyStoryAuthorTag}>{historyStoryAuthor.name}</div>
+                    <button
+                      type="button"
+                      className={styles.historyStoryShowCyclesButton}
+                      onClick={handleShowHistoryCycles}
+                    >
+                      Показать циклы
+                    </button>
                     <button
                       type="button"
                       className={styles.historyStoryMenuButton}
@@ -2553,33 +2627,11 @@ const ModernNastiaApp: React.FC = () => {
                         >
                           Показать циклы
                         </button>
-                        <div className={styles.historyStoryMenuDivider} />
-                        <div className={styles.historyStoryMenuSectionTitle}>Сменить автора</div>
-                        {STORY_AUTHORS.map(author => (
-                          <button
-                            key={author.id}
-                            type="button"
-                            className={`${styles.historyStoryMenuItem} ${author.id === historyStoryAuthor.id ? styles.historyStoryMenuItemActive : ''}`}
-                            onClick={() => {
-                              setHistoryStoryAuthor(author);
-                              setHistoryStoryMenuOpen(false);
-                            }}
-                            disabled={author.id === historyStoryAuthor.id}
-                          >
-                            {author.name}
-                          </button>
-                        ))}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className={styles.historyChatMessages} ref={historyMessagesRef}>
-                  {showHistoryIntro && historyIntro ? (
-                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}>
-                      <div className={styles.historyChatIntroEmoji}>{historyIntro.emoji}</div>
-                      <div>{historyIntro.text}</div>
-                    </div>
-                  ) : null}
                   {historyStorySegments.map(segment => {
                     const timestamp = new Date(segment.timestamp);
                     const timeStr = timestamp.toLocaleTimeString('ru-RU', {
@@ -2628,30 +2680,24 @@ const ModernNastiaApp: React.FC = () => {
                 )}
                 {!historyStoryTyping && historyStoryOptions.length > 0 && (
                   <div className={`${styles.historyChatReplies} ${historyButtonsHiding ? styles.historyChatRepliesHiding : ''}`}>
-                    {historyStoryOptions.map((option, index) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={`${styles.historyChatReplyButton} ${index < visibleButtonsCount ? styles.visible : ''}`}
-                        onClick={() => handleHistoryOptionSelect(option)}
-                        disabled={historyStoryLoading}
-                      >
-                        <span className={styles.historyChatReplyTitle}>{option.title}</span>
-                        <span className={styles.historyChatReplyDescription}>{option.description}</span>
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className={`${styles.historyChatReplyButton} ${styles.historyChatReplySecondary} ${historyStoryOptions.length <= visibleButtonsCount ? styles.visible : ''}`}
-                      onClick={handleShowHistoryCycles}
-                    >
-                      <span className={styles.historyChatReplyTitle}>Показать циклы</span>
-                      <span className={styles.historyChatReplyDescription}>
-                        Хочу увидеть реальные данные
-                      </span>
-                    </button>
+                    {historyStoryOptions.map((option, index) => {
+                      const accentClass = index === 0 ? styles.historyChatReplyPrimary : styles.historyChatReplyAlt;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={`${styles.historyChatReplyButton} ${accentClass} ${index < visibleButtonsCount ? styles.visible : ''}`}
+                          onClick={() => handleHistoryOptionSelect(option)}
+                          disabled={historyStoryLoading}
+                        >
+                          <span className={styles.historyChatReplyTitle}>{option.title}</span>
+                          <span className={styles.historyChatReplyDescription}>{option.description}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
+                <div ref={historyScrollAnchorRef} className={styles.historyScrollAnchor} aria-hidden />
               </div>
             )}
             {historyStoryMode === 'cycles' && (

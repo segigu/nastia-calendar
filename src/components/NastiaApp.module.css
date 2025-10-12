@@ -653,9 +653,9 @@
 }
 
 .historyStoryLabel {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #333;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #000;
   letter-spacing: 0;
 }
 
@@ -666,14 +666,26 @@
   position: relative;
 }
 
-.historyStoryAuthorTag {
-  background: #f0f0f0;
-  color: #666;
-  font-weight: 500;
-  font-size: 0.8rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
+.historyStoryShowCyclesButton {
   border: none;
+  background: rgba(138, 89, 237, 0.12);
+  color: var(--nastia-purple);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.historyStoryShowCyclesButton:hover {
+  background: rgba(138, 89, 237, 0.22);
+  color: #5a2bb5;
+  transform: translateY(-1px);
+}
+
+.historyStoryShowCyclesButton:active {
+  transform: translateY(0);
 }
 
 .historyStoryMenuButton {
@@ -713,7 +725,7 @@
   background: transparent;
   padding: 0.5rem 0.7rem;
   text-align: left;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   border-radius: 0.5rem;
   color: #333;
   cursor: pointer;
@@ -727,28 +739,6 @@
 .historyStoryMenuItem:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.historyStoryMenuItemActive {
-  background: var(--nastia-light);
-  color: var(--nastia-purple);
-  font-weight: 600;
-}
-
-.historyStoryMenuDivider {
-  height: 1px;
-  background: #e0e0e0;
-  margin: 0.3rem 0;
-}
-
-.historyStoryMenuSectionTitle {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0.3rem 0 0.2rem;
-  padding: 0 0.7rem;
 }
 
 .historyStoryRestartButton {
@@ -837,7 +827,7 @@
 }
 
 .historyChatSender {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   text-transform: none;
   letter-spacing: 0;
   color: var(--nastia-purple);
@@ -845,7 +835,7 @@
 }
 
 .historyChatContent {
-  font-size: 0.95rem;
+  font-size: 1.125rem;
   line-height: 1.5;
   color: #333;
   white-space: pre-wrap;
@@ -864,17 +854,12 @@
 }
 
 .historyChatTimestamp {
-  font-size: 0.7rem;
-  color: #999;
+  font-size: 0.75rem;
+  color: #7a7a7a;
   white-space: nowrap;
   align-self: flex-end;
   margin-left: auto;
   padding-left: 0.5rem;
-}
-
-.historyChatIntroEmoji {
-  font-size: 1.75rem;
-  margin-bottom: 0.25rem;
 }
 
 .historyChatTyping {
@@ -926,6 +911,12 @@
   pointer-events: none;
 }
 
+.historyScrollAnchor {
+  width: 100%;
+  height: 0;
+  pointer-events: none;
+}
+
 .historyChatRepliesHiding .historyChatReplyButton:nth-child(1) {
   animation: fadeOut 0.35s ease forwards;
   animation-delay: 0s;
@@ -936,13 +927,8 @@
   animation-delay: 0.08s;
 }
 
-.historyChatRepliesHiding .historyChatReplyButton:nth-child(3) {
-  animation: fadeOut 0.35s ease forwards;
-  animation-delay: 0.16s;
-}
-
 .historyChatReplyButton {
-  border: 2px solid var(--nastia-purple);
+  border: 2px solid transparent;
   background: transparent;
   border-radius: 0.75rem;
   padding: 0.7rem 0.9rem;
@@ -952,7 +938,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  color: var(--nastia-purple);
+  color: #333;
   width: 100%;
   box-shadow: none;
   align-self: flex-start;
@@ -965,14 +951,11 @@
 }
 
 .historyChatReplyButton:hover:not(:disabled) {
-  background: rgba(138, 89, 237, 0.08);
-  border-color: var(--nastia-dark);
   transform: translateY(-1px);
 }
 
 .historyChatReplyButton:active:not(:disabled) {
   transform: translateY(0);
-  background: rgba(138, 89, 237, 0.15);
 }
 
 .historyChatReplyButton:disabled {
@@ -980,33 +963,46 @@
   cursor: not-allowed;
 }
 
+.historyChatReplyPrimary {
+  border-color: var(--nastia-purple);
+}
+
+.historyChatReplyPrimary:hover:not(:disabled) {
+  background: rgba(138, 89, 237, 0.1);
+  border-color: var(--nastia-dark);
+  transform: translateY(-1px);
+}
+
+.historyChatReplyPrimary:active:not(:disabled) {
+  background: rgba(138, 89, 237, 0.2);
+  transform: translateY(0);
+}
+
+.historyChatReplyAlt {
+  border-color: #2a9d8f;
+}
+
+.historyChatReplyAlt:hover:not(:disabled) {
+  background: rgba(42, 157, 143, 0.1);
+  border-color: #1f7f74;
+  transform: translateY(-1px);
+}
+
+.historyChatReplyAlt:active:not(:disabled) {
+  background: rgba(42, 157, 143, 0.2);
+  transform: translateY(0);
+}
+
 .historyChatReplyTitle {
   font-weight: 600;
-  font-size: 0.9rem;
-  color: #333;
+  font-size: 1rem;
+  color: #222;
 }
 
 .historyChatReplyDescription {
-  font-size: 0.75rem;
-  color: #666;
-  line-height: 1.3;
-}
-
-.historyChatReplySecondary {
-  border-color: var(--nastia-pink);
-}
-
-.historyChatReplySecondary .historyChatReplyTitle {
-  color: #333;
-}
-
-.historyChatReplySecondary .historyChatReplyDescription {
-  color: #666;
-}
-
-.historyChatReplySecondary:hover:not(:disabled) {
-  background: rgba(255, 102, 140, 0.08);
-  border-color: var(--nastia-pink);
+  font-size: 0.875rem;
+  color: #555;
+  line-height: 1.35;
 }
 
 .historyCyclesCard {
