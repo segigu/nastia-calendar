@@ -3007,10 +3007,9 @@ const ModernNastiaApp: React.FC = () => {
                             <div className={styles.historyChatMessageWrapper}>
                               <div className={styles.historyChatTextBlock}>
                                 <div className={styles.historyChatContent}>
-                                  <div className={styles.historyChatScene}>{selectedChoice.title}</div>
-                                  {selectedChoice.description && (
-                                    <div className={styles.historyChatSelectedChoiceDesc}>{selectedChoice.description}</div>
-                                  )}
+                                  {selectedChoice.title}
+                                  {selectedChoice.description && ` ${selectedChoice.description}`}
+                                  <div className={styles.historyChatTime}>{timeStr}</div>
                                 </div>
                               </div>
                             </div>

@@ -874,7 +874,7 @@
 .historyChatOutgoing {
   align-self: flex-end;
   border-bottom-right-radius: 0.125rem;
-  background: #f3ebff;
+  background: #f5f1e8;
   max-width: 85%;
 }
 
@@ -1096,14 +1096,6 @@
 .historyChatReplyButton:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.historyChatSelectedChoiceDesc {
-  font-size: 0.95rem;
-  color: #666;
-  line-height: 1.45;
-  margin-top: 0.35rem;
-  font-style: italic;
 }
 
 .historyFinalSummaryBubble {
