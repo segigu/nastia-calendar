@@ -1208,6 +1208,18 @@ const ModernNastiaApp: React.FC = () => {
     }
   }, [historyStorySegments.length, historyStoryTyping, historyStoryMode, scrollToBottom]);
 
+  // Автоскролл при выборе опции (добавлении сообщения от Насти)
+  useEffect(() => {
+    if (historyStoryMode !== 'story') {
+      return;
+    }
+
+    const lastSegment = historyStorySegments[historyStorySegments.length - 1];
+    if (lastSegment?.selectedOptionId) {
+      scrollToBottom({ delay: 150 });
+    }
+  }, [historyStorySegments, historyStoryMode, scrollToBottom]);
+
   // Последовательное появление кнопок с прокруткой после каждой
   useEffect(() => {
     if (historyStoryMode !== 'story') {
@@ -3008,7 +3020,12 @@ const ModernNastiaApp: React.FC = () => {
                               <div className={styles.historyChatTextBlock}>
                                 <div className={styles.historyChatContent}>
                                   {selectedChoice.title}
-                                  {selectedChoice.description && ` ${selectedChoice.description}`}
+                                  {selectedChoice.description && (
+                                    <>
+                                      <br />
+                                      {selectedChoice.description}
+                                    </>
+                                  )}
                                   <div className={styles.historyChatTime}>{timeStr}</div>
                                 </div>
                               </div>
