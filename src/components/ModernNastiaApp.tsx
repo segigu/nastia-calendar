@@ -2982,21 +2982,34 @@ const ModernNastiaApp: React.FC = () => {
                     });
                     const metaAuthor = historyStoryMeta?.author ?? segment.authorName;
 
+                    const selectedChoice = segment.selectedOptionId && segment.choices
+                      ? segment.choices.find(choice => choice.id === segment.selectedOptionId)
+                      : undefined;
+
                     return (
-                      <div
-                        key={segment.id}
-                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
-                      >
-                        <div className={styles.historyChatSender}>{metaAuthor}</div>
-                        <div className={styles.historyChatMessageWrapper}>
-                          <div className={styles.historyChatTextBlock}>
-                            <div className={styles.historyChatContent}>
-                              <div className={styles.historyChatScene}>{segment.text}</div>
-                              <div className={styles.historyChatTime}>{timeStr}</div>
+                      <React.Fragment key={segment.id}>
+                        <div
+                          className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
+                        >
+                          <div className={styles.historyChatSender}>{metaAuthor}</div>
+                          <div className={styles.historyChatMessageWrapper}>
+                            <div className={styles.historyChatTextBlock}>
+                              <div className={styles.historyChatContent}>
+                                <div className={styles.historyChatScene}>{segment.text}</div>
+                                <div className={styles.historyChatTime}>{timeStr}</div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
+                        {selectedChoice && (
+                          <div className={styles.historyChatSelectedChoice}>
+                            <div className={styles.historyChatSelectedChoiceTitle}>{selectedChoice.title}</div>
+                            {selectedChoice.description && (
+                              <div className={styles.historyChatSelectedChoiceDesc}>{selectedChoice.description}</div>
+                            )}
+                          </div>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                   {(historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (

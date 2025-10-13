@@ -151,7 +151,7 @@ const FALLBACK_OPTIONS: [HistoryStoryOption, HistoryStoryOption] = [
   },
 ];
 
-const DEFAULT_CONTRACT = 'Что останется от истины, если убрать мечту?';
+const DEFAULT_CONTRACT = 'Смогу ли я сохранить себя, когда всё вокруг требует подстроиться?';
 
 const DEFAULT_SCENE =
   'Ты вырываешься из сна, понимая, что комната чужая, а окна заколочены. В воздухе пахнет озоном и мокрыми стенами, как после грозы, которой никто не слышал. Перед тобой дрожит синеватый свет, а тень за спиной будто решила жить своей жизнью. Ты не знаешь, в какой момент всё пошло иначе, но выбора больше нет.';
@@ -289,7 +289,7 @@ function buildArcPrompt(args: ArcPromptArgs): string {
 
   const contractInstruction = contract
     ? `Контракт истории уже задан: «${contract}». Сохраняй формулировку без изменений и напоминай себе о нём при создании сцен.`
-    : 'Сформулируй контракт истории — короткий парадоксальный вопрос или тезис, который удерживает конфликт (до 90 символов). Используй его на всех узлах.';
+    : 'Сформулируй контракт истории — понятный человеческий вопрос о внутреннем конфликте личности (до 90 символов). Например: "Смогу ли я быть собой, когда все ждут от меня другого?", "Как найти баланс между своими желаниями и чужими ожиданиями?". НЕ используй абстрактные философские формулировки. Используй этот контракт на всех узлах.';
 
   return `${buildInputDataBlock(author.genre, arcLimit)}
 
@@ -399,6 +399,8 @@ ${storyContext}
 - human_interpretation — 2–4 предложения, тихое человеческое осознание без астрологических терминов (не упоминай Сатурн, Нептун и т.д.), без морализаторства;
 - astrological_interpretation — 3–5 предложений с астрологическим анализом: упомяни ключевые позиции планет и аспекты из chart_analysis, объясни, как они проявились в выборах Насти и почему она действовала именно так.
 
+ВАЖНО: Каждое поле должно быть в ОДНУ строку, без переносов внутри значений. Используй пробелы вместо переносов строк.
+
 Сохраняй второе лицо и атмосферность, не добавляй новых развилок.
 
 Ответь строго в формате JSON:
@@ -410,13 +412,13 @@ ${storyContext}
     "arc_limit": ${arcLimit}
   },
   "finale": {
-    "resolution": "абзац-развязка",
-    "human_interpretation": "2–4 предложения без астрологических терминов",
-    "astrological_interpretation": "3–5 предложений с астрологическим анализом"
+    "resolution": "абзац-развязка в одну строку",
+    "human_interpretation": "2–4 предложения в одну строку без астрологических терминов",
+    "astrological_interpretation": "3–5 предложений в одну строку с астрологическим анализом"
   }
 }
 
-Никаких пояснений, только JSON.`;
+Никаких пояснений, только JSON. Все текстовые значения должны быть в одну строку.`;
 }
 
 function sanitizeOption(
@@ -618,7 +620,24 @@ export async function generateHistoryStoryChunk({
       .replace(/```\s*/g, '')
       .trim();
 
-    const parsed = JSON.parse(cleanText);
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error(`[HistoryStory] JSON parse error for ${mode}:`, parseError);
+      console.error(`[HistoryStory] Raw text (first 500 chars):`, cleanText.slice(0, 500));
+
+      // Попытка исправить многострочные строки в JSON
+      try {
+        const fixedText = cleanText.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+        parsed = JSON.parse(fixedText);
+        console.log(`[HistoryStory] Successfully parsed after fixing newlines`);
+      } catch (fixError) {
+        console.error(`[HistoryStory] Failed to fix and parse, using fallback`);
+        throw parseError;
+      }
+    }
+
     return normalizeResponse(parsed, {
       mode,
       authorName: author.name,
@@ -631,7 +650,14 @@ export async function generateHistoryStoryChunk({
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
-    console.error(`[HistoryStory] Failed to generate ${mode}, using fallback`, error);
+    console.error(`[HistoryStory] Failed to generate ${mode}`, error);
+
+    // Для финала не используем fallback, чтобы не было одинаковых результатов
+    if (mode === 'finale') {
+      throw new Error('Failed to generate finale. Please try again.');
+    }
+
+    // Для arc используем fallback
     return normalizeResponse(null, {
       mode,
       authorName: author.name,
