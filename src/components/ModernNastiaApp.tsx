@@ -3002,11 +3002,17 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                         {selectedChoice && (
-                          <div className={styles.historyChatSelectedChoice}>
-                            <div className={styles.historyChatSelectedChoiceTitle}>{selectedChoice.title}</div>
-                            {selectedChoice.description && (
-                              <div className={styles.historyChatSelectedChoiceDesc}>{selectedChoice.description}</div>
-                            )}
+                          <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing}`}>
+                            <div className={styles.historyChatMessageWrapper}>
+                              <div className={styles.historyChatTextBlock}>
+                                <div className={styles.historyChatContent}>
+                                  <div className={styles.historyChatSelectedChoiceTitle}>{selectedChoice.title}</div>
+                                  {selectedChoice.description && (
+                                    <div className={styles.historyChatSelectedChoiceDesc}>{selectedChoice.description}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </React.Fragment>

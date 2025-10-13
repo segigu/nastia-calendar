@@ -606,7 +606,7 @@ export async function generateHistoryStoryChunk({
       system: `Ты ${author.name}, русскоязычная писательница, создающая атмосферную интерактивную историю во втором лице для Насти. Соблюдай формат JSON без Markdown и выполняй все требования пользователя.`,
       messages,
       temperature: 0.85,
-      maxTokens: mode === 'finale' ? 550 : 600,
+      maxTokens: mode === 'finale' ? 800 : 600,
       signal,
       claudeApiKey,
       claudeProxyUrl,

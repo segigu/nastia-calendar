@@ -871,6 +871,13 @@
   background: #ffffff;
 }
 
+.historyChatOutgoing {
+  align-self: flex-end;
+  border-bottom-right-radius: 0.125rem;
+  background: #e8d5ff;
+  max-width: 85%;
+}
+
 .historyChatSender {
   font-size: 0.85rem;
   text-transform: none;
@@ -1091,26 +1098,18 @@
   cursor: not-allowed;
 }
 
-.historyChatSelectedChoice {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  margin: -0.3rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
 .historyChatSelectedChoiceTitle {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 500;
   color: #333;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .historyChatSelectedChoiceDesc {
-  font-size: 0.85rem;
-  color: #666;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.4;
+  margin-top: 0.25rem;
 }
 
 .historyFinalSummaryBubble {
