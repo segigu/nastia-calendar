@@ -2992,7 +2992,7 @@ const ModernNastiaApp: React.FC = () => {
                       hour: '2-digit',
                       minute: '2-digit',
                     });
-                    const metaAuthor = historyStoryMeta?.author ?? segment.authorName;
+                    const storyTitle = historyStoryMeta?.title ?? 'История';
 
                     const selectedChoice = segment.selectedOptionId && segment.choices
                       ? segment.choices.find(choice => choice.id === segment.selectedOptionId)
@@ -3003,7 +3003,7 @@ const ModernNastiaApp: React.FC = () => {
                         <div
                           className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
                         >
-                          <div className={styles.historyChatSender}>{metaAuthor}</div>
+                          <div className={styles.historyChatStoryTitle}>{storyTitle}</div>
                           <div className={styles.historyChatMessageWrapper}>
                             <div className={styles.historyChatTextBlock}>
                               <div className={styles.historyChatContent}>
@@ -3037,7 +3037,7 @@ const ModernNastiaApp: React.FC = () => {
                   })}
                   {(historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}>
-                      <div className={styles.historyChatSender}>{historyStoryAuthor.name}</div>
+                      <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
                         <span />
                         <span />
