@@ -238,6 +238,37 @@ function trimString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Умная замена переносов строк в JSON:
+ * - Находит все строковые значения в JSON (между кавычками)
+ * - Заменяет переносы строк внутри этих значений на пробелы
+ * - Оставляет структурные элементы JSON (запятые, скобки) без изменений
+ */
+function fixSmartNewlines(jsonText: string): string {
+  let result = '';
+  let insideString = false;
+  let prevChar = '';
+
+  for (let i = 0; i < jsonText.length; i++) {
+    const char = jsonText[i];
+
+    // Определяем, находимся ли мы внутри строкового значения
+    if (char === '"' && prevChar !== '\\') {
+      insideString = !insideString;
+      result += char;
+    } else if (insideString && (char === '\n' || char === '\r')) {
+      // Внутри строки: заменяем перенос на пробел
+      result += ' ';
+    } else {
+      result += char;
+    }
+
+    prevChar = char;
+  }
+
+  return result;
+}
+
 async function generatePsychContractContext(
   claudeApiKey?: string,
   claudeProxyUrl?: string,
@@ -324,47 +355,43 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
 
       // Попытка исправить многострочные строки в JSON
       try {
-        // Более агрессивная очистка: заменяем все переносы и множественные пробелы
-        let fixedText = text
-          // Заменяем переносы строк внутри строк на пробелы
-          .replace(/\\n/g, ' ')
-          // Заменяем реальные переносы строк на пробелы
-          .replace(/[\r\n]+/g, ' ')
-          // Заменяем табуляции на пробелы
-          .replace(/\t/g, ' ')
-          // Убираем множественные пробелы
-          .replace(/\s+/g, ' ')
-          // Убираем пробелы перед закрывающими кавычками и скобками
-          .replace(/\s+"/g, '"')
-          .replace(/\s+}/g, '}')
-          .replace(/\s+]/g, ']')
-          // Убираем пробелы после открывающих кавычек и скобок
-          .replace(/"\s+/g, '"')
-          .replace(/{\s+/g, '{')
-          .replace(/\[\s+/g, '[');
-
+        // Умная замена: заменяем переносы строк внутри строковых значений на пробелы,
+        // но оставляем структурные переносы между ключами
+        let fixedText = fixSmartNewlines(text);
         parsed = JSON.parse(fixedText);
-        console.log('[PsychContract] Successfully parsed after fixing newlines and whitespace');
+        console.log('[PsychContract] Successfully parsed after fixing newlines');
       } catch (fixError) {
-        console.error('[PsychContract] Failed to fix and parse, trying to extract valid JSON portion');
+        console.error('[PsychContract] Smart fix failed, trying aggressive cleanup');
 
-        // Последняя попытка: ищем валидные части JSON
+        // Агрессивная очистка: убираем ВСЕ переносы строк
         try {
-          // Пытаемся найти последнюю закрывающую скобку
-          const lastBrace = text.lastIndexOf('}');
-          if (lastBrace > 0) {
-            const truncated = text.substring(0, lastBrace + 1);
-            const fixedTruncated = truncated
-              .replace(/[\r\n]+/g, ' ')
-              .replace(/\s+/g, ' ');
-            parsed = JSON.parse(fixedTruncated);
-            console.log('[PsychContract] Successfully parsed truncated JSON');
-          } else {
+          let aggressiveText = text
+            .replace(/\\n/g, ' ')
+            .replace(/[\r\n]+/g, ' ')
+            .replace(/\t/g, ' ')
+            .replace(/\s+/g, ' ');
+          parsed = JSON.parse(aggressiveText);
+          console.log('[PsychContract] Successfully parsed after aggressive cleanup');
+        } catch (aggressiveError) {
+          console.error('[PsychContract] Aggressive cleanup failed, trying to extract valid JSON');
+
+          // Последняя попытка: ищем валидные части JSON
+          try {
+            const lastBrace = text.lastIndexOf('}');
+            if (lastBrace > 0) {
+              const truncated = text.substring(0, lastBrace + 1);
+              const fixedTruncated = truncated
+                .replace(/[\r\n]+/g, ' ')
+                .replace(/\s+/g, ' ');
+              parsed = JSON.parse(fixedTruncated);
+              console.log('[PsychContract] Successfully parsed truncated JSON');
+            } else {
+              throw parseError;
+            }
+          } catch (truncError) {
+            console.error('[PsychContract] All parsing attempts failed, using fallback');
             throw parseError;
           }
-        } catch (truncError) {
-          console.error('[PsychContract] All parsing attempts failed, using fallback');
-          throw parseError;
         }
       }
     }
