@@ -92,8 +92,13 @@ import {
   generateHistoryStoryChunk,
   type HistoryStoryMeta,
   type HistoryStoryOption,
+  clearPsychContractContext,
 } from '../utils/historyStory';
 import styles from './NastiaApp.module.css';
+
+const ENV_CLAUDE_KEY = (process.env.REACT_APP_CLAUDE_API_KEY ?? '').trim();
+const ENV_CLAUDE_PROXY = (process.env.REACT_APP_CLAUDE_PROXY_URL ?? '').trim();
+const ENV_OPENAI_KEY = (process.env.REACT_APP_OPENAI_API_KEY ?? '').trim();
 
 const PRIMARY_USER_NAME = 'Настя';
 const MAX_STORED_NOTIFICATIONS = 200;
@@ -376,6 +381,34 @@ const ModernNastiaApp: React.FC = () => {
   const [remoteClaudeKey, setRemoteClaudeKey] = useState<string | null>(null);
   const [remoteClaudeProxyUrl, setRemoteClaudeProxyUrl] = useState<string | null>(null);
   const [remoteOpenAIKey, setRemoteOpenAIKey] = useState<string | null>(null);
+
+  const effectiveClaudeKey = useMemo(() => {
+    const remote = remoteClaudeKey?.trim();
+    if (remote && remote.length > 0) {
+      return remote;
+    }
+    return ENV_CLAUDE_KEY.length > 0 ? ENV_CLAUDE_KEY : undefined;
+  }, [remoteClaudeKey]);
+
+  const effectiveClaudeProxyUrl = useMemo(() => {
+    const remote = remoteClaudeProxyUrl?.trim();
+    if (remote && remote.length > 0) {
+      return remote;
+    }
+    return ENV_CLAUDE_PROXY.length > 0 ? ENV_CLAUDE_PROXY : undefined;
+  }, [remoteClaudeProxyUrl]);
+
+  const effectiveOpenAIKey = useMemo(() => {
+    const remote = remoteOpenAIKey?.trim();
+    if (remote && remote.length > 0) {
+      return remote;
+    }
+    return ENV_OPENAI_KEY.length > 0 ? ENV_OPENAI_KEY : undefined;
+  }, [remoteOpenAIKey]);
+
+  const hasAiCredentials = useMemo(() => {
+    return Boolean(effectiveClaudeKey || effectiveClaudeProxyUrl || effectiveOpenAIKey);
+  }, [effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey]);
   const [periodContent, setPeriodContent] = useState<PeriodModalContent | null>(null);
   const [periodContentStatus, setPeriodContentStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [periodContentError, setPeriodContentError] = useState<string | null>(null);
@@ -466,6 +499,7 @@ const ModernNastiaApp: React.FC = () => {
     const index = Math.floor(Math.random() * STORY_AUTHORS.length);
     return STORY_AUTHORS[index];
   });
+  const [historyStoryAwaitingKeys, setHistoryStoryAwaitingKeys] = useState(false);
   const [historyStoryMenuOpen, setHistoryStoryMenuOpen] = useState(false);
   const [historyStorySegments, setHistoryStorySegments] = useState<HistoryStorySegment[]>([]);
   const historyStorySegmentsRef = useRef<HistoryStorySegment[]>([]);
@@ -515,6 +549,7 @@ const ModernNastiaApp: React.FC = () => {
     abortHistoryStoryRequest();
     clearHistoryStoryTypingTimer();
     clearButtonAnimationTimers();
+    clearPsychContractContext();
     historyStoryPendingOptionsRef.current = null;
     historyStoryPendingChoiceRef.current = undefined;
     historyStorySegmentsRef.current = [];
@@ -531,7 +566,11 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryMenuOpen(false);
     setVisibleButtonsCount(0);
     historyScrollContainerRef.current = null;
-  }, [abortHistoryStoryRequest, clearHistoryStoryTypingTimer, clearButtonAnimationTimers]);
+  }, [
+    abortHistoryStoryRequest,
+    clearHistoryStoryTypingTimer,
+    clearButtonAnimationTimers,
+  ]);
 
   const startTypingHistorySegment = useCallback((segment: HistoryStorySegment) => {
     clearHistoryStoryTypingTimer();
@@ -597,6 +636,15 @@ const ModernNastiaApp: React.FC = () => {
 
   const fetchHistoryStoryChunk = useCallback(
     async (choice?: HistoryStoryOption, authorOverride?: StoryAuthor) => {
+      if (!hasAiCredentials) {
+        setHistoryStoryLoading(false);
+        if (!historyStoryAwaitingKeys) {
+          setHistoryStoryAwaitingKeys(true);
+        }
+        historyStoryPendingChoiceRef.current = choice;
+        return;
+      }
+
       abortHistoryStoryRequest();
 
       const controller = new AbortController();
@@ -633,9 +681,9 @@ const ModernNastiaApp: React.FC = () => {
           currentArc: arcSegments.length + 1,
           contract: historyStoryMetaRef.current?.contract,
           signal: controller.signal,
-          claudeApiKey: remoteClaudeKey ?? undefined,
-          claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
-          openAIApiKey: remoteOpenAIKey ?? undefined,
+          claudeApiKey: effectiveClaudeKey,
+          claudeProxyUrl: effectiveClaudeProxyUrl,
+          openAIApiKey: effectiveOpenAIKey,
         });
 
         if (controller.signal.aborted) {
@@ -682,15 +730,26 @@ const ModernNastiaApp: React.FC = () => {
     [
       abortHistoryStoryRequest,
       historyStoryAuthor,
-      remoteClaudeKey,
-      remoteClaudeProxyUrl,
-      remoteOpenAIKey,
+      hasAiCredentials,
+      historyStoryAwaitingKeys,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       startTypingHistorySegment,
     ],
   );
 
   const fetchHistoryStoryFinale = useCallback(
     async (choice?: HistoryStoryOption) => {
+      if (!hasAiCredentials) {
+        setHistoryStoryLoading(false);
+        if (!historyStoryAwaitingKeys) {
+          setHistoryStoryAwaitingKeys(true);
+        }
+        historyStoryPendingChoiceRef.current = choice;
+        return;
+      }
+
       abortHistoryStoryRequest();
 
       const controller = new AbortController();
@@ -727,9 +786,9 @@ const ModernNastiaApp: React.FC = () => {
           mode: 'finale',
           contract: historyStoryMetaRef.current?.contract,
           signal: controller.signal,
-          claudeApiKey: remoteClaudeKey ?? undefined,
-          claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
-          openAIApiKey: remoteOpenAIKey ?? undefined,
+          claudeApiKey: effectiveClaudeKey,
+          claudeProxyUrl: effectiveClaudeProxyUrl,
+          openAIApiKey: effectiveOpenAIKey,
         });
 
         if (controller.signal.aborted) {
@@ -782,19 +841,38 @@ const ModernNastiaApp: React.FC = () => {
     [
       abortHistoryStoryRequest,
       historyStoryAuthor,
-      remoteClaudeKey,
-      remoteClaudeProxyUrl,
-      remoteOpenAIKey,
+      hasAiCredentials,
+      historyStoryAwaitingKeys,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       startTypingHistorySegment,
     ],
   );
 
   const initiateHistoryStory = useCallback(() => {
+    if (!hasAiCredentials) {
+      if (!historyStoryAwaitingKeys) {
+        console.log('[HistoryStory] Waiting for AI credentials before starting story');
+        setHistoryStoryAwaitingKeys(true);
+      }
+      return;
+    }
+
+    if (historyStoryAwaitingKeys) {
+      setHistoryStoryAwaitingKeys(false);
+    }
+
     resetHistoryStoryState();
     const persona = STORY_AUTHORS[Math.floor(Math.random() * STORY_AUTHORS.length)];
     setHistoryStoryAuthor(persona);
     void fetchHistoryStoryChunk(undefined, persona);
-  }, [fetchHistoryStoryChunk, resetHistoryStoryState]);
+  }, [
+    fetchHistoryStoryChunk,
+    hasAiCredentials,
+    historyStoryAwaitingKeys,
+    resetHistoryStoryState,
+  ]);
 
   const handleHistoryOptionSelect = useCallback(
     (option: HistoryStoryOption) => {
@@ -988,10 +1066,36 @@ const ModernNastiaApp: React.FC = () => {
       return;
     }
 
+    if (!hasAiCredentials) {
+      return;
+    }
+
     if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading && !historyStoryTyping) {
       initiateHistoryStory();
     }
-  }, [activeTab, historyStoryLoading, historyStoryTyping, initiateHistoryStory]);
+  }, [activeTab, hasAiCredentials, historyStoryLoading, historyStoryTyping, initiateHistoryStory]);
+
+  useEffect(() => {
+    if (!historyStoryAwaitingKeys) {
+      return;
+    }
+    if (!hasAiCredentials) {
+      return;
+    }
+    if (historyStorySegmentsRef.current.length > 0 || historyStoryLoading) {
+      return;
+    }
+    if (activeTab !== 'history') {
+      return;
+    }
+    initiateHistoryStory();
+  }, [
+    activeTab,
+    hasAiCredentials,
+    historyStoryAwaitingKeys,
+    historyStoryLoading,
+    initiateHistoryStory,
+  ]);
 
   useEffect(() => {
     if (historyStoryMode !== 'cycles' || cycles.length === 0) {
@@ -1501,9 +1605,9 @@ const ModernNastiaApp: React.FC = () => {
       cycleStartISODate: selectedDate.toISOString(),
       cycleTimingContext: timingContext ?? undefined,
       signal: controller.signal,
-      apiKey: remoteClaudeKey ?? undefined,
-      claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
-      openAIApiKey: remoteOpenAIKey ?? undefined,
+      apiKey: effectiveClaudeKey,
+      claudeProxyUrl: effectiveClaudeProxyUrl,
+      openAIApiKey: effectiveOpenAIKey,
     })
       .then(content => {
         setPeriodContent(content);
@@ -1524,7 +1628,14 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, cycles, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, fallbackPeriodContent]);
+  }, [
+    selectedDate,
+    cycles,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+    fallbackPeriodContent,
+  ]);
 
   useEffect(() => {
     if (!selectedDate || !horoscopeVisible) {
@@ -1543,9 +1654,9 @@ const ModernNastiaApp: React.FC = () => {
     fetchDailyHoroscope(
       isoDate,
       controller.signal,
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       cycles,
     )
       .then(result => {
@@ -1575,7 +1686,14 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, horoscopeVisible, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey, cycles]);
+  }, [
+    selectedDate,
+    horoscopeVisible,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+    cycles,
+  ]);
 
   useEffect(() => {
     if (!showDailyHoroscopeModal) {
@@ -1628,9 +1746,9 @@ const ModernNastiaApp: React.FC = () => {
     setSergeyLoadingMaxHeight(null);
 
     fetchHoroscopeLoadingMessages(
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       controller.signal,
     )
       .then(messages => {
@@ -1648,9 +1766,9 @@ const ModernNastiaApp: React.FC = () => {
     fetchDailyHoroscopeForDate(
       todayIso,
       controller.signal,
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       cyclesRef.current,
       horoscopeMemoryRef.current,
     )
@@ -1678,9 +1796,9 @@ const ModernNastiaApp: React.FC = () => {
     fetchSergeyBannerCopy(
       todayIso,
       sergeyCopyController.signal,
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       horoscopeMemoryRef.current,
     )
       .then(copy => {
@@ -1705,9 +1823,9 @@ const ModernNastiaApp: React.FC = () => {
       });
 
     fetchSergeyLoadingMessages(
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       sergeyLoadingController.signal,
     )
       .then(messages => {
@@ -1741,7 +1859,12 @@ const ModernNastiaApp: React.FC = () => {
         sergeyLoadingControllerRef.current = null;
       }
     };
-  }, [showDailyHoroscopeModal, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey]);
+  }, [
+    showDailyHoroscopeModal,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+  ]);
 
   useEffect(() => {
     if (!showDailyHoroscopeModal || dailyHoroscopeStatus !== 'loading' || dailyLoadingMessages.length === 0) {
@@ -1859,9 +1982,9 @@ const ModernNastiaApp: React.FC = () => {
     fetchSergeyDailyHoroscopeForDate(
       todayIso,
       controller.signal,
-      remoteClaudeKey ?? undefined,
-      remoteClaudeProxyUrl ?? undefined,
-      remoteOpenAIKey ?? undefined,
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
       cyclesRef.current,
       horoscopeMemoryRef.current,
     )
@@ -1886,7 +2009,12 @@ const ModernNastiaApp: React.FC = () => {
         setSergeyHoroscopeStatus('error');
         setSergeyHoroscopeError('Звёзды послали Серёжу подождать. Попробуй ещё раз позже.');
       });
-  }, [sergeyHoroscopeStatus, remoteClaudeKey, remoteClaudeProxyUrl, remoteOpenAIKey]);
+  }, [
+    sergeyHoroscopeStatus,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+  ]);
 
   const handleInsightToggle = useCallback((type: InsightType) => {
     // Проверяем, открыт ли этот инсайт
@@ -1967,9 +2095,9 @@ const ModernNastiaApp: React.FC = () => {
       metricType: type,
       metricData,
       signal: controller.signal,
-      apiKey: remoteClaudeKey ?? undefined,
-      claudeProxyUrl: remoteClaudeProxyUrl ?? undefined,
-      openAIApiKey: remoteOpenAIKey ?? undefined,
+      apiKey: effectiveClaudeKey,
+      claudeProxyUrl: effectiveClaudeProxyUrl,
+      openAIApiKey: effectiveOpenAIKey,
     })
       .then(description => {
         if (controller.signal.aborted) {
@@ -1994,9 +2122,9 @@ const ModernNastiaApp: React.FC = () => {
     expandedInsights,
     stats,
     fertileWindow,
-    remoteClaudeKey,
-    remoteClaudeProxyUrl,
-    remoteOpenAIKey,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
   ]);
 
   const handleInsightStyleToggle = useCallback((type: InsightType) => {

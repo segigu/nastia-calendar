@@ -9,14 +9,14 @@ import {
   type NatalChartAnalysis,
 } from './astro';
 import {
-  selectContractByAstrology,
-  selectScenario,
+  findScenarioById,
+  getFallbackContract,
+  normalizePsychologicalContract,
   type PsychologicalContract,
   type ContractScenario,
 } from '../data/psychologicalContracts';
 import {
-  getRecentContractIds,
-  getRecentScenarioIds,
+  getPsychContractHistorySnapshot,
   rememberContractUsage,
 } from './psychContractHistory';
 
@@ -182,6 +182,13 @@ const NASTIA_CHART_ANALYSIS = buildNatalChartAnalysis(PRIMARY_PROFILE_ID);
 const BIRTH_DATA_TEXT = serializeBirthData(NASTIA_PROFILE);
 const CHART_ANALYSIS_TEXT = serializeChartAnalysis(NASTIA_CHART_ANALYSIS);
 
+interface PsychContractContext {
+  contract: PsychologicalContract;
+  scenario?: ContractScenario;
+}
+
+let activePsychContext: PsychContractContext | undefined;
+
 function serializeBirthData(profile: AstroProfile): string {
   const locationNote = profile.notes?.split('(')[0]?.trim() ?? 'Тикси, Россия';
   const time = profile.birthTime ?? '12:00';
@@ -225,6 +232,126 @@ function getStageName(arc: number, arcLimit: number): string {
 
 function getStageGuidance(stage: string): string {
   return STORY_STAGE_GUIDANCE[stage] ?? '';
+}
+
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function generatePsychContractContext(): Promise<PsychContractContext> {
+  const historySnapshot = getPsychContractHistorySnapshot();
+  const recentContractIds = historySnapshot.contracts.slice(0, 8).map(entry => entry.id);
+  const recentScenarios = historySnapshot.scenarios.slice(0, 12).map(
+    entry => `${entry.contractId}/${entry.scenarioId}`,
+  );
+
+  const prompt = `Ты — психолог и драматургка, создающая интерактивные истории о внутреннем конфликте.
+
+Тебе нужно придумать свежий психологический контракт для Насти. Опираться надо на её натальную карту и избегать повторов прошлых контрактов/сцен.
+
+🔹 ДАННЫЕ
+birth_data:
+${indent(BIRTH_DATA_TEXT, 2)}
+chart_analysis:
+${indent(CHART_ANALYSIS_TEXT, 2)}
+recent_contract_ids: ${JSON.stringify(recentContractIds)}
+recent_scenarios: ${JSON.stringify(recentScenarios)}
+
+🔹 ЗАДАНИЕ
+1. Осмысли психологическое напряжение карты и предложи новый внутренний конфликт (контракт).
+2. Контракт должен быть терапевтическим вопросом, раскрывающим дилемму.
+3. Опиши 3 ловушки поведения (механизмы защиты, самообман).
+4. Придумай 3 символические сцены, через которые конфликт проявляется телесно и визуально.
+5. Добавь 3 ключевые точки выбора — формулировки дилемм для истории.
+6. Все элементы должны отличаться от перечисленных в recent_contract_ids / recent_scenarios.
+
+🔹 ТРЕБОВАНИЯ К СТРУКТУРЕ
+- contract.id — уникальный kebab-case латиницей без пробелов (например: trust-vs-control).
+- contract.question — один ёмкий вопрос-дилемма.
+- contract.theme — одно-два слова.
+- contract.astroIndicators — 3–4 маркера (текстом, можно на русском).
+- contract.commonTraps — массив из трёх объектов { "name": "...", "description": "..." }.
+- contract.scenarios — массив из трёх объектов { "id": "kebab-case", "setting": "...", "situation": "...", "symbolism": "..." }.
+- contract.choicePoints — массив из трёх формулировок ключевых выборов.
+- recommendedScenarioId — id сцены, с которой лучше начать историю.
+- Используй русский для описаний, но id оставь латиницей.
+
+🔹 ФОРМАТ ОТВЕТА (JSON без форматирования, без комментариев):
+{
+  "contract": { ...см. выше... },
+  "recommendedScenarioId": "scenario-id"
+}
+
+Не добавляй пояснений, текста вне JSON и Markdown.`;
+
+  try {
+    const result = await callAI({
+      system:
+        'Ты психологический архитектор историй. Придумывай новые конфликты, избегай повторов и отвечай только JSON.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.6,
+      maxTokens: 800,
+    });
+
+    let text = result.text.trim();
+    text = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      console.error('[PsychContract] JSON parse error:', error);
+      console.error('[PsychContract] Raw text:', text);
+      throw error;
+    }
+
+    const contract = normalizePsychologicalContract(parsed?.contract ?? parsed);
+    if (!contract) {
+      throw new Error('Модель вернула некорректный контракт');
+    }
+
+    const recommendedScenarioId = trimString(
+      parsed?.recommendedScenarioId ?? parsed?.recommended_scenario_id ?? '',
+    );
+    const scenario = findScenarioById(contract, recommendedScenarioId);
+
+    rememberContractUsage(contract.id, scenario.id);
+
+    return {
+      contract,
+      scenario,
+    };
+  } catch (error) {
+    console.warn('[PsychContract] Failed to generate via AI, using fallback', error);
+    const fallback = getFallbackContract(recentContractIds, recentScenarios);
+    const fallbackScenario = findScenarioById(
+      fallback.contract,
+      fallback.recommendedScenarioId,
+    );
+    rememberContractUsage(fallback.contract.id, fallbackScenario.id);
+    return {
+      contract: fallback.contract,
+      scenario: fallbackScenario,
+    };
+  }
+}
+
+async function ensurePsychContractContext(): Promise<PsychContractContext> {
+  if (activePsychContext) {
+    return activePsychContext;
+  }
+
+  activePsychContext = await generatePsychContractContext();
+  return activePsychContext;
+}
+
+export function clearPsychContractContext(): void {
+  activePsychContext = undefined;
 }
 
 function buildPsychologicalContractInfo(
@@ -315,7 +442,7 @@ interface ArcPromptArgs {
   contract?: string;
 }
 
-function buildArcPrompt(args: ArcPromptArgs): string {
+function buildArcPrompt(args: ArcPromptArgs, psychContext?: PsychContractContext): string {
   const {
     segments,
     currentChoice,
@@ -336,27 +463,8 @@ function buildArcPrompt(args: ArcPromptArgs): string {
       }.`
     : 'Это первый узел — начинай без пояснений, сразу в действие.';
 
-  // Выбираем психологический контракт и сценарий для первого узла
-  let psychContract: PsychologicalContract | undefined;
-  let psychScenario: ContractScenario | undefined;
-
-  if (currentArc === 1 && !contract) {
-    const recentContracts = getRecentContractIds();
-    psychContract = selectContractByAstrology(
-      NASTIA_CHART_ANALYSIS.corePlacements,
-      NASTIA_CHART_ANALYSIS.hardAspects,
-      {
-        excludeContractIds: recentContracts,
-      },
-    );
-    const recentScenarioIds = getRecentScenarioIds(psychContract.id);
-    psychScenario = selectScenario(psychContract, { excludeScenarioIds: recentScenarioIds });
-    if (psychScenario) {
-      rememberContractUsage(psychContract.id, psychScenario.id);
-    } else {
-      rememberContractUsage(psychContract.id);
-    }
-  }
+  const psychContract = psychContext?.contract;
+  const psychScenario = currentArc === 1 ? psychContext?.scenario : undefined;
 
   const contractInstruction = contract
     ? `Контракт истории уже задан: «${contract}». Сохраняй формулировку без изменений и напоминай себе о нём при создании сцен.`
@@ -437,7 +545,7 @@ interface FinalePromptArgs {
   contract?: string;
 }
 
-function buildFinalePrompt(args: FinalePromptArgs): string {
+function buildFinalePrompt(args: FinalePromptArgs, psychContext?: PsychContractContext): string {
   const {
     segments,
     currentChoice,
@@ -460,6 +568,7 @@ function buildFinalePrompt(args: FinalePromptArgs): string {
     : 'Сформулированный тобой контракт должен проявиться в выводах финала.';
 
   return `${buildInputDataBlock(author.genre, arcLimit)}
+${psychContext ? `${buildPsychologicalContractInfo(psychContext.contract)}\n` : ''}
 
 🔹 ПРОМПТ (ядро для модели)
 
@@ -668,26 +777,51 @@ export async function generateHistoryStoryChunk({
   openAIApiKey,
 }: HistoryStoryRequestOptions): Promise<HistoryStoryResponse> {
   const targetArc = mode === 'arc' ? (currentArc ?? 1) : arcLimit;
+  let resolvedContract = contract;
+  let psychContext: PsychContractContext | undefined;
+
+  if (mode === 'arc') {
+    if (targetArc === 1 && !contract) {
+      psychContext = await ensurePsychContractContext();
+      resolvedContract = psychContext.contract.question;
+    } else if (activePsychContext) {
+      psychContext = activePsychContext;
+      if (!resolvedContract) {
+        resolvedContract = psychContext.contract.question;
+      }
+    }
+  } else if (mode === 'finale' && activePsychContext) {
+    psychContext = activePsychContext;
+    if (!resolvedContract) {
+      resolvedContract = psychContext.contract.question;
+    }
+  }
 
   const prompt =
     mode === 'finale'
-      ? buildFinalePrompt({
-          segments,
-          currentChoice,
-          summary,
-          author,
-          arcLimit,
-          contract,
-        })
-      : buildArcPrompt({
-          segments,
-          currentChoice,
-          summary,
-          author,
-          arcLimit,
-          currentArc: targetArc,
-          contract,
-        });
+      ? buildFinalePrompt(
+          {
+            segments,
+            currentChoice,
+            summary,
+            author,
+            arcLimit,
+            contract: resolvedContract,
+          },
+          psychContext,
+        )
+      : buildArcPrompt(
+          {
+            segments,
+            currentChoice,
+            summary,
+            author,
+            arcLimit,
+            currentArc: targetArc,
+            contract: resolvedContract,
+          },
+          psychContext,
+        );
 
   const messages: AIMessage[] = [
     {
@@ -775,7 +909,7 @@ export async function generateHistoryStoryChunk({
       genre: author.genre,
       arcLimit,
       currentArc: targetArc,
-      contract,
+      contract: resolvedContract,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -795,7 +929,7 @@ export async function generateHistoryStoryChunk({
       genre: author.genre,
       arcLimit,
       currentArc: targetArc,
-      contract,
+      contract: resolvedContract,
     });
   }
 }

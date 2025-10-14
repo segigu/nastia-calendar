@@ -125,7 +125,6 @@ function limitScenarios(
   const perContract = new Map<string, number>();
 
   for (const entry of pool) {
-    const key = `${entry.contractId}:${entry.scenarioId}`;
     const alreadyIncluded = result.some(
       stored => stored.contractId === entry.contractId && stored.scenarioId === entry.scenarioId,
     );
