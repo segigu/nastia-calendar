@@ -660,12 +660,134 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
-  border-bottom: 1px solid rgba(219, 112, 147, 0.15);
+  background: transparent;
+  border-bottom: none;
   margin: -0.5rem -0.5rem 0.5rem -0.5rem;
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* Начальный экран */
+.historyStartScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 1.5rem;
+  min-height: 60vh;
+}
+
+.historyStartIconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historyStartIcon {
+  font-size: 4rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.historyStartPrompt {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #333;
+  text-align: center;
+  max-width: 500px;
+  font-weight: 500;
+}
+
+.historyStartButton {
+  padding: 0.875rem 2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ad19f7 0%, #8b5cf6 100%);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.historyStartButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9d13e4 0%, #7c3aed 100%);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.historyStartButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.historyStartButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Экран генерации */
+.historyGenerationScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 1.5rem;
+  min-height: 60vh;
+}
+
+.historyGenerationIconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historyGenerationIcon {
+  font-size: 4rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.historyGenerationPhrase {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #555;
+  text-align: center;
+  max-width: 400px;
+  font-weight: 500;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .historyStoryMetaBar {

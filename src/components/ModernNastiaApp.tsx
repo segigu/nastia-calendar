@@ -330,6 +330,98 @@ const STORY_AUTHORS: StoryAuthor[] = [
   },
 ];
 
+// Саркастические фразы для начального экрана истории
+const HISTORY_START_PROMPTS = [
+  'Давай проверим, насколько ты правдива с собой сегодня',
+  'Готова разобрать себя на части? Звёзды уже наточили скальпель',
+  'Что если астрология знает о тебе больше, чем ты думаешь?',
+  'Твоя карта готова рассказать правду — ты?',
+  'Проверь себя на честность, пока никто не видит',
+  'Узнаем, где ты врёшь себе сегодня',
+  'Твоя тень хочет поговорить. Впустишь?',
+  'Давай посмотрим, что прячешь даже от себя',
+  'Готова услышать то, что знают планеты?',
+  'Пора разобраться, кто ты на самом деле',
+  'Проверь, где твои маски начинают трещать',
+  'Давай найдём твою слабую точку',
+  'Готова к честному разговору с собой?',
+  'Узнаем, что карта нашёптывает о тебе',
+  'Проверим, где ты играешь роль',
+  'Давай посмотрим на тебя без фильтров',
+  'Готова признать, что не всё под контролем?',
+  'Узнаем, где прячется твой внутренний конфликт',
+  'Пора взглянуть в зеркало, которое не врёт',
+  'Проверь себя — вдруг что-то забыла про себя',
+  'Давай найдём, где ты сама себе врёшь',
+  'Готова к неудобной правде?',
+  'Узнаем, что прячется за твоими привычками',
+  'Проверим твои внутренние противоречия',
+  'Давай посмотрим, где ты не такая, как думаешь',
+  'Готова увидеть себя глазами звёзд?',
+  'Узнаем, где ты притворяешься',
+  'Проверь, насколько хорошо знаешь себя',
+  'Давай найдём твои скрытые паттерны',
+  'Готова к встрече с собой настоящей?',
+];
+
+// Названия кнопок для начального экрана
+const HISTORY_START_BUTTONS = [
+  'Начать историю',
+  'Проверить себя',
+  'Узнать правду',
+  'Начать разбор',
+  'Погнали',
+  'Давай',
+  'Покажи',
+  'Начнём',
+  'Валяй',
+  'Попробуем',
+  'Посмотрим',
+  'Начать',
+  'Вперёд',
+  'Поехали',
+  'Ну давай',
+  'Запускай',
+  'Включай',
+  'Жду',
+  'Готова',
+  'Интересно',
+  'Ладно',
+  'Начать тест',
+  'Проверим',
+  'Узнать',
+  'Открыть',
+  'Посмотреть',
+  'Начать путь',
+  'Погрузиться',
+  'Раскрыть',
+  'Исследовать',
+];
+
+// Астрологические фразы для процесса генерации истории
+const HISTORY_GENERATION_PHRASES = [
+  { emoji: '🌙', text: 'Луна выбирает настроение для твоей истории' },
+  { emoji: '✨', text: 'Плутон копается в подсознании, ищет скрытые мотивы' },
+  { emoji: '🔮', text: 'Нептун добавляет тумана и символов' },
+  { emoji: '⚡', text: 'Уран встряхивает шаблоны, готовит неожиданности' },
+  { emoji: '🎭', text: 'Венера примеряет маски для твоих выборов' },
+  { emoji: '⚖️', text: 'Сатурн проверяет, где ты сама себе врёшь' },
+  { emoji: '🗝️', text: 'Хирон нащупывает твою главную рану' },
+  { emoji: '🌊', text: 'Планеты читают карту, ищут твои противоречия' },
+  { emoji: '🕯️', text: 'Меркурий формулирует дилемму' },
+  { emoji: '🔥', text: 'Марс подбирает правильный градус напряжения' },
+  { emoji: '🌌', text: 'Юпитер расширяет контекст истории' },
+  { emoji: '💫', text: 'Звёзды сплетают сценарий из твоих аспектов' },
+  { emoji: '🎪', text: 'Карта выбирает жанр для твоего внутреннего театра' },
+  { emoji: '🪞', text: 'Готовится зеркало, в котором увидишь себя' },
+  { emoji: '🌀', text: 'Аспекты закручиваются в сюжет' },
+  { emoji: '🗺️', text: 'Чертится карта твоих внутренних маршрутов' },
+  { emoji: '⏳', text: 'Сатурн отмеряет время для твоих выборов' },
+  { emoji: '🎨', text: 'Нептун рисует символы твоих страхов' },
+  { emoji: '🧭', text: 'Определяется точка старта твоего пути' },
+  { emoji: '🌑', text: 'Лунные узлы показывают направление роста' },
+];
+
 const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
   title: 'А что там у Сережи?',
   subtitle: 'Серёжа опять что-то мудрит. Подглянем, что ему сулят звёзды на сегодня?',
@@ -511,6 +603,11 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
   const [historyStoryMode, setHistoryStoryMode] = useState<'story' | 'cycles'>('story');
   const [historyStoryTyping, setHistoryStoryTyping] = useState(false);
+  const [historyStoryPhase, setHistoryStoryPhase] = useState<'idle' | 'generating' | 'ready'>('idle');
+  const [historyStartPrompt, setHistoryStartPrompt] = useState('');
+  const [historyStartButton, setHistoryStartButton] = useState('');
+  const [historyGenerationPhrase, setHistoryGenerationPhrase] = useState<{ emoji: string; text: string } | null>(null);
+  const historyGenerationIntervalRef = useRef<number | null>(null);
   const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
@@ -549,6 +646,13 @@ const ModernNastiaApp: React.FC = () => {
     abortHistoryStoryRequest();
     clearHistoryStoryTypingTimer();
     clearButtonAnimationTimers();
+
+    // Останавливаем анимацию генерации
+    if (historyGenerationIntervalRef.current) {
+      window.clearInterval(historyGenerationIntervalRef.current);
+      historyGenerationIntervalRef.current = null;
+    }
+
     clearPsychContractContext();
     historyStoryPendingOptionsRef.current = null;
     historyStoryPendingChoiceRef.current = undefined;
@@ -565,6 +669,8 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryMode('story');
     setHistoryStoryMenuOpen(false);
     setVisibleButtonsCount(0);
+    setHistoryStoryPhase('idle');
+    setHistoryGenerationPhrase(null);
     historyScrollContainerRef.current = null;
   }, [
     abortHistoryStoryRequest,
@@ -694,6 +800,14 @@ const ModernNastiaApp: React.FC = () => {
           setHistoryStoryMeta(response.meta);
           historyStoryMetaRef.current = response.meta;
         }
+
+        // Останавливаем анимацию генерации и переходим в режим готовности
+        if (historyGenerationIntervalRef.current) {
+          window.clearInterval(historyGenerationIntervalRef.current);
+          historyGenerationIntervalRef.current = null;
+        }
+        setHistoryGenerationPhrase(null);
+        setHistoryStoryPhase('ready');
 
         const newSegment: HistoryStorySegment = {
           id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -850,6 +964,33 @@ const ModernNastiaApp: React.FC = () => {
     ],
   );
 
+  const startGenerationAnimation = useCallback(() => {
+    // Останавливаем предыдущую анимацию, если она была
+    if (historyGenerationIntervalRef.current) {
+      window.clearInterval(historyGenerationIntervalRef.current);
+    }
+
+    // Функция для показа случайной фразы
+    const showRandomPhrase = () => {
+      const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
+      setHistoryGenerationPhrase(HISTORY_GENERATION_PHRASES[randomIndex]);
+    };
+
+    // Показываем первую фразу сразу
+    showRandomPhrase();
+
+    // Запускаем интервал для смены фраз каждые 2.5 секунды
+    historyGenerationIntervalRef.current = window.setInterval(showRandomPhrase, 2500);
+  }, []);
+
+  const stopGenerationAnimation = useCallback(() => {
+    if (historyGenerationIntervalRef.current) {
+      window.clearInterval(historyGenerationIntervalRef.current);
+      historyGenerationIntervalRef.current = null;
+    }
+    setHistoryGenerationPhrase(null);
+  }, []);
+
   const initiateHistoryStory = useCallback(() => {
     if (!hasAiCredentials) {
       if (!historyStoryAwaitingKeys) {
@@ -864,14 +1005,22 @@ const ModernNastiaApp: React.FC = () => {
     }
 
     resetHistoryStoryState();
+
+    // Переходим в фазу генерации
+    setHistoryStoryPhase('generating');
+    startGenerationAnimation();
+
     const persona = STORY_AUTHORS[Math.floor(Math.random() * STORY_AUTHORS.length)];
     setHistoryStoryAuthor(persona);
+
+    // Запускаем генерацию истории
     void fetchHistoryStoryChunk(undefined, persona);
   }, [
     fetchHistoryStoryChunk,
     hasAiCredentials,
     historyStoryAwaitingKeys,
     resetHistoryStoryState,
+    startGenerationAnimation,
   ]);
 
   const handleHistoryOptionSelect = useCallback(
@@ -1048,42 +1197,44 @@ const ModernNastiaApp: React.FC = () => {
     }
   }, [historyStoryMode]);
 
+  // Устанавливаем случайную фразу при открытии вкладки
   useEffect(() => {
     if (activeTab !== 'discover') {
       setHistoryStoryMenuOpen(false);
       return;
     }
 
-    if (!hasAiCredentials) {
-      return;
+    // Устанавливаем случайную фразу, если она ещё не установлена
+    if (!historyStartPrompt) {
+      const randomPromptIndex = Math.floor(Math.random() * HISTORY_START_PROMPTS.length);
+      const randomButtonIndex = Math.floor(Math.random() * HISTORY_START_BUTTONS.length);
+      setHistoryStartPrompt(HISTORY_START_PROMPTS[randomPromptIndex]);
+      setHistoryStartButton(HISTORY_START_BUTTONS[randomButtonIndex]);
     }
+  }, [activeTab, historyStartPrompt]);
 
-    if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading && !historyStoryTyping) {
-      initiateHistoryStory();
-    }
-  }, [activeTab, hasAiCredentials, historyStoryLoading, historyStoryTyping, initiateHistoryStory]);
-
-  useEffect(() => {
-    if (!historyStoryAwaitingKeys) {
-      return;
-    }
-    if (!hasAiCredentials) {
-      return;
-    }
-    if (historyStorySegmentsRef.current.length > 0 || historyStoryLoading) {
-      return;
-    }
-    if (activeTab !== 'discover') {
-      return;
-    }
-    initiateHistoryStory();
-  }, [
-    activeTab,
-    hasAiCredentials,
-    historyStoryAwaitingKeys,
-    historyStoryLoading,
-    initiateHistoryStory,
-  ]);
+  // Автозапуск отключен - теперь история запускается только по кнопке
+  // useEffect(() => {
+  //   if (!historyStoryAwaitingKeys) {
+  //     return;
+  //   }
+  //   if (!hasAiCredentials) {
+  //     return;
+  //   }
+  //   if (historyStorySegmentsRef.current.length > 0 || historyStoryLoading) {
+  //     return;
+  //   }
+  //   if (activeTab !== 'discover') {
+  //     return;
+  //   }
+  //   initiateHistoryStory();
+  // }, [
+  //   activeTab,
+  //   hasAiCredentials,
+  //   historyStoryAwaitingKeys,
+  //   historyStoryLoading,
+  //   initiateHistoryStory,
+  // ]);
 
   useEffect(() => {
     if (activeTab !== 'cycles' || cycles.length === 0) {
@@ -3032,15 +3183,17 @@ const ModernNastiaApp: React.FC = () => {
                 <div className={styles.historyStoryHeader}>
                   <span className={styles.historyStoryLabel}>История</span>
                   <div className={styles.historyStoryHeaderActions}>
-                    <button
-                      type="button"
-                      className={styles.historyStoryMenuButton}
-                      ref={historyStoryMenuButtonRef}
-                      onClick={() => setHistoryStoryMenuOpen(prev => !prev)}
-                      aria-label="Меню истории"
-                    >
-                      ⋮
-                    </button>
+                    {historyStoryPhase === 'ready' && (
+                      <button
+                        type="button"
+                        className={styles.historyStoryMenuButton}
+                        ref={historyStoryMenuButtonRef}
+                        onClick={() => setHistoryStoryMenuOpen(prev => !prev)}
+                        aria-label="Меню истории"
+                      >
+                        ⋮
+                      </button>
+                    )}
                     {historyStoryMenuOpen && (
                       <div ref={historyStoryMenuRef} className={styles.historyStoryMenu}>
                         <button
@@ -3058,7 +3211,36 @@ const ModernNastiaApp: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {historyStorySegments.length > 0 && (
+
+                {/* Начальный экран (idle) */}
+                {historyStoryPhase === 'idle' && (
+                  <div className={styles.historyStartScreen}>
+                    <div className={styles.historyStartIconContainer}>
+                      <div className={styles.historyStartIcon}>✨</div>
+                    </div>
+                    <div className={styles.historyStartPrompt}>{historyStartPrompt}</div>
+                    <button
+                      type="button"
+                      className={styles.historyStartButton}
+                      onClick={initiateHistoryStory}
+                      disabled={!hasAiCredentials}
+                    >
+                      {historyStartButton}
+                    </button>
+                  </div>
+                )}
+
+                {/* Экран генерации (generating) */}
+                {historyStoryPhase === 'generating' && historyGenerationPhrase && (
+                  <div className={styles.historyGenerationScreen}>
+                    <div className={styles.historyGenerationIconContainer}>
+                      <div className={styles.historyGenerationIcon}>{historyGenerationPhrase.emoji}</div>
+                    </div>
+                    <div className={styles.historyGenerationPhrase}>{historyGenerationPhrase.text}</div>
+                  </div>
+                )}
+
+                {historyStoryPhase === 'ready' && historyStorySegments.length > 0 && (
                   <div className={styles.historyStoryMetaBar}>
                     <div className={styles.historyStoryMetaItem}>
                       <span className={styles.historyStoryMetaLabel}>Жанр:</span>
