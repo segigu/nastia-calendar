@@ -35,8 +35,8 @@
   padding: 8px;
   border-radius: 24px;
 
-  /* Стеклянный эффект */
-  background: rgba(253, 242, 248, 0.75);
+  /* Стеклянный эффект с прозрачностью */
+  background: rgba(253, 242, 248, 0.3);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 
@@ -156,25 +156,25 @@
   .glassTabBarGradient {
     background: linear-gradient(
       to top,
-      rgba(28, 28, 30, 0.95) 0%,
-      rgba(28, 28, 30, 0.85) 30%,
-      rgba(28, 28, 30, 0.4) 60%,
-      rgba(28, 28, 30, 0) 100%
+      rgba(253, 242, 248, 0.95) 0%,
+      rgba(248, 237, 253, 0.85) 30%,
+      rgba(253, 242, 248, 0.4) 60%,
+      rgba(253, 242, 248, 0) 100%
     );
   }
 
   .glassTabBar {
-    background: rgba(28, 28, 30, 0.75);
+    background: rgba(253, 242, 248, 0.3);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      0 4px 16px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+      0 8px 32px rgba(0, 0, 0, 0.08),
+      0 4px 16px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.6);
   }
 
   .tabButton {
-    color: #999;
+    color: #666;
   }
 
   .tabButton.active {
@@ -183,7 +183,7 @@
 
   @media (hover: hover) {
     .tabButton:hover {
-      background: rgba(255, 107, 157, 0.12);
+      background: rgba(255, 107, 157, 0.08);
     }
   }
 }
