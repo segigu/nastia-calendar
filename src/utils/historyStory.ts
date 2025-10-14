@@ -286,6 +286,13 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
   "recommendedScenarioId": "scenario-id"
 }
 
+КРИТИЧЕСКИ ВАЖНО ДЛЯ ФОРМАТА JSON:
+1. Все текстовые значения должны быть в ОДНУ строку без реальных переносов строк.
+2. НЕ используй символ переноса строки (\\n) внутри строковых значений.
+3. Используй пробелы вместо любых переносов строк внутри текста.
+4. Если текст длинный, просто продолжай его в одну строку с пробелами.
+5. JSON должен быть компактным и валидным для JSON.parse().
+
 Не добавляй пояснений, текста вне JSON и Markdown.`;
 
   try {
@@ -311,10 +318,55 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
     let parsed: any;
     try {
       parsed = JSON.parse(text);
-    } catch (error) {
-      console.error('[PsychContract] JSON parse error:', error);
-      console.error('[PsychContract] Raw text:', text);
-      throw error;
+    } catch (parseError) {
+      console.error('[PsychContract] JSON parse error:', parseError);
+      console.error('[PsychContract] Raw text (first 500 chars):', text.slice(0, 500));
+
+      // Попытка исправить многострочные строки в JSON
+      try {
+        // Более агрессивная очистка: заменяем все переносы и множественные пробелы
+        let fixedText = text
+          // Заменяем переносы строк внутри строк на пробелы
+          .replace(/\\n/g, ' ')
+          // Заменяем реальные переносы строк на пробелы
+          .replace(/[\r\n]+/g, ' ')
+          // Заменяем табуляции на пробелы
+          .replace(/\t/g, ' ')
+          // Убираем множественные пробелы
+          .replace(/\s+/g, ' ')
+          // Убираем пробелы перед закрывающими кавычками и скобками
+          .replace(/\s+"/g, '"')
+          .replace(/\s+}/g, '}')
+          .replace(/\s+]/g, ']')
+          // Убираем пробелы после открывающих кавычек и скобок
+          .replace(/"\s+/g, '"')
+          .replace(/{\s+/g, '{')
+          .replace(/\[\s+/g, '[');
+
+        parsed = JSON.parse(fixedText);
+        console.log('[PsychContract] Successfully parsed after fixing newlines and whitespace');
+      } catch (fixError) {
+        console.error('[PsychContract] Failed to fix and parse, trying to extract valid JSON portion');
+
+        // Последняя попытка: ищем валидные части JSON
+        try {
+          // Пытаемся найти последнюю закрывающую скобку
+          const lastBrace = text.lastIndexOf('}');
+          if (lastBrace > 0) {
+            const truncated = text.substring(0, lastBrace + 1);
+            const fixedTruncated = truncated
+              .replace(/[\r\n]+/g, ' ')
+              .replace(/\s+/g, ' ');
+            parsed = JSON.parse(fixedTruncated);
+            console.log('[PsychContract] Successfully parsed truncated JSON');
+          } else {
+            throw parseError;
+          }
+        } catch (truncError) {
+          console.error('[PsychContract] All parsing attempts failed, using fallback');
+          throw parseError;
+        }
+      }
     }
 
     const contract = normalizePsychologicalContract(parsed?.contract ?? parsed);
