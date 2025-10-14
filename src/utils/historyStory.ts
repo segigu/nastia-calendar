@@ -238,7 +238,11 @@ function trimString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-async function generatePsychContractContext(): Promise<PsychContractContext> {
+async function generatePsychContractContext(
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+): Promise<PsychContractContext> {
   const historySnapshot = getPsychContractHistorySnapshot();
   const recentContractIds = historySnapshot.contracts.slice(0, 8).map(entry => entry.id);
   const recentScenarios = historySnapshot.scenarios.slice(0, 12).map(
@@ -296,6 +300,9 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
       ],
       temperature: 0.6,
       maxTokens: 800,
+      claudeApiKey,
+      claudeProxyUrl,
+      openAIApiKey,
     });
 
     let text = result.text.trim();
@@ -341,12 +348,20 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
   }
 }
 
-async function ensurePsychContractContext(): Promise<PsychContractContext> {
+async function ensurePsychContractContext(
+  claudeApiKey?: string,
+  claudeProxyUrl?: string,
+  openAIApiKey?: string,
+): Promise<PsychContractContext> {
   if (activePsychContext) {
     return activePsychContext;
   }
 
-  activePsychContext = await generatePsychContractContext();
+  activePsychContext = await generatePsychContractContext(
+    claudeApiKey,
+    claudeProxyUrl,
+    openAIApiKey,
+  );
   return activePsychContext;
 }
 
@@ -782,7 +797,11 @@ export async function generateHistoryStoryChunk({
 
   if (mode === 'arc') {
     if (targetArc === 1 && !contract) {
-      psychContext = await ensurePsychContractContext();
+      psychContext = await ensurePsychContractContext(
+        claudeApiKey,
+        claudeProxyUrl,
+        openAIApiKey,
+      );
       resolvedContract = psychContext.contract.question;
     } else if (activePsychContext) {
       psychContext = activePsychContext;
