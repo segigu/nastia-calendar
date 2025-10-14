@@ -337,7 +337,7 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
         },
       ],
       temperature: 0.6,
-      maxTokens: 800,
+      maxTokens: 2500,
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
@@ -351,7 +351,9 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
       parsed = JSON.parse(text);
     } catch (parseError) {
       console.error('[PsychContract] JSON parse error:', parseError);
+      console.error('[PsychContract] Raw text length:', text.length, 'chars');
       console.error('[PsychContract] Raw text (first 500 chars):', text.slice(0, 500));
+      console.error('[PsychContract] Raw text (last 200 chars):', text.slice(-200));
 
       // Попытка исправить многострочные строки в JSON
       try {
@@ -359,9 +361,10 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
         // но оставляем структурные переносы между ключами
         let fixedText = fixSmartNewlines(text);
         parsed = JSON.parse(fixedText);
-        console.log('[PsychContract] Successfully parsed after fixing newlines');
+        console.log('[PsychContract] ✅ Successfully parsed after fixing newlines');
       } catch (fixError) {
-        console.error('[PsychContract] Smart fix failed, trying aggressive cleanup');
+        console.error('[PsychContract] Smart fix failed:', fixError);
+        console.error('[PsychContract] Trying aggressive cleanup');
 
         // Агрессивная очистка: убираем ВСЕ переносы строк
         try {
@@ -371,7 +374,7 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
             .replace(/\t/g, ' ')
             .replace(/\s+/g, ' ');
           parsed = JSON.parse(aggressiveText);
-          console.log('[PsychContract] Successfully parsed after aggressive cleanup');
+          console.log('[PsychContract] ✅ Successfully parsed after aggressive cleanup');
         } catch (aggressiveError) {
           console.error('[PsychContract] Aggressive cleanup failed, trying to extract valid JSON');
 
@@ -384,7 +387,7 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
                 .replace(/[\r\n]+/g, ' ')
                 .replace(/\s+/g, ' ');
               parsed = JSON.parse(fixedTruncated);
-              console.log('[PsychContract] Successfully parsed truncated JSON');
+              console.log('[PsychContract] ⚠️ Successfully parsed truncated JSON (incomplete response)');
             } else {
               throw parseError;
             }
