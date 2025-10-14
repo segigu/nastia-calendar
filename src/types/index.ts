@@ -29,6 +29,22 @@ export interface HoroscopeMemoryEntry {
   createdAt: string; // ISO timestamp
 }
 
+export interface PsychContractUsageEntry {
+  id: string;
+  usedAt: string;
+}
+
+export interface PsychScenarioUsageEntry {
+  contractId: string;
+  scenarioId: string;
+  usedAt: string;
+}
+
+export interface PsychContractHistory {
+  contracts: PsychContractUsageEntry[];
+  scenarios: PsychScenarioUsageEntry[];
+}
+
 export interface CycleStats {
   averageLength: number;
   lastCycleLength: number;
@@ -55,6 +71,7 @@ export interface NastiaData {
     notifications: boolean;
   };
   horoscopeMemory?: HoroscopeMemoryEntry[];
+  psychContractHistory?: PsychContractHistory;
 }
 
 export type NotificationCategory =

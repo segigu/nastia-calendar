@@ -1,4 +1,5 @@
 import { NastiaData } from '../types';
+import { normalizePsychContractHistory } from './storage';
 
 // Конфигурация для GitHub хранилища
 const GITHUB_CONFIG = {
@@ -97,6 +98,7 @@ export class CloudSync {
       const payload: NastiaData = {
         ...data,
         horoscopeMemory: data.horoscopeMemory ?? [],
+        psychContractHistory: normalizePsychContractHistory(data.psychContractHistory),
       };
       const content = JSON.stringify(payload, null, 2);
       const encodedContent = encodeBase64Unicode(content);
@@ -185,6 +187,7 @@ function ensureNastiaData(raw: any): NastiaData {
       cycles: [],
       settings: defaultSettings,
       horoscopeMemory: [],
+      psychContractHistory: normalizePsychContractHistory(null),
     };
   }
 
@@ -202,11 +205,13 @@ function ensureNastiaData(raw: any): NastiaData {
 
   const cycles = Array.isArray(raw.cycles) ? raw.cycles : [];
   const horoscopeMemory = Array.isArray(raw.horoscopeMemory) ? raw.horoscopeMemory : [];
+  const psychContractHistory = normalizePsychContractHistory(raw.psychContractHistory);
 
   return {
     cycles,
     settings,
     horoscopeMemory,
+    psychContractHistory,
   };
 }
 

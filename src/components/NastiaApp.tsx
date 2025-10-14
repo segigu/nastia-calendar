@@ -22,6 +22,10 @@ import {
   getDaysUntilNext 
 } from '../utils/cycleUtils';
 import { saveData, loadData, exportData, importData } from '../utils/storage';
+import {
+  getPsychContractHistorySnapshot,
+  hydratePsychContractHistory,
+} from '../utils/psychContractHistory';
 
 const HOROSCOPE_MEMORY_LIMIT = 12;
 
@@ -38,6 +42,7 @@ const NastiaApp: React.FC = () => {
     if (savedData) {
       setCycles(savedData.cycles);
       setHoroscopeMemory((savedData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT));
+      hydratePsychContractHistory(savedData.psychContractHistory);
     }
   }, []);
 
@@ -52,6 +57,7 @@ const NastiaApp: React.FC = () => {
         notifications: true,
       },
       horoscopeMemory: trimmedMemory,
+      psychContractHistory: getPsychContractHistorySnapshot(),
     };
     saveData(nastiaData);
   }, [cycles, horoscopeMemory]);
@@ -135,6 +141,7 @@ const NastiaApp: React.FC = () => {
         notifications: true,
       },
       horoscopeMemory: trimmedMemory,
+      psychContractHistory: getPsychContractHistorySnapshot(),
     };
     const dataStr = exportData(nastiaData);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -157,6 +164,7 @@ const NastiaApp: React.FC = () => {
           const importedData = importData(jsonString);
           setCycles(importedData.cycles);
           setHoroscopeMemory((importedData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT));
+          hydratePsychContractHistory(importedData.psychContractHistory);
         } catch (error) {
           alert('Ошибка при импорте данных');
         }

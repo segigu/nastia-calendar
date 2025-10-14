@@ -14,6 +14,11 @@ import {
   type PsychologicalContract,
   type ContractScenario,
 } from '../data/psychologicalContracts';
+import {
+  getRecentContractIds,
+  getRecentScenarioIds,
+  rememberContractUsage,
+} from './psychContractHistory';
 
 export interface HistoryStoryOption {
   id: string;
@@ -336,11 +341,21 @@ function buildArcPrompt(args: ArcPromptArgs): string {
   let psychScenario: ContractScenario | undefined;
 
   if (currentArc === 1 && !contract) {
+    const recentContracts = getRecentContractIds();
     psychContract = selectContractByAstrology(
       NASTIA_CHART_ANALYSIS.corePlacements,
       NASTIA_CHART_ANALYSIS.hardAspects,
+      {
+        excludeContractIds: recentContracts,
+      },
     );
-    psychScenario = selectScenario(psychContract);
+    const recentScenarioIds = getRecentScenarioIds(psychContract.id);
+    psychScenario = selectScenario(psychContract, { excludeScenarioIds: recentScenarioIds });
+    if (psychScenario) {
+      rememberContractUsage(psychContract.id, psychScenario.id);
+    } else {
+      rememberContractUsage(psychContract.id);
+    }
   }
 
   const contractInstruction = contract

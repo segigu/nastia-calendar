@@ -9,6 +9,7 @@ export interface PsychologicalTrap {
 }
 
 export interface ContractScenario {
+  id: string; // Уникальный идентификатор сценария
   setting: string; // Обстановка/локация
   situation: string; // Начальная ситуация
   symbolism: string; // Что символизирует сценарий
@@ -50,16 +51,19 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
     ],
     scenarios: [
       {
+        id: 'night-lab',
         setting: 'Лаборатория или библиотека ночью',
         situation: 'Ты исследуешь что-то важное, но все данные противоречат твоему внутреннему ощущению',
         symbolism: 'Конфликт между системой знаний и внутренним знанием',
       },
       {
+        id: 'twilight-hospital',
         setting: 'Больничный коридор в сумерках',
         situation: 'Ты должна принять решение о лечении, но интуиция говорит одно, а врачи — другое',
         symbolism: 'Доверие к внешнему авторитету vs внутреннему голосу',
       },
       {
+        id: 'afterhours-office',
         setting: 'Пустой офис поздно вечером',
         situation: 'Ты нашла документ, который логически верен, но чувствуешь: что-то не так',
         symbolism: 'Рациональная правда vs эмоциональная правда',
@@ -96,16 +100,19 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
     ],
     scenarios: [
       {
+        id: 'dawn-station',
         setting: 'Вокзал на рассвете',
         situation: 'У тебя билет на поезд в город мечты, но телефон разрывается от звонков близких',
         symbolism: 'Побег к себе vs удержание обязательствами',
       },
       {
+        id: 'locked-toy-store',
         setting: 'Закрытый магазин игрушек ночью',
         situation: 'Ты стоишь перед витриной с вещью, которую хотела в детстве, но так и не получила',
         symbolism: 'Детские желания vs взрослая ответственность',
       },
       {
+        id: 'attic-dreams',
         setting: 'Чердак родительского дома',
         situation: 'Ты нашла свои старые мечты в коробке и должна решить: выбросить или вспомнить?',
         symbolism: 'Похороненные желания и второй шанс',
@@ -142,16 +149,19 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
     ],
     scenarios: [
       {
+        id: 'rooftop-night',
         setting: 'Крыша небоскрёба в ветреную ночь',
         situation: 'Ты держишься за перила, но кто-то зовёт тебя отпустить руки и довериться',
         symbolism: 'Отпускание контроля как свободное падение',
       },
       {
+        id: 'narrow-forest-path',
         setting: 'Тёмный лес с узкой тропой',
         situation: 'Твой фонарик гаснет, и ты должна идти в темноте или остаться на месте до утра',
         symbolism: 'Движение в неизвестность без карты',
       },
       {
+        id: 'cracking-ice',
         setting: 'Замёрзшее озеро в сумерках',
         situation: 'Ты идёшь по льду, который начинает трещать, и нужно выбрать: бежать или замереть',
         symbolism: 'Хрупкость контроля и риск провала',
@@ -188,16 +198,19 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
     ],
     scenarios: [
       {
+        id: 'empty-dressing-room',
         setting: 'Театр после спектакля, пустая гримёрка',
         situation: 'Ты снимаешь грим и видишь в зеркале незнакомое лицо',
         symbolism: 'Маска и лицо под ней',
       },
       {
+        id: 'closed-fitting-room',
         setting: 'Примерочная в закрытом магазине',
         situation: 'Ты застряла в чужой одежде, которая казалась идеальной, но душит',
         symbolism: 'Чужие образы и поиск своего стиля',
       },
       {
+        id: 'silent-recording-booth',
         setting: 'Студия звукозаписи, пустая будка',
         situation: 'Ты должна записать голосовое сообщение, но не знаешь, каким голосом говорить',
         symbolism: 'Настоящий голос vs социально приемлемый',
@@ -234,16 +247,19 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
     ],
     scenarios: [
       {
+        id: 'dusty-basement',
         setting: 'Подвал старого дома с коробками',
         situation: 'Ты разбираешь вещи, и каждая вещь — воспоминание. Оставить или выбросить?',
         symbolism: 'Материализация памяти и расставание',
       },
       {
+        id: 'stormy-shore',
         setting: 'Берег моря в шторм',
         situation: 'Волны смывают песчаный замок, который ты строила годами',
         symbolism: 'Разрушение старых структур',
       },
       {
+        id: 'abandoned-childhood-home',
         setting: 'Заброшенный дом детства',
         situation: 'Ты пришла попрощаться, но призраки прошлого не хотят отпускать',
         symbolism: 'Возвращение к истокам для завершения',
@@ -255,22 +271,282 @@ export const PSYCHOLOGICAL_CONTRACTS: PsychologicalContract[] = [
       'Вернуться в прошлое или шагнуть в будущее?',
     ],
   },
+  {
+    id: 'belonging-vs-freedom',
+    question: 'Смогу ли я быть рядом с людьми, не теряя своё ядро?',
+    theme: 'Близость и автономия',
+    astroIndicators: [
+      'Луна в аспекте к Урану (квадрат, оппозиция, соединение)',
+      'Венера или Марс в 11-м доме при напряжённом 4-м доме',
+      'Уран в 7-м доме или на DSC',
+    ],
+    commonTraps: [
+      {
+        name: 'Бегство при сближении',
+        description: 'Как только отношения становятся близкими, возникает желание исчезнуть',
+      },
+      {
+        name: 'Псевдосвобода',
+        description: 'Держать дистанцию, чтобы никому ничего не обещать — вместе с этим теряя поддержку',
+      },
+      {
+        name: 'Растворение в ожиданиях',
+        description: 'Подстраиваться, чтобы остаться в группе, пока собственные желания не исчезают',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'night-train-carriage',
+        setting: 'Ночной поезд, плацкартное купе',
+        situation: 'Незнакомая попутчица доверяет тебе личную историю и просит остаться на связи',
+        symbolism: 'Границы близости на ограниченном пространстве',
+      },
+      {
+        id: 'loft-gathering',
+        setting: 'Квартирник в лофте',
+        situation: 'Друзья зовут тебя выступить, но ты боишься потерять свободу быть наблюдателем',
+        symbolism: 'Выбор между участием и безопасной дистанцией',
+      },
+      {
+        id: 'coworking-sunset',
+        setting: 'Коворкинг на закате',
+        situation: 'Коллеги предлагают совместный проект, обещая поддержку, но условия размыты',
+        symbolism: 'Командная близость vs независимые правила',
+      },
+    ],
+    choicePoints: [
+      'Принять приглашение или вежливо исчезнуть?',
+      'Остаться наблюдать или выйти на сцену?',
+      'Озвучить свои границы или согласиться из страха упустить шанс?',
+    ],
+  },
+  {
+    id: 'boundaries-vs-merging',
+    question: 'Где заканчиваюсь я и начинается другой?',
+    theme: 'Эмоциональные границы',
+    astroIndicators: [
+      'Луна или Венера в напряжении с Нептуном',
+      'Стеллиум в 12-м доме с сильным Нептуном',
+      'Сильный Рак/Рыбы при слабой земле в карте',
+    ],
+    commonTraps: [
+      {
+        name: 'Спасательство',
+        description: 'Сразу бросаться спасать, забывая про собственные ресурсы',
+      },
+      {
+        name: 'Растворение',
+        description: 'Слияние с чужими чувствами и потеря собственного голоса',
+      },
+      {
+        name: 'Туманная честность',
+        description: 'Обещания без возможности выполнить, чтобы никого не разочаровать',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'art-atelier',
+        setting: 'Арт-студия с мастер-классом по акварели',
+        situation: 'Ученица просит тебя дорисовать за неё, потому что "у тебя лучше получится"',
+        symbolism: 'Граница между поддержкой и растворением',
+      },
+      {
+        id: 'healing-retreat',
+        setting: 'Ретрит с саунд-хилингом',
+        situation: 'Ведущая просит тебя провести круг, хотя ты приехала отдыхать',
+        symbolism: 'Ошибочная ответственность за общее поле',
+      },
+      {
+        id: 'volunteer-shelter',
+        setting: 'Волонтёрский центр помощи',
+        situation: 'Люди просят остаться на ночную смену, хотя ты чувствуешь выгорание',
+        symbolism: 'Чужая боль против собственного ресурса',
+      },
+    ],
+    choicePoints: [
+      'Сказать «нет» или сделать за неё?',
+      'Оставаться гостьей или взять на себя процесс?',
+      'Признаться в усталости или продолжать работать?',
+    ],
+  },
+  {
+    id: 'worth-vs-performance',
+    question: 'Чего я стою, если перестану всё успевать?',
+    theme: 'Самооценка и достижения',
+    astroIndicators: [
+      'Солнце в напряжении с Сатурном/Плутоном',
+      'Марс в аспекте с Сатурном',
+      'Сильный 10-й дом при слабом 2-м/5-м',
+    ],
+    commonTraps: [
+      {
+        name: 'Гиперпродуктивность',
+        description: 'Работать на износ, чтобы заслужить право на отдых',
+      },
+      {
+        name: 'Обесценивание успехов',
+        description: 'Сразу придумывать новый план, чтобы не чувствовать пустоту после достижения',
+      },
+      {
+        name: 'Сравнительный стыд',
+        description: 'Смотреть, кто сделал больше, и списывать себя в аутсайдеры',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'midnight-open-space',
+        setting: 'Пустой офис open-space ночью',
+        situation: 'Ты одна закрываешь проект, хотя команда уже ушла',
+        symbolism: 'Зависимость самоценности от продуктивности',
+      },
+      {
+        id: 'silent-gym',
+        setting: 'Зал фитнес-клуба ранним утром',
+        situation: 'Тренер просит сделать ещё один подход, чтобы доказать себе силу',
+        symbolism: 'Достижение ради оценки извне',
+      },
+      {
+        id: 'family-dinner-report',
+        setting: 'Семейный ужин с родственниками',
+        situation: 'Все ждут отчёта о твоих успехах, а у тебя нет новостей',
+        symbolism: 'Ценность "как есть" против внешних мерок',
+      },
+    ],
+    choicePoints: [
+      'Остановиться и уйти домой или продолжать работать?',
+      'Слушать тело или искать одобрение тренера?',
+      'Признаться в усталости или придумать новую цель?',
+    ],
+  },
+  {
+    id: 'voice-vs-silence',
+    question: 'Могу ли я говорить правду, не разрушая связь?',
+    theme: 'Коммуникация и честность',
+    astroIndicators: [
+      'Меркурий в напряжении с Сатурном или Плутоном',
+      'Меркурий в аспекте с Нептуном',
+      'Хирон или Лилит в 3-м доме',
+    ],
+    commonTraps: [
+      {
+        name: 'Проглатывание слов',
+        description: 'Сохранять связь любой ценой, молча соглашаясь',
+      },
+      {
+        name: 'Пассивные намёки',
+        description: 'Говорить полунамёками, надеясь, что тебя поймут без конфликта',
+      },
+      {
+        name: 'Взрыв накопленного',
+        description: 'Долго терпеть, а затем выдавать всю правду разрушительным потоком',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'radio-booth',
+        setting: 'Радиостудия перед прямым эфиром',
+        situation: 'Ты должна читать текст, с которым не согласна',
+        symbolism: 'Собственный голос против чужого сценария',
+      },
+      {
+        id: 'family-kitchen-midnight',
+        setting: 'Семейная кухня ночью',
+        situation: 'Родители спорят, и ты знаешь, что молчание означает согласие',
+        symbolism: 'Лояльность vs честность',
+      },
+      {
+        id: 'court-corridor',
+        setting: 'Судебный коридор перед заседанием',
+        situation: 'Подруга просит подтвердить её версию, хотя она не точна',
+        symbolism: 'Правда и страх потерять связь',
+      },
+    ],
+    choicePoints: [
+      'Произнести правку или подчиниться тексту?',
+      'Вступить в разговор или остаться тенью?',
+      'Сказать правду или поддержать подругу?',
+    ],
+  },
+  {
+    id: 'change-vs-stability',
+    question: 'Готова ли я отпустить привычное ради роста?',
+    theme: 'Перемены и безопасность',
+    astroIndicators: [
+      'Уран в напряжении с Сатурном или Луной',
+      'Сильный Телец/Скорпион с аспектами к Урану',
+      'Планеты в 4-м доме при транзитном Уране или прогрессиях к ним',
+    ],
+    commonTraps: [
+      {
+        name: 'Вечная подготовка',
+        description: 'Бесконечно собирать информацию вместо действия',
+      },
+      {
+        name: 'Саботаж перемен',
+        description: 'Находить поводы отменить шаг, когда момент уже настал',
+      },
+      {
+        name: 'Фиксация на контроле',
+        description: 'Пытаться просчитать все последствия, теряя живой импульс',
+      },
+    ],
+    scenarios: [
+      {
+        id: 'packed-suitcase',
+        setting: 'Квартира с собранным чемоданом',
+        situation: 'Ты всё подготовила к переезду, но не вызываешь такси',
+        symbolism: 'Между стартом и шагом',
+      },
+      {
+        id: 'closing-bridge',
+        setting: 'Подъёмный мост, который скоро разведут',
+        situation: 'Ты можешь успеть перейти, но страх высоты сковывает',
+        symbolism: 'Точка невозврата и доверие дороге',
+      },
+      {
+        id: 'startup-demo',
+        setting: 'Демозона стартап-хаба',
+        situation: 'Твой прототип готов, но ты всё перепроверяешь вместо презентации',
+        symbolism: 'Инерция против скачка в неизвестность',
+      },
+    ],
+    choicePoints: [
+      'Нажать «вызвать такси» или отложить ещё на день?',
+      'Бежать вперёд или ждать, когда мост опустится снова?',
+      'Показать прототип или спрятать на доработку?',
+    ],
+  },
 ];
 
 /**
  * Выбирает контракт на основе астрологических показателей из натальной карты
  */
+export interface SelectContractOptions {
+  excludeContractIds?: string[];
+}
+
 export function selectContractByAstrology(
   corePlacements: string[],
   hardAspects: string[],
+  options: SelectContractOptions = {},
 ): PsychologicalContract {
+  const { excludeContractIds = [] } = options;
+  const excluded = new Set(excludeContractIds);
+
+  const allAstroData = [...corePlacements, ...hardAspects].join(' ').toLowerCase();
+
   // Ищем совпадения с астрологическими индикаторами
   const matches = PSYCHOLOGICAL_CONTRACTS.map(contract => {
     let score = 0;
-    const allAstroData = [...corePlacements, ...hardAspects].join(' ').toLowerCase();
 
     for (const indicator of contract.astroIndicators) {
-      const keywords = indicator.toLowerCase().match(/\b(луна|солнце|венера|марс|меркурий|сатурн|плутон|юпитер|уран|квадрат|оппозиция|козерог|скорпион|рак|дева|близнецы|дом)\b/g) || [];
+      const keywords =
+        indicator
+          .toLowerCase()
+          .match(
+            /\b(луна|солнце|венера|марс|меркурий|сатурн|плутон|юпитер|уран|нептун|хирон|узел|лилит|квадрат|оппозиция|овен|телец|близнецы|рак|лев|дева|весы|скорпион|стрелец|козерог|водолей|рыбы|дом)\b/g,
+          ) || [];
+
       for (const keyword of keywords) {
         if (allAstroData.includes(keyword)) {
           score++;
@@ -281,17 +557,36 @@ export function selectContractByAstrology(
     return { contract, score };
   });
 
-  // Сортируем по совпадениям и выбираем случайный из топ-3
+  // Сортируем по совпадениям
   matches.sort((a, b) => b.score - a.score);
-  const topMatches = matches.slice(0, 3);
-  const selected = topMatches[Math.floor(Math.random() * topMatches.length)];
+
+  const filtered = matches.filter(entry => !excluded.has(entry.contract.id));
+  const pool = filtered.length > 0 ? filtered : matches;
+  const topMatches = pool.slice(0, Math.max(1, Math.min(3, pool.length)));
+  const selected = topMatches[Math.floor(Math.random() * topMatches.length)] ?? pool[0];
 
   return selected.contract;
 }
 
+export interface SelectScenarioOptions {
+  excludeScenarioIds?: string[];
+}
+
 /**
- * Выбирает случайный сценарий из контракта
+ * Выбирает случайный сценарий из контракта с учётом истории
  */
-export function selectScenario(contract: PsychologicalContract): ContractScenario {
-  return contract.scenarios[Math.floor(Math.random() * contract.scenarios.length)];
+export function selectScenario(
+  contract: PsychologicalContract,
+  options: SelectScenarioOptions = {},
+): ContractScenario {
+  const { excludeScenarioIds = [] } = options;
+  const excluded = new Set(excludeScenarioIds);
+  const available = contract.scenarios.filter(scenario => !excluded.has(scenario.id));
+  const pool = available.length > 0 ? available : contract.scenarios;
+
+  if (pool.length === 0) {
+    throw new Error(`У контракта ${contract.id} отсутствуют сценарии`);
+  }
+
+  return pool[Math.floor(Math.random() * pool.length)];
 }

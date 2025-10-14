@@ -79,6 +79,10 @@ import {
   type PeriodModalContent,
 } from '../utils/aiContent';
 import {
+  getPsychContractHistorySnapshot,
+  hydratePsychContractHistory,
+} from '../utils/psychContractHistory';
+import {
   generateInsightDescription,
   getFallbackInsightDescription,
   getRandomLoadingPhrase,
@@ -2164,6 +2168,7 @@ const ModernNastiaApp: React.FC = () => {
         try {
           const cloudData = await cloudSync.downloadFromCloud();
           if (cloudData) {
+            hydratePsychContractHistory(cloudData.psychContractHistory);
             const convertedCycles = (cloudData.cycles ?? []).map((cycle: any) => ({
               ...cycle,
               startDate: new Date(cycle.startDate),
@@ -2194,6 +2199,7 @@ const ModernNastiaApp: React.FC = () => {
       // Если облако недоступно или пусто, загружаем локальные данные
       const localData = loadData();
       if (localData) {
+        hydratePsychContractHistory(localData.psychContractHistory);
         setCycles(localData.cycles);
         const localMemory = (localData.horoscopeMemory ?? []).slice(-HOROSCOPE_MEMORY_LIMIT);
         setHoroscopeMemory(localMemory);
@@ -2233,6 +2239,7 @@ const ModernNastiaApp: React.FC = () => {
         notifications: true,
       },
       horoscopeMemory,
+      psychContractHistory: getPsychContractHistorySnapshot(),
     };
 
     // Сохраняем локально
@@ -2298,6 +2305,7 @@ const ModernNastiaApp: React.FC = () => {
                   notifications: true,
                 },
                 horoscopeMemory: horoscopeMemory.slice(-HOROSCOPE_MEMORY_LIMIT),
+                psychContractHistory: getPsychContractHistorySnapshot(),
               };
               await syncToCloud(nastiaData);
               alert('Локальные данные загружены в облако');
