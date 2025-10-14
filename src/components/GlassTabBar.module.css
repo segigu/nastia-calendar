@@ -1,0 +1,215 @@
+/* Контейнер для стеклянного меню */
+.glassTabBarContainer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Градиентный фон под меню */
+.glassTabBarGradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    to top,
+    rgba(253, 242, 248, 0.95) 0%,
+    rgba(248, 237, 253, 0.85) 30%,
+    rgba(253, 242, 248, 0.4) 60%,
+    rgba(253, 242, 248, 0) 100%
+  );
+  pointer-events: none;
+}
+
+/* Стеклянное меню */
+.glassTabBar {
+  position: relative;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 12px 16px;
+  padding: 8px;
+  border-radius: 24px;
+
+  /* Стеклянный эффект */
+  background: rgba(253, 242, 248, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+  /* Тень для глубины */
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+
+  /* Граница */
+  border: 1px solid rgba(255, 255, 255, 0.6);
+
+  /* Плавная анимация появления */
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Кнопка таба */
+.tabButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  min-height: 60px;
+  background: transparent;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #666;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Иконка таба */
+.tabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Лейбл таба */
+.tabLabel {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Бейдж с количеством */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #FF6B9D 0%, #C239B3 100%);
+  border-radius: 9px;
+  box-shadow: 0 2px 4px rgba(194, 57, 179, 0.3);
+}
+
+/* Состояние нажатия */
+.tabButton:active {
+  transform: scale(0.95);
+}
+
+/* Активный таб */
+.tabButton.active {
+  color: #FF6B9D;
+}
+
+.tabButton.active .tabIcon {
+  transform: scale(1.1);
+}
+
+.tabButton.active .tabLabel {
+  font-weight: 600;
+}
+
+/* Эффект при hover (для десктопа) */
+@media (hover: hover) {
+  .tabButton:hover {
+    background: rgba(255, 107, 157, 0.08);
+  }
+
+  .tabButton.active:hover {
+    background: rgba(255, 107, 157, 0.12);
+  }
+}
+
+/* Адаптация для темной темы */
+@media (prefers-color-scheme: dark) {
+  .glassTabBarGradient {
+    background: linear-gradient(
+      to top,
+      rgba(28, 28, 30, 0.95) 0%,
+      rgba(28, 28, 30, 0.85) 30%,
+      rgba(28, 28, 30, 0.4) 60%,
+      rgba(28, 28, 30, 0) 100%
+    );
+  }
+
+  .glassTabBar {
+    background: rgba(28, 28, 30, 0.75);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .tabButton {
+    color: #999;
+  }
+
+  .tabButton.active {
+    color: #FF6B9D;
+  }
+
+  @media (hover: hover) {
+    .tabButton:hover {
+      background: rgba(255, 107, 157, 0.12);
+    }
+  }
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-width: 360px) {
+  .tabButton {
+    min-height: 56px;
+    padding: 6px 2px;
+  }
+
+  .tabIcon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tabLabel {
+    font-size: 10px;
+  }
+}
+
+/* Адаптация для больших экранов */
+@media (min-width: 768px) {
+  .glassTabBarContainer {
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

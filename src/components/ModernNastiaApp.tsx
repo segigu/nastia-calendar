@@ -5,10 +5,10 @@ import {
   ChevronRight,
   ChevronDown,
   Trash2,
-  Settings,
   Cloud,
   CloudOff
 } from 'lucide-react';
+import { GlassTabBar, type TabId } from './GlassTabBar';
 import {
   CycleData,
   type HoroscopeMemoryEntry,
@@ -373,7 +373,7 @@ const ModernNastiaApp: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [horoscopeMemory, setHoroscopeMemory] = useState<HoroscopeMemoryEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
+  const [activeTab, setActiveTab] = useState<TabId>('calendar');
   const [showSettings, setShowSettings] = useState(false);
   const [githubToken, setGithubToken] = useState('');
   const [cloudEnabled, setCloudEnabled] = useState(false);
@@ -912,18 +912,6 @@ const ModernNastiaApp: React.FC = () => {
     [clearButtonAnimationTimers, fetchHistoryStoryChunk, fetchHistoryStoryFinale],
   );
 
-  const handleShowHistoryCycles = useCallback(() => {
-    setHistoryStoryMode('cycles');
-    setHistoryStoryMenuOpen(false);
-  }, []);
-
-  const handleReturnToStory = useCallback(() => {
-    setHistoryStoryMode('story');
-    setHistoryStoryMenuOpen(false);
-    if (historyStorySegmentsRef.current.length === 0 && !historyStoryLoading) {
-      initiateHistoryStory();
-    }
-  }, [historyStoryLoading, initiateHistoryStory]);
 
   const handleHistoryRetry = useCallback(() => {
     if (historyStoryLoading) {
@@ -1061,7 +1049,7 @@ const ModernNastiaApp: React.FC = () => {
   }, [historyStoryMode]);
 
   useEffect(() => {
-    if (activeTab !== 'history') {
+    if (activeTab !== 'discover') {
       setHistoryStoryMenuOpen(false);
       return;
     }
@@ -1085,7 +1073,7 @@ const ModernNastiaApp: React.FC = () => {
     if (historyStorySegmentsRef.current.length > 0 || historyStoryLoading) {
       return;
     }
-    if (activeTab !== 'history') {
+    if (activeTab !== 'discover') {
       return;
     }
     initiateHistoryStory();
@@ -1098,7 +1086,7 @@ const ModernNastiaApp: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (historyStoryMode !== 'cycles' || cycles.length === 0) {
+    if (activeTab !== 'cycles' || cycles.length === 0) {
       setVisibleCycleIds([]);
       return;
     }
@@ -1119,7 +1107,7 @@ const ModernNastiaApp: React.FC = () => {
         window.clearTimeout(timer);
       }
     };
-  }, [historyStoryMode, cycles]);
+  }, [activeTab, cycles]);
 
   const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
     if (typeof window === 'undefined') {
@@ -2684,27 +2672,7 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Навигация по вкладкам */}
-        <div className={styles.tabNavigation}>
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`${styles.tabButton} ${activeTab === 'calendar' ? styles.active : ''}`}
-          >
-            Календарь
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`${styles.tabButton} ${activeTab === 'history' ? styles.active : ''}`}
-          >
-            История ({cycles.length})
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className={styles.tabButton}
-          >
-            <Settings size={18} />
-          </button>
-        </div>
+        {/* Старая навигация убрана - теперь используется GlassTabBar внизу */}
 
         {/* Календарь */}
         {activeTab === 'calendar' && (
@@ -3058,21 +3026,12 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         )}
 
-        {/* Вкладка: История всех циклов */}
-        {activeTab === 'history' && (
-          <>
-            {historyStoryMode === 'story' && (
-              <div className={styles.historyChatContainer}>
+        {/* Вкладка: Узнай себя (интерактивная история) */}
+        {activeTab === 'discover' && (
+          <div className={styles.historyChatContainer}>
                 <div className={styles.historyStoryHeader}>
                   <span className={styles.historyStoryLabel}>История</span>
                   <div className={styles.historyStoryHeaderActions}>
-                    <button
-                      type="button"
-                      className={styles.historyStoryShowCyclesButton}
-                      onClick={handleShowHistoryCycles}
-                    >
-                      Показать циклы
-                    </button>
                     <button
                       type="button"
                       className={styles.historyStoryMenuButton}
@@ -3094,16 +3053,6 @@ const ModernNastiaApp: React.FC = () => {
                           disabled={historyStoryLoading || historyStoryTyping}
                         >
                           Начать заново
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.historyStoryMenuItem}
-                          onClick={() => {
-                            setHistoryStoryMenuOpen(false);
-                            handleShowHistoryCycles();
-                          }}
-                        >
-                          Показать циклы
                         </button>
                       </div>
                     )}
@@ -3241,81 +3190,72 @@ const ModernNastiaApp: React.FC = () => {
                   </div>
                 )}
                 <div ref={historyScrollAnchorRef} className={styles.historyScrollAnchor} aria-hidden />
-              </div>
-            )}
-            {historyStoryMode === 'cycles' && (
-              <div className={`${styles.card} ${styles.historyCyclesCard}`}>
-                <div className={styles.historyCyclesHeader}>
-                  <h3 className={styles.statsTitle}>Все циклы ({cycles.length})</h3>
-                  <button
-                    type="button"
-                    className={styles.historyStoryRestartButton}
-                    onClick={handleReturnToStory}
-                  >
-                    Вернуться к истории
-                  </button>
-                </div>
-                {cycles.length === 0 ? (
-                  <div className={styles.emptyState}>
-                    <p>Нет записанных циклов</p>
-                    <p className={styles.emptyStateHint}>
-                      Перейдите на вкладку "Календарь" и нажмите на дату начала цикла
-                    </p>
-                  </div>
-                ) : (
-                  <div className={styles.cyclesListContainer}>
-                    {cycles
-                      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-                      .map((cycle, index, sortedCycles) => {
-                        const nextCycle = sortedCycles[index + 1];
-                        const daysBetween = nextCycle
-                          ? diffInDays(new Date(cycle.startDate), new Date(nextCycle.startDate))
-                          : null;
-                        const isVisible = visibleCycleIds.includes(cycle.id);
-                        const isLastCycle = !nextCycle;
-                        const isFirstCycle = index === 0;
+          </div>
+        )}
 
-                        return (
-                          <React.Fragment key={cycle.id}>
-                            <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
-                              <div className={styles.cycleInfo}>
-                                <div className={styles.cycleDateRow}>
-                                  <span className={styles.cycleDateMarker} aria-hidden="true" />
-                                  <span className={styles.cycleDateText}>
-                                    {formatDate(new Date(cycle.startDate))}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className={styles.cycleActions}>
-                                <button
-                                  onClick={() => deleteCycle(cycle.id)}
-                                  className={styles.cycleActionButton}
-                                  title="Удалить цикл"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
+        {/* Вкладка: Циклы */}
+        {activeTab === 'cycles' && (
+          <div className={`${styles.card} ${styles.historyCyclesCard}`}>
+            <div className={styles.historyCyclesHeader}>
+              <h3 className={styles.statsTitle}>Все циклы ({cycles.length})</h3>
+            </div>
+            {cycles.length === 0 ? (
+              <div className={styles.emptyState}>
+                <p>Нет записанных циклов</p>
+                <p className={styles.emptyStateHint}>
+                  Перейдите на вкладку "Календарь" и нажмите на дату начала цикла
+                </p>
+              </div>
+            ) : (
+              <div className={styles.cyclesListContainer}>
+                {cycles
+                  .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                  .map((cycle, index, sortedCycles) => {
+                    const nextCycle = sortedCycles[index + 1];
+                    const daysBetween = nextCycle
+                      ? diffInDays(new Date(cycle.startDate), new Date(nextCycle.startDate))
+                      : null;
+                    const isVisible = visibleCycleIds.includes(cycle.id);
+
+                    return (
+                      <React.Fragment key={cycle.id}>
+                        <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
+                          <div className={styles.cycleInfo}>
+                            <div className={styles.cycleDateRow}>
+                              <span className={styles.cycleDateMarker} aria-hidden="true" />
+                              <span className={styles.cycleDateText}>
+                                {formatDate(new Date(cycle.startDate))}
+                              </span>
                             </div>
-                            {daysBetween !== null && (
-                              <div className={`${styles.timelineGap} ${isVisible ? styles.timelineGapVisible : ''}`}>
-                                <div className={styles.timelineGapLine} />
-                                <div className={styles.timelineGapBadge}>
-                                  <span className={styles.timelineGapDays}>{daysBetween}</span>
-                                  <span className={styles.timelineGapLabel}>
-                                    {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
-                                  </span>
-                                </div>
-                                <div className={styles.timelineGapLine} />
-                              </div>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                  </div>
-                )}
+                          </div>
+                          <div className={styles.cycleActions}>
+                            <button
+                              onClick={() => deleteCycle(cycle.id)}
+                              className={styles.cycleActionButton}
+                              title="Удалить цикл"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        {daysBetween !== null && (
+                          <div className={`${styles.timelineGap} ${isVisible ? styles.timelineGapVisible : ''}`}>
+                            <div className={styles.timelineGapLine} />
+                            <div className={styles.timelineGapBadge}>
+                              <span className={styles.timelineGapDays}>{daysBetween}</span>
+                              <span className={styles.timelineGapLabel}>
+                                {daysBetween === 1 ? 'день' : daysBetween < 5 ? 'дня' : 'дней'}
+                              </span>
+                            </div>
+                            <div className={styles.timelineGapLine} />
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -3822,6 +3762,19 @@ const ModernNastiaApp: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Стеклянное нижнее меню */}
+      <GlassTabBar
+        activeTab={activeTab}
+        onTabChange={(tabId) => {
+          if (tabId === 'settings') {
+            setShowSettings(true);
+          } else {
+            setActiveTab(tabId);
+          }
+        }}
+        cycleCount={cycles.length}
+      />
     </div>
   );
 };
