@@ -422,6 +422,20 @@ const HISTORY_GENERATION_PHRASES = [
   { emoji: '🌑', text: 'Лунные узлы показывают направление роста' },
 ];
 
+// Тексты для кнопки отмены генерации истории
+const CANCEL_GENERATION_TEXTS = [
+  'Не готова',
+  'Не хочу',
+  'Передумала',
+  'В другой раз',
+  'Не сейчас',
+  'Отмена',
+  'Хватит',
+  'Не надо',
+  'Позже',
+  'Остановить',
+];
+
 const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
   title: 'А что там у Сережи?',
   subtitle: 'Серёжа опять что-то мудрит. Подглянем, что ему сулят звёзды на сегодня?',
@@ -587,6 +601,8 @@ const ModernNastiaApp: React.FC = () => {
   });
   const [visibleNotificationIds, setVisibleNotificationIds] = useState<string[]>([]);
   const [visibleCycleIds, setVisibleCycleIds] = useState<string[]>([]);
+  const [visibleCalendarElements, setVisibleCalendarElements] = useState<string[]>([]);
+  const [visibleDiscoverElements, setVisibleDiscoverElements] = useState<string[]>([]);
   const [historyStoryAuthor, setHistoryStoryAuthor] = useState<StoryAuthor>(() => {
     const index = Math.floor(Math.random() * STORY_AUTHORS.length);
     return STORY_AUTHORS[index];
@@ -607,7 +623,12 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStartPrompt, setHistoryStartPrompt] = useState('');
   const [historyStartButton, setHistoryStartButton] = useState('');
   const [historyGenerationPhrase, setHistoryGenerationPhrase] = useState<{ emoji: string; text: string } | null>(null);
+  const [historyCancelButtonText, setHistoryCancelButtonText] = useState('');
+  const [phraseAnimationClass, setPhraseAnimationClass] = useState<string>('slideFromBottom');
+  const [iconAnimationClass, setIconAnimationClass] = useState<string>('scaleIn');
   const historyGenerationIntervalRef = useRef<number | null>(null);
+  const currentEffectIndexRef = useRef<number>(0);
+  const historyGenerationPhraseRef = useRef<{ emoji: string; text: string } | null>(null);
   const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
@@ -970,17 +991,57 @@ const ModernNastiaApp: React.FC = () => {
       window.clearInterval(historyGenerationIntervalRef.current);
     }
 
-    // Функция для показа случайной фразы
+    // Сбрасываем индекс эффектов
+    currentEffectIndexRef.current = 0;
+
+    // Массивы с эффектами
+    const entranceEffects = ['slideFromBottom', 'slideFromTop', 'fadeInScale'];
+    const exitEffects = ['slideOutTop', 'slideOutBottom', 'fadeOut'];
+
+    // Функция для показа случайной фразы с анимацией
     const showRandomPhrase = () => {
-      const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
-      setHistoryGenerationPhrase(HISTORY_GENERATION_PHRASES[randomIndex]);
+      // Сначала запускаем анимацию исчезновения
+      const currentPhrase = historyGenerationPhraseRef.current;
+
+      if (currentPhrase) {
+        const exitEffect = exitEffects[currentEffectIndexRef.current % exitEffects.length];
+        console.log('[Animation] Exit effect:', exitEffect, 'index:', currentEffectIndexRef.current);
+        setPhraseAnimationClass(exitEffect);
+        setIconAnimationClass('iconFadeOut');
+
+        // Через 400ms показываем новую фразу
+        setTimeout(() => {
+          const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
+          const newPhrase = HISTORY_GENERATION_PHRASES[randomIndex];
+          historyGenerationPhraseRef.current = newPhrase;
+          setHistoryGenerationPhrase(newPhrase);
+
+          // Применяем эффект появления
+          const entranceEffect = entranceEffects[currentEffectIndexRef.current % entranceEffects.length];
+          console.log('[Animation] Entrance effect:', entranceEffect, 'index:', currentEffectIndexRef.current);
+          setPhraseAnimationClass(entranceEffect);
+          setIconAnimationClass('iconScaleIn');
+
+          currentEffectIndexRef.current++;
+        }, 400);
+      } else {
+        // Первый показ без исчезновения
+        const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
+        const newPhrase = HISTORY_GENERATION_PHRASES[randomIndex];
+        historyGenerationPhraseRef.current = newPhrase;
+        setHistoryGenerationPhrase(newPhrase);
+        console.log('[Animation] Initial show: slideFromBottom');
+        setPhraseAnimationClass('slideFromBottom');
+        setIconAnimationClass('iconScaleIn');
+        currentEffectIndexRef.current++;
+      }
     };
 
     // Показываем первую фразу сразу
     showRandomPhrase();
 
-    // Запускаем интервал для смены фраз каждые 2.5 секунды
-    historyGenerationIntervalRef.current = window.setInterval(showRandomPhrase, 2500);
+    // Запускаем интервал для смены фраз каждые 3 секунды (увеличено для учета анимации)
+    historyGenerationIntervalRef.current = window.setInterval(showRandomPhrase, 3000);
   }, []);
 
   const stopGenerationAnimation = useCallback(() => {
@@ -988,8 +1049,15 @@ const ModernNastiaApp: React.FC = () => {
       window.clearInterval(historyGenerationIntervalRef.current);
       historyGenerationIntervalRef.current = null;
     }
+    historyGenerationPhraseRef.current = null;
     setHistoryGenerationPhrase(null);
   }, []);
+
+  const handleCancelGeneration = useCallback(() => {
+    console.log('[HistoryStory] Cancelling generation');
+    resetHistoryStoryState();
+    setHistoryStoryPhase('idle');
+  }, [resetHistoryStoryState]);
 
   const initiateHistoryStory = useCallback(() => {
     if (!hasAiCredentials) {
@@ -1009,6 +1077,10 @@ const ModernNastiaApp: React.FC = () => {
     // Переходим в фазу генерации
     setHistoryStoryPhase('generating');
     startGenerationAnimation();
+
+    // Выбираем случайный текст для кнопки отмены
+    const cancelText = CANCEL_GENERATION_TEXTS[Math.floor(Math.random() * CANCEL_GENERATION_TEXTS.length)];
+    setHistoryCancelButtonText(cancelText);
 
     const persona = STORY_AUTHORS[Math.floor(Math.random() * STORY_AUTHORS.length)];
     setHistoryStoryAuthor(persona);
@@ -1259,6 +1331,71 @@ const ModernNastiaApp: React.FC = () => {
       }
     };
   }, [activeTab, cycles]);
+
+  // Анимация элементов календаря
+  useEffect(() => {
+    if (activeTab !== 'calendar') {
+      setVisibleCalendarElements([]);
+      return;
+    }
+
+    setVisibleCalendarElements([]);
+
+    // Определяем элементы для анимации в порядке сверху вниз
+    const elementsToAnimate = [
+      'calendar-header',
+      'calendar-weekdays',
+      'calendar-grid',
+      'calendar-legend',
+      'insights-card',
+      'stats-card',
+    ];
+
+    const timers = elementsToAnimate.map((elementId, index) =>
+      window.setTimeout(() => {
+        setVisibleCalendarElements(prev => (prev.includes(elementId) ? prev : [...prev, elementId]));
+      }, 80 * index + 50)
+    );
+
+    return () => {
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [activeTab, currentDate]);
+
+  // Анимация элементов вкладки "Узнай себя"
+  useEffect(() => {
+    if (activeTab !== 'discover') {
+      setVisibleDiscoverElements([]);
+      return;
+    }
+
+    setVisibleDiscoverElements([]);
+
+    // Определяем элементы для анимации в зависимости от фазы
+    const elementsToAnimate: string[] = [];
+
+    if (historyStoryPhase === 'idle') {
+      elementsToAnimate.push('discover-start-icon', 'discover-start-prompt', 'discover-start-button');
+    } else if (historyStoryPhase === 'generating') {
+      elementsToAnimate.push('discover-gen-icon', 'discover-gen-phrase');
+    } else if (historyStoryPhase === 'ready') {
+      elementsToAnimate.push('discover-meta-bar', 'discover-messages');
+    }
+
+    const timers = elementsToAnimate.map((elementId, index) =>
+      window.setTimeout(() => {
+        setVisibleDiscoverElements(prev => (prev.includes(elementId) ? prev : [...prev, elementId]));
+      }, 100 * index + 50)
+    );
+
+    return () => {
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [activeTab, historyStoryPhase]);
 
   const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
     if (typeof window === 'undefined') {
@@ -2829,7 +2966,7 @@ const ModernNastiaApp: React.FC = () => {
         {activeTab === 'calendar' && (
           <div className={styles.calendarPanel}>
             {/* Навигация по месяцам */}
-            <div className={styles.calendarHeader}>
+            <div className={`${styles.calendarHeader} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('calendar-header') ? styles.calendarElementVisible : ''}`}>
               <button
                 onClick={() => changeMonth('prev')}
                 className={styles.navButton}
@@ -2848,7 +2985,7 @@ const ModernNastiaApp: React.FC = () => {
             </div>
 
             {/* Дни недели */}
-            <div className={styles.weekDays}>
+            <div className={`${styles.weekDays} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('calendar-weekdays') ? styles.calendarElementVisible : ''}`}>
               {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
                 <div key={day} className={styles.weekDay}>
                   {day}
@@ -2857,7 +2994,7 @@ const ModernNastiaApp: React.FC = () => {
             </div>
 
             {/* Дни месяца */}
-            <div className={styles.calendarGrid}>
+            <div className={`${styles.calendarGrid} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('calendar-grid') ? styles.calendarElementVisible : ''}`}>
               {monthDays.map((date, index) => (
                 <button
                   key={index}
@@ -2870,7 +3007,7 @@ const ModernNastiaApp: React.FC = () => {
             </div>
 
             {/* Легенда */}
-            <div className={styles.legend}>
+            <div className={`${styles.legend} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('calendar-legend') ? styles.calendarElementVisible : ''}`}>
               <div className={styles.legendItem}>
                 <div className={`${styles.legendDot} ${styles.period}`}></div>
                 <span>Период</span>
@@ -2897,7 +3034,7 @@ const ModernNastiaApp: React.FC = () => {
         )}
         {/* Insights панель */}
         {cycles.length >= 2 && activeTab === 'calendar' && (
-          <div className={styles.insightsCard}>
+          <div className={`${styles.insightsCard} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('insights-card') ? styles.calendarElementVisible : ''}`}>
             <h3 className={styles.insightsTitle}>⚡️ Твои показатели</h3>
 
             <div className={styles.insightsGrid}>
@@ -3156,7 +3293,7 @@ const ModernNastiaApp: React.FC = () => {
 
         {/* Краткая статистика */}
         {activeTab === 'calendar' && (
-          <div className={`${styles.card} ${styles.statsCard}`}>
+          <div className={`${styles.card} ${styles.statsCard} ${styles.calendarElementAnimated} ${visibleCalendarElements.includes('stats-card') ? styles.calendarElementVisible : ''}`}>
             <div className={styles.statsGrid}>
               <div className={styles.statItem}>
                 <div className={styles.statNumber}>{daysUntilNext}</div>
@@ -3180,48 +3317,16 @@ const ModernNastiaApp: React.FC = () => {
         {/* Вкладка: Узнай себя (интерактивная история) */}
         {activeTab === 'discover' && (
           <div className={styles.historyChatContainer}>
-                <div className={styles.historyStoryHeader}>
-                  <span className={styles.historyStoryLabel}>История</span>
-                  <div className={styles.historyStoryHeaderActions}>
-                    {historyStoryPhase === 'ready' && (
-                      <button
-                        type="button"
-                        className={styles.historyStoryMenuButton}
-                        ref={historyStoryMenuButtonRef}
-                        onClick={() => setHistoryStoryMenuOpen(prev => !prev)}
-                        aria-label="Меню истории"
-                      >
-                        ⋮
-                      </button>
-                    )}
-                    {historyStoryMenuOpen && (
-                      <div ref={historyStoryMenuRef} className={styles.historyStoryMenu}>
-                        <button
-                          type="button"
-                          className={styles.historyStoryMenuItem}
-                          onClick={() => {
-                            setHistoryStoryMenuOpen(false);
-                            initiateHistoryStory();
-                          }}
-                          disabled={historyStoryLoading || historyStoryTyping}
-                        >
-                          Начать заново
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {/* Начальный экран (idle) */}
                 {historyStoryPhase === 'idle' && (
                   <div className={styles.historyStartScreen}>
-                    <div className={styles.historyStartIconContainer}>
+                    <div className={`${styles.historyStartIconContainer} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-icon') ? styles.calendarElementVisible : ''}`}>
                       <div className={styles.historyStartIcon}>✨</div>
                     </div>
-                    <div className={styles.historyStartPrompt}>{historyStartPrompt}</div>
+                    <div className={`${styles.historyStartPrompt} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-prompt') ? styles.calendarElementVisible : ''}`}>{historyStartPrompt}</div>
                     <button
                       type="button"
-                      className={styles.historyStartButton}
+                      className={`${styles.historyStartButton} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-button') ? styles.calendarElementVisible : ''}`}
                       onClick={initiateHistoryStory}
                       disabled={!hasAiCredentials}
                     >
@@ -3233,15 +3338,36 @@ const ModernNastiaApp: React.FC = () => {
                 {/* Экран генерации (generating) */}
                 {historyStoryPhase === 'generating' && historyGenerationPhrase && (
                   <div className={styles.historyGenerationScreen}>
-                    <div className={styles.historyGenerationIconContainer}>
-                      <div className={styles.historyGenerationIcon}>{historyGenerationPhrase.emoji}</div>
+                    <div className={styles.historyGenerationContent}>
+                      <div className={`${styles.historyGenerationIconContainer} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-gen-icon') ? styles.calendarElementVisible : ''}`}>
+                        <div
+                          key={`icon-${historyGenerationPhrase.emoji}-${currentEffectIndexRef.current}`}
+                          className={`${styles.historyGenerationIcon} ${styles[iconAnimationClass]}`}
+                        >
+                          {historyGenerationPhrase.emoji}
+                        </div>
+                      </div>
+                      <div
+                        key={`phrase-${historyGenerationPhrase.text}-${currentEffectIndexRef.current}`}
+                        className={`${styles.historyGenerationPhrase} ${styles[phraseAnimationClass]} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-gen-phrase') ? styles.calendarElementVisible : ''}`}
+                      >
+                        {historyGenerationPhrase.text}
+                      </div>
                     </div>
-                    <div className={styles.historyGenerationPhrase}>{historyGenerationPhrase.text}</div>
+                    {historyCancelButtonText && (
+                      <button
+                        className={styles.historyCancelButton}
+                        onClick={handleCancelGeneration}
+                        type="button"
+                      >
+                        {historyCancelButtonText}
+                      </button>
+                    )}
                   </div>
                 )}
 
                 {historyStoryPhase === 'ready' && historyStorySegments.length > 0 && (
-                  <div className={styles.historyStoryMetaBar}>
+                  <div className={`${styles.historyStoryMetaBar} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-meta-bar') ? styles.calendarElementVisible : ''}`}>
                     <div className={styles.historyStoryMetaItem}>
                       <span className={styles.historyStoryMetaLabel}>Жанр:</span>
                       <span className={styles.historyStoryMetaText}>{historyStoryMeta?.genre ?? historyStoryAuthor.genre}</span>
@@ -3252,7 +3378,7 @@ const ModernNastiaApp: React.FC = () => {
                     </div>
                   </div>
                 )}
-                <div className={styles.historyChatMessages} ref={historyMessagesRef}>
+                <div className={`${styles.historyChatMessages} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-messages') ? styles.calendarElementVisible : ''}`} ref={historyMessagesRef}>
                   {historyStorySegments.map((segment, segmentIndex) => {
                     const timestamp = new Date(segment.timestamp);
                     const timeStr = timestamp.toLocaleTimeString('ru-RU', {
@@ -3268,7 +3394,7 @@ const ModernNastiaApp: React.FC = () => {
                     return (
                       <React.Fragment key={segment.id}>
                         <div
-                          className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}
+                          className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}
                         >
                           <div className={styles.historyChatStoryTitle}>{storyTitle}</div>
                           <div className={styles.historyChatMessageWrapper}>
@@ -3281,7 +3407,7 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                         {selectedChoice && (
-                          <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing}`}>
+                          <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.visible}`}>
                             <div className={styles.historyChatSender}>Настя</div>
                             <div className={styles.historyChatMessageWrapper}>
                               <div className={styles.historyChatTextBlock}>

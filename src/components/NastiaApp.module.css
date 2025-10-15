@@ -687,7 +687,7 @@
 
 .historyStartIcon {
   font-size: 4rem;
-  animation: float 3s ease-in-out infinite;
+  animation: pulse 3s ease-in-out infinite;
 }
 
 @keyframes float {
@@ -700,40 +700,59 @@
 }
 
 .historyStartPrompt {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   line-height: 1.6;
-  color: #333;
+  color: #1f1230;
   text-align: center;
   max-width: 500px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .historyStartButton {
-  padding: 0.875rem 2rem;
+  padding: 1.25rem 2rem;
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #ad19f7 0%, #8b5cf6 100%);
-  border: none;
-  border-radius: 999px;
+  background: linear-gradient(135deg, #ad19f7 0%, #8b5cf6 50%, #ad19f7 100%);
+  background-size: 200% 100%;
+  border: 2px solid transparent;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
+  animation: gradientShift 3s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .historyStartButton:hover:not(:disabled) {
-  background: linear-gradient(135deg, #9d13e4 0%, #7c3aed 100%);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, #9d13e4 0%, #7c3aed 50%, #9d13e4 100%);
+  background-size: 200% 100%;
+  box-shadow: 0 6px 16px rgba(138, 89, 237, 0.4);
   transform: translateY(-2px);
+  animation: gradientShift 2s ease infinite;
 }
 
 .historyStartButton:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .historyStartButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  animation: none;
 }
 
 /* Экран генерации */
@@ -741,10 +760,44 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 2rem;
   padding: 3rem 1.5rem;
   min-height: 60vh;
+}
+
+.historyGenerationContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  flex: 1;
+}
+
+.historyCancelButton {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+  animation: fadeIn 0.4s ease-out 0.3s backwards;
+}
+
+.historyCancelButton:hover {
+  color: #374151;
+  border-color: #d1d5db;
+  background: #f9fafb;
+  transform: translateY(-1px);
+}
+
+.historyCancelButton:active {
+  transform: translateY(0);
 }
 
 .historyGenerationIconContainer {
@@ -755,28 +808,156 @@
 
 .historyGenerationIcon {
   font-size: 4rem;
-  animation: pulse 2s ease-in-out infinite;
+  animation: pulseScale 2s ease-in-out infinite;
+  will-change: transform;
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
-@keyframes pulse {
+.iconFadeOut {
+  animation: iconFadeOut 0.4s ease-out forwards !important;
+}
+
+.iconScaleIn {
+  animation: pulseScale 2s ease-in-out infinite, iconScaleIn 0.5s ease-out !important;
+}
+
+@keyframes pulseScale {
   0%, 100% {
     transform: scale(1);
-    opacity: 1;
   }
   50% {
-    transform: scale(1.1);
-    opacity: 0.8;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes iconFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8) rotate(15deg);
+  }
+}
+
+@keyframes iconScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-15deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
   }
 }
 
 .historyGenerationPhrase {
-  font-size: 1.125rem;
+  font-size: 1.2rem;
   line-height: 1.6;
-  color: #555;
+  color: #1f1230;
   text-align: center;
   max-width: 400px;
-  font-weight: 500;
-  animation: fadeIn 0.5s ease-in;
+  font-weight: 600;
+  /* Убираем transition, используем только animation */
+}
+
+/* Эффекты появления */
+.slideFromBottom {
+  animation: slideFromBottom 0.5s ease-out !important;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slideFromTop {
+  animation: slideFromTop 0.5s ease-out !important;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fadeInScale {
+  animation: fadeInScale 0.5s ease-out !important;
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Эффекты исчезновения */
+.fadeOut {
+  animation: fadeOut 0.4s ease-out forwards !important;
+}
+
+.slideOutTop {
+  animation: slideOutTop 0.4s ease-out forwards !important;
+}
+
+.slideOutBottom {
+  animation: slideOutBottom 0.4s ease-out forwards !important;
+}
+
+@keyframes slideFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes slideOutTop {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes slideOutBottom {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30px);
+  }
 }
 
 @keyframes fadeIn {
@@ -975,29 +1156,48 @@
 
 .historyChatBubble {
   position: relative;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
-  background: #ffffff;
+  width: fit-content;
+  max-width: 92%;
+  padding: 1rem 1.25rem 1.05rem;
+  border-radius: 1.45rem;
+  background: linear-gradient(135deg, #f9f2ff 0%, #efe2ff 100%);
+  color: #1f1230;
+  box-shadow: 0 18px 42px -26px rgba(83, 31, 148, 0.45);
   border: none;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  animation: slideInMessage 0.25s ease;
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  transition: opacity 0.35s ease, transform 0.35s ease;
   transform-origin: left;
+  line-height: 1.6;
+}
+
+.historyChatBubble.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .historyChatIncoming {
   align-self: flex-start;
-  border-bottom-left-radius: 0.125rem;
-  background: #ffffff;
+}
+
+.historyChatIncoming::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  transform: rotate(45deg);
+  border-bottom-left-radius: 1rem;
 }
 
 .historyChatOutgoing {
   align-self: flex-end;
-  border-bottom-right-radius: 0.125rem;
-  background: #ffffff;
+  background: linear-gradient(135deg, #e8f4f8 0%, #dfe9f3 100%);
   max-width: 85%;
 }
 
@@ -1194,19 +1394,19 @@
 }
 
 .historyChatReplyButton {
-  border: 2px solid transparent;
-  background: transparent;
-  border-radius: 0.75rem;
-  padding: 0.7rem 0.9rem;
+  border: 2px solid #e5e7eb;
+  background: white;
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
   color: #333;
   width: 100%;
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   align-self: flex-start;
   opacity: 0;
   transform: translateY(15px);
@@ -1217,11 +1417,13 @@
 }
 
 .historyChatReplyButton:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  background: #f9fafb;
 }
 
 .historyChatReplyButton:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .historyChatReplyButton:disabled {
@@ -1293,33 +1495,42 @@
 }
 
 .historyChatReplyPrimary {
+  background: var(--nastia-purple);
   border-color: var(--nastia-purple);
+  color: white;
+  font-weight: 700;
 }
 
 .historyChatReplyPrimary:hover:not(:disabled) {
-  background: rgba(138, 89, 237, 0.1);
+  background: var(--nastia-dark);
   border-color: var(--nastia-dark);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(138, 89, 237, 0.3);
 }
 
 .historyChatReplyPrimary:active:not(:disabled) {
-  background: rgba(138, 89, 237, 0.2);
-  transform: translateY(0);
+  transform: scale(0.98);
+}
+
+.historyChatReplyPrimary .historyChatReplyTitle,
+.historyChatReplyPrimary .historyChatReplyDescription {
+  color: white;
 }
 
 .historyChatReplyAlt {
-  border-color: #2a9d8f;
+  border-color: #e5e7eb;
+  background: white;
 }
 
 .historyChatReplyAlt:hover:not(:disabled) {
-  background: rgba(42, 157, 143, 0.1);
-  border-color: #1f7f74;
-  transform: translateY(-1px);
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .historyChatReplyAlt:active:not(:disabled) {
-  background: rgba(42, 157, 143, 0.2);
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .historyChatReplyTitle {
@@ -3519,4 +3730,16 @@
     font-size: 1rem;
     padding: 1.125rem 1.5rem;
   }
+}
+
+/* Анимация элементов календаря */
+.calendarElementAnimated {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+}
+
+.calendarElementVisible {
+  opacity: 1;
+  transform: translateY(0);
 }
