@@ -2917,48 +2917,51 @@ const ModernNastiaApp: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.appWrapper}>
         {/* Заголовок */}
-        <div className={styles.header}>
-          {cloudEnabled && (
-            <div className={styles.syncIndicatorLeft}>
-              {syncStatus === 'syncing' && (
-                <Cloud size={20} className={`${styles.syncIconCorner} ${styles.syncing}`} />
-              )}
-              {syncStatus === 'success' && (
-                <Cloud size={20} className={`${styles.syncIconCorner} ${styles.success}`} />
-              )}
-              {syncStatus === 'error' && (
-                <CloudOff size={20} className={`${styles.syncIconCorner} ${styles.error}`} />
-              )}
-            </div>
-          )}
-
-          <div className={styles.headerHoroscopeCard}>
-            <button
-              className={styles.headerHoroscopeButton}
-              onClick={() => setShowDailyHoroscopeModal(true)}
-              type="button"
-            >
-              <span className={styles.dailyHoroscopeIcon} aria-hidden="true">🔮</span>
-              <div>
-                <div className={styles.dailyHoroscopeTitle}>Гороскоп на сегодня</div>
-                <div className={styles.dailyHoroscopeSubtitle}>Правда, только правда.</div>
+        {/* Header скрыт на вкладке "Узнай себя" */}
+        {activeTab !== 'discover' && (
+          <div className={styles.header}>
+            {cloudEnabled && (
+              <div className={styles.syncIndicatorLeft}>
+                {syncStatus === 'syncing' && (
+                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.syncing}`} />
+                )}
+                {syncStatus === 'success' && (
+                  <Cloud size={20} className={`${styles.syncIconCorner} ${styles.success}`} />
+                )}
+                {syncStatus === 'error' && (
+                  <CloudOff size={20} className={`${styles.syncIconCorner} ${styles.error}`} />
+                )}
               </div>
-            </button>
-            <button
-              onClick={handleOpenNotifications}
-              className={styles.headerNotificationButton}
-              type="button"
-              aria-label={unreadCount > 0 ? `Есть ${unreadCount} новых уведомлений` : 'Открыть уведомления'}
-            >
-              <Bell size={22} />
-              {unreadCount > 0 && (
-                <span className={styles.notificationBadge}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
+            )}
+
+            <div className={styles.headerHoroscopeCard}>
+              <button
+                className={styles.headerHoroscopeButton}
+                onClick={() => setShowDailyHoroscopeModal(true)}
+                type="button"
+              >
+                <span className={styles.dailyHoroscopeIcon} aria-hidden="true">🔮</span>
+                <div>
+                  <div className={styles.dailyHoroscopeTitle}>Гороскоп на сегодня</div>
+                  <div className={styles.dailyHoroscopeSubtitle}>Правда, только правда.</div>
+                </div>
+              </button>
+              <button
+                onClick={handleOpenNotifications}
+                className={styles.headerNotificationButton}
+                type="button"
+                aria-label={unreadCount > 0 ? `Есть ${unreadCount} новых уведомлений` : 'Открыть уведомления'}
+              >
+                <Bell size={22} />
+                {unreadCount > 0 && (
+                  <span className={styles.notificationBadge}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Старая навигация убрана - теперь используется GlassTabBar внизу */}
 
