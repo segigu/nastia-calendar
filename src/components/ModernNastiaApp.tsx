@@ -398,6 +398,20 @@ const HISTORY_START_BUTTONS = [
   'Исследовать',
 ];
 
+// Описания для начального экрана истории (что будет дальше)
+const HISTORY_START_DESCRIPTIONS = [
+  'Я создам для тебя персональную историю, в которой ты будешь делать выборы. А потом разберу каждое твоё решение по косточкам — покажу, где ты действуешь согласно своей природе, а где пытаешься казаться не той, кто ты есть',
+  'Тебя ждёт интерактивная история с выборами. В конце я проанализирую твои решения и скажу, где ты была честна с собой, а где играла роль',
+  'Пройдёшь через историю с развилками. Я буду следить за твоими выборами, а потом расскажу, что они говорят о тебе — включая то, что ты предпочла бы не слышать',
+  'Я построю для тебя сюжет с несколькими ключевыми точками выбора. А в финале разберу, какие решения были настоящими, а какие — социально правильными',
+  'Впереди короткая история, где ты принимаешь решения. Потом я покажу, где твои выборы совпадают с натальной картой, а где ты врала себе',
+  'Сейчас ты попадёшь в ситуацию с выборами. Я запомню каждое решение, а потом объясню, что из этого правда твоё, а что — маска',
+  'Ты пройдёшь через сценарий с развилками. В конце я сравню твои выборы с астрологическим профилем и скажу, где ты притворялась',
+  'Персональная история на основе твоей карты. Ты делаешь выборы, я их записываю. А потом разбираю: где природа, где игра на публику',
+  'Я запущу для тебя интерактивный сюжет. Твоя задача — принимать решения. Моя — потом рассказать, какие из них были честными, а какие нет',
+  'Пройди историю с точками выбора, а я в конце объясню, где ты вела себя как обычно, а где пыталась выглядеть правильно',
+];
+
 // Астрологические фразы для процесса генерации истории
 const HISTORY_GENERATION_PHRASES = [
   { emoji: '🌙', text: 'Луна выбирает настроение для твоей истории' },
@@ -622,6 +636,7 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryPhase, setHistoryStoryPhase] = useState<'idle' | 'generating' | 'ready'>('idle');
   const [historyStartPrompt, setHistoryStartPrompt] = useState('');
   const [historyStartButton, setHistoryStartButton] = useState('');
+  const [historyStartDescription, setHistoryStartDescription] = useState('');
   const [historyGenerationPhrase, setHistoryGenerationPhrase] = useState<{ emoji: string; text: string } | null>(null);
   const [historyCancelButtonText, setHistoryCancelButtonText] = useState('');
   const [phraseAnimationClass, setPhraseAnimationClass] = useState<string>('slideFromBottom');
@@ -634,6 +649,9 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
   const [finaleInterpretationMode, setFinaleInterpretationMode] = useState<'human' | 'astrological'>('human');
   const historyStoryPendingOptionsRef = useRef<HistoryStoryOption[] | null>(null);
+  const [introMessagesVisible, setIntroMessagesVisible] = useState<number>(0); // 0-4 для показа интро-сообщений
+  const [introTyping, setIntroTyping] = useState<boolean>(false);
+  const introAnimationTimeoutsRef = useRef<number[]>([]);
   const buttonAnimationTimeoutsRef = useRef<number[]>([]);
   const historyStoryPendingChoiceRef = useRef<HistoryStoryOption | undefined>(undefined);
   const historyStoryMenuRef = useRef<HTMLDivElement | null>(null);
@@ -663,10 +681,16 @@ const ModernNastiaApp: React.FC = () => {
     buttonAnimationTimeoutsRef.current = [];
   }, []);
 
+  const clearIntroAnimationTimers = useCallback(() => {
+    introAnimationTimeoutsRef.current.forEach(id => window.clearTimeout(id));
+    introAnimationTimeoutsRef.current = [];
+  }, []);
+
   const resetHistoryStoryState = useCallback(() => {
     abortHistoryStoryRequest();
     clearHistoryStoryTypingTimer();
     clearButtonAnimationTimers();
+    clearIntroAnimationTimers();
 
     // Останавливаем анимацию генерации
     if (historyGenerationIntervalRef.current) {
@@ -692,11 +716,14 @@ const ModernNastiaApp: React.FC = () => {
     setVisibleButtonsCount(0);
     setHistoryStoryPhase('idle');
     setHistoryGenerationPhrase(null);
+    setIntroMessagesVisible(0);
+    setIntroTyping(false);
     historyScrollContainerRef.current = null;
   }, [
     abortHistoryStoryRequest,
     clearHistoryStoryTypingTimer,
     clearButtonAnimationTimers,
+    clearIntroAnimationTimers,
   ]);
 
   const startTypingHistorySegment = useCallback((segment: HistoryStorySegment) => {
@@ -1053,6 +1080,27 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryGenerationPhrase(null);
   }, []);
 
+  const startIntroMessagesAnimation = useCallback(() => {
+    clearIntroAnimationTimers();
+    setIntroMessagesVisible(0);
+    setIntroTyping(false);
+
+    // Последовательность: показать сообщение 1 -> печать -> сообщение 2 -> печать -> сообщение 3 -> печать -> сообщение 4
+    const timings = [
+      { delay: 500, action: () => setIntroMessagesVisible(1) }, // Показать "Жанр" от Насти
+      { delay: 1000, action: () => setIntroTyping(true) }, // Начать печать
+      { delay: 2500, action: () => { setIntroTyping(false); setIntroMessagesVisible(2); } }, // Показать ответ "психологическая драма"
+      { delay: 3500, action: () => setIntroMessagesVisible(3) }, // Показать "Контракт" от Насти
+      { delay: 4000, action: () => setIntroTyping(true) }, // Начать печать
+      { delay: 5500, action: () => { setIntroTyping(false); setIntroMessagesVisible(4); } }, // Показать ответ контракта
+    ];
+
+    timings.forEach(({ delay, action }) => {
+      const id = window.setTimeout(action, delay);
+      introAnimationTimeoutsRef.current.push(id);
+    });
+  }, [clearIntroAnimationTimers]);
+
   const handleCancelGeneration = useCallback(() => {
     console.log('[HistoryStory] Cancelling generation');
     resetHistoryStoryState();
@@ -1280,8 +1328,10 @@ const ModernNastiaApp: React.FC = () => {
     if (!historyStartPrompt) {
       const randomPromptIndex = Math.floor(Math.random() * HISTORY_START_PROMPTS.length);
       const randomButtonIndex = Math.floor(Math.random() * HISTORY_START_BUTTONS.length);
+      const randomDescriptionIndex = Math.floor(Math.random() * HISTORY_START_DESCRIPTIONS.length);
       setHistoryStartPrompt(HISTORY_START_PROMPTS[randomPromptIndex]);
       setHistoryStartButton(HISTORY_START_BUTTONS[randomButtonIndex]);
+      setHistoryStartDescription(HISTORY_START_DESCRIPTIONS[randomDescriptionIndex]);
     }
   }, [activeTab, historyStartPrompt]);
 
@@ -1377,7 +1427,7 @@ const ModernNastiaApp: React.FC = () => {
     const elementsToAnimate: string[] = [];
 
     if (historyStoryPhase === 'idle') {
-      elementsToAnimate.push('discover-start-icon', 'discover-start-prompt', 'discover-start-button');
+      elementsToAnimate.push('discover-start-icon', 'discover-start-prompt', 'discover-start-description', 'discover-start-button');
     } else if (historyStoryPhase === 'generating') {
       elementsToAnimate.push('discover-gen-icon', 'discover-gen-phrase');
     } else if (historyStoryPhase === 'ready') {
@@ -1396,6 +1446,13 @@ const ModernNastiaApp: React.FC = () => {
       }
     };
   }, [activeTab, historyStoryPhase]);
+
+  // Анимация интро-сообщений при переходе в фазу 'ready'
+  useEffect(() => {
+    if (historyStoryPhase === 'ready' && historyStoryMeta) {
+      startIntroMessagesAnimation();
+    }
+  }, [historyStoryPhase, historyStoryMeta, startIntroMessagesAnimation]);
 
   const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
     if (typeof window === 'undefined') {
@@ -1532,6 +1589,13 @@ const ModernNastiaApp: React.FC = () => {
     },
     [resolveHistoryScrollContainer],
   );
+
+  // Автоскролл при появлении интро-сообщений
+  useEffect(() => {
+    if (historyStoryPhase === 'ready' && historyStoryMode === 'story' && introMessagesVisible > 0) {
+      scrollToBottom({ delay: 200 });
+    }
+  }, [introMessagesVisible, historyStoryPhase, historyStoryMode, scrollToBottom]);
 
   useEffect(() => {
     if (historyStoryMode !== 'story') {
@@ -3320,13 +3384,32 @@ const ModernNastiaApp: React.FC = () => {
         {/* Вкладка: Узнай себя (интерактивная история) */}
         {activeTab === 'discover' && (
           <div className={styles.historyChatContainer}>
+                {/* Фиксированный заголовок для ready фазы */}
+                {historyStoryPhase === 'ready' && (
+                  <div className={styles.historyStoryHeader}>
+                    <h2 className={styles.historyStoryTitle}>История</h2>
+                    <button
+                      type="button"
+                      className={styles.historyEndButton}
+                      onClick={resetHistoryStoryState}
+                    >
+                      Закончить историю
+                    </button>
+                  </div>
+                )}
+
                 {/* Начальный экран (idle) */}
                 {historyStoryPhase === 'idle' && (
                   <div className={styles.historyStartScreen}>
                     <div className={`${styles.historyStartIconContainer} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-icon') ? styles.calendarElementVisible : ''}`}>
                       <div className={styles.historyStartIcon}>✨</div>
                     </div>
-                    <div className={`${styles.historyStartPrompt} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-prompt') ? styles.calendarElementVisible : ''}`}>{historyStartPrompt}</div>
+                    <div>
+                      <div className={`${styles.historyStartPrompt} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-prompt') ? styles.calendarElementVisible : ''}`}>{historyStartPrompt}</div>
+                      <div className={`${styles.historyStartDescription} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-description') ? styles.calendarElementVisible : ''}`}>
+                        {historyStartDescription}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       className={`${styles.historyStartButton} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-start-button') ? styles.calendarElementVisible : ''}`}
@@ -3369,19 +3452,71 @@ const ModernNastiaApp: React.FC = () => {
                   </div>
                 )}
 
-                {historyStoryPhase === 'ready' && historyStorySegments.length > 0 && (
-                  <div className={`${styles.historyStoryMetaBar} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-meta-bar') ? styles.calendarElementVisible : ''}`}>
-                    <div className={styles.historyStoryMetaItem}>
-                      <span className={styles.historyStoryMetaLabel}>Жанр:</span>
-                      <span className={styles.historyStoryMetaText}>{historyStoryMeta?.genre ?? historyStoryAuthor.genre}</span>
-                    </div>
-                    <div className={styles.historyStoryMetaItem}>
-                      <span className={styles.historyStoryMetaLabel}>Контракт:</span>
-                      <span className={styles.historyStoryMetaText}>{historyStoryMeta?.contract ?? 'Контракт формируется'}</span>
-                    </div>
-                  </div>
-                )}
-                <div className={`${styles.historyChatMessages} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-messages') ? styles.calendarElementVisible : ''}`} ref={historyMessagesRef}>
+                <div className={`${styles.historyChatMessages} ${historyStoryPhase !== 'ready' ? styles.calendarElementAnimated : ''} ${visibleDiscoverElements.includes('discover-messages') ? styles.calendarElementVisible : ''}`} ref={historyMessagesRef}>
+                  {/* Интро-сообщения для жанра и контракта */}
+                  {historyStoryPhase === 'ready' && historyStoryMeta && (
+                    <>
+                      {/* Сообщение 1: "Жанр" от Насти */}
+                      {introMessagesVisible >= 1 && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.historyIntroMessage} ${styles.visible}`}>
+                          <div className={styles.historyChatSender}>Настя</div>
+                          <div className={styles.historyChatContent}>
+                            Жанр
+                          </div>
+                        </div>
+                      )}
+                      {/* Анимация печати перед сообщением 2 */}
+                      {introMessagesVisible >= 1 && introMessagesVisible < 2 && introTyping && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage}`}>
+                          <div className={styles.historyChatStoryTitle}>История</div>
+                          <div className={styles.historyChatTyping}>
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        </div>
+                      )}
+                      {/* Сообщение 2: Жанр ответ */}
+                      {introMessagesVisible >= 2 && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
+                          <div className={styles.historyChatStoryTitle}>История</div>
+                          <div className={styles.historyChatContent}>
+                            {historyStoryMeta.genre ?? historyStoryAuthor.genre}
+                          </div>
+                        </div>
+                      )}
+                      {/* Сообщение 3: "Контракт" от Насти */}
+                      {introMessagesVisible >= 3 && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.historyIntroMessage} ${styles.visible}`}>
+                          <div className={styles.historyChatSender}>Настя</div>
+                          <div className={styles.historyChatContent}>
+                            Контракт
+                          </div>
+                        </div>
+                      )}
+                      {/* Анимация печати перед сообщением 4 */}
+                      {introMessagesVisible >= 3 && introMessagesVisible < 4 && introTyping && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage}`}>
+                          <div className={styles.historyChatStoryTitle}>История</div>
+                          <div className={styles.historyChatTyping}>
+                            <span />
+                            <span />
+                            <span />
+                          </div>
+                        </div>
+                      )}
+                      {/* Сообщение 4: Контракт ответ */}
+                      {introMessagesVisible >= 4 && (
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
+                          <div className={styles.historyChatStoryTitle}>История</div>
+                          <div className={styles.historyChatContent}>
+                            {historyStoryMeta.contract ?? 'Контракт формируется'}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {/* Основные сообщения истории */}
                   {historyStorySegments.map((segment, segmentIndex) => {
                     const timestamp = new Date(segment.timestamp);
                     const timeStr = timestamp.toLocaleTimeString('ru-RU', {
