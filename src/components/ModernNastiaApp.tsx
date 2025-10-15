@@ -94,11 +94,16 @@ import {
   type HistoryStoryOption,
   clearPsychContractContext,
 } from '../utils/historyStory';
+import {
+  generatePersonalizedPlanetMessages,
+  type PersonalizedPlanetMessages,
+} from '../utils/planetMessages';
 import styles from './NastiaApp.module.css';
 
 const ENV_CLAUDE_KEY = (process.env.REACT_APP_CLAUDE_API_KEY ?? '').trim();
 const ENV_CLAUDE_PROXY = (process.env.REACT_APP_CLAUDE_PROXY_URL ?? '').trim();
 const ENV_OPENAI_KEY = (process.env.REACT_APP_OPENAI_API_KEY ?? '').trim();
+const ENV_OPENAI_PROXY = (process.env.REACT_APP_OPENAI_PROXY_URL ?? '').trim();
 
 const PRIMARY_USER_NAME = 'Настя';
 const MAX_STORED_NOTIFICATIONS = 200;
@@ -555,12 +560,14 @@ const ModernNastiaApp: React.FC = () => {
   const [horoscopeMemory, setHoroscopeMemory] = useState<HoroscopeMemoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('calendar');
   const [showSettings, setShowSettings] = useState(false);
+  const [hasNewStoryMessage, setHasNewStoryMessage] = useState(false); // Флаг для badge "Узнай себя"
   const [githubToken, setGithubToken] = useState('');
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [remoteClaudeKey, setRemoteClaudeKey] = useState<string | null>(null);
   const [remoteClaudeProxyUrl, setRemoteClaudeProxyUrl] = useState<string | null>(null);
   const [remoteOpenAIKey, setRemoteOpenAIKey] = useState<string | null>(null);
+  const [remoteOpenAIProxyUrl, setRemoteOpenAIProxyUrl] = useState<string | null>(null);
 
   const effectiveClaudeKey = useMemo(() => {
     const remote = remoteClaudeKey?.trim();
@@ -586,9 +593,18 @@ const ModernNastiaApp: React.FC = () => {
     return ENV_OPENAI_KEY.length > 0 ? ENV_OPENAI_KEY : undefined;
   }, [remoteOpenAIKey]);
 
+  const effectiveOpenAIProxyUrl = useMemo(() => {
+    const remote = remoteOpenAIProxyUrl?.trim();
+    if (remote && remote.length > 0) {
+      return remote;
+    }
+    const envProxy = ENV_OPENAI_PROXY.length > 0 ? ENV_OPENAI_PROXY : undefined;
+    return envProxy;
+  }, [remoteOpenAIProxyUrl]);
+
   const hasAiCredentials = useMemo(() => {
-    return Boolean(effectiveClaudeKey || effectiveClaudeProxyUrl || effectiveOpenAIKey);
-  }, [effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey]);
+    return Boolean(effectiveClaudeKey || effectiveClaudeProxyUrl || effectiveOpenAIKey || effectiveOpenAIProxyUrl);
+  }, [effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey, effectiveOpenAIProxyUrl]);
   const [periodContent, setPeriodContent] = useState<PeriodModalContent | null>(null);
   const [periodContentStatus, setPeriodContentStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [periodContentError, setPeriodContentError] = useState<string | null>(null);
@@ -703,6 +719,13 @@ const ModernNastiaApp: React.FC = () => {
   const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string }>>([]);
   const [currentTypingPlanet, setCurrentTypingPlanet] = useState<string | null>(null);
   const planetMessagesTimeoutRef = useRef<number[]>([]);
+
+  // Персонализированные сообщения от планет на основе натальной карты
+  const [personalizedPlanetMessages, setPersonalizedPlanetMessages] = useState<PersonalizedPlanetMessages | null>(null);
+  const personalizedPlanetMessagesRef = useRef<PersonalizedPlanetMessages | null>(null);
+  const [isLoadingPersonalizedMessages, setIsLoadingPersonalizedMessages] = useState(false);
+  const isLoadingPersonalizedMessagesRef = useRef(false);
+  const personalizedMessagesAbortControllerRef = useRef<AbortController | null>(null);
   const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
@@ -901,6 +924,7 @@ const ModernNastiaApp: React.FC = () => {
           claudeApiKey: effectiveClaudeKey,
           claudeProxyUrl: effectiveClaudeProxyUrl,
           openAIApiKey: effectiveOpenAIKey,
+          openAIProxyUrl: effectiveOpenAIProxyUrl,
         });
 
         if (controller.signal.aborted) {
@@ -956,6 +980,7 @@ const ModernNastiaApp: React.FC = () => {
       effectiveClaudeKey,
       effectiveClaudeProxyUrl,
       effectiveOpenAIKey,
+      effectiveOpenAIProxyUrl,
       startTypingHistorySegment,
       stopGenerationAnimation,
     ],
@@ -1011,6 +1036,7 @@ const ModernNastiaApp: React.FC = () => {
           claudeApiKey: effectiveClaudeKey,
           claudeProxyUrl: effectiveClaudeProxyUrl,
           openAIApiKey: effectiveOpenAIKey,
+          openAIProxyUrl: effectiveOpenAIProxyUrl,
         });
 
         if (controller.signal.aborted) {
@@ -1069,6 +1095,7 @@ const ModernNastiaApp: React.FC = () => {
       effectiveClaudeKey,
       effectiveClaudeProxyUrl,
       effectiveOpenAIKey,
+      effectiveOpenAIProxyUrl,
       startTypingHistorySegment,
       stopGenerationAnimation,
     ],
@@ -1083,52 +1110,157 @@ const ModernNastiaApp: React.FC = () => {
     setPlanetChatMessages([]);
     setCurrentTypingPlanet(null);
 
-    // Функция для генерации одного сообщения от случайной планеты
-    const generatePlanetMessage = (delay: number) => {
+    let messagePoolRef: Array<{ planet: string; message: string }> = [];
+
+    // Проверяем статус персонализированных сообщений
+    if (personalizedPlanetMessages && personalizedPlanetMessages.messages.length > 0) {
+      // Персонализированные сообщения уже загружены - используем их
+      console.log('[GenerationAnimation] ✅ Using personalized messages');
+      for (const planetData of personalizedPlanetMessages.messages) {
+        for (const message of planetData.messages) {
+          messagePoolRef.push({ planet: planetData.planet, message });
+        }
+      }
+    } else {
+      // Сообщений еще нет - используем fallback, но будем динамически переключаться
+      if (isLoadingPersonalizedMessages) {
+        console.log('[GenerationAnimation] ⏳ Starting with fallback, will switch to personalized when ready...');
+      } else {
+        console.log('[GenerationAnimation] Using fallback messages (no personalized messages available)');
+      }
+
+      // Заполняем fallback сообщениями
       const planetNames = Object.keys(PLANET_MESSAGE_POOLS) as Array<keyof typeof PLANET_MESSAGE_POOLS>;
-      const randomPlanet = planetNames[Math.floor(Math.random() * planetNames.length)];
-      const messagePool = PLANET_MESSAGE_POOLS[randomPlanet];
-      const randomMessage = messagePool[Math.floor(Math.random() * messagePool.length)];
+      for (const planetName of planetNames) {
+        const messages = PLANET_MESSAGE_POOLS[planetName];
+        for (const message of messages) {
+          messagePoolRef.push({ planet: planetName, message });
+        }
+      }
+    }
 
-      // Показываем индикатор печати
-      const typingTimer = window.setTimeout(() => {
-        setCurrentTypingPlanet(randomPlanet);
-      }, delay);
-      planetMessagesTimeoutRef.current.push(typingTimer);
+    // Запускаем генерацию с текущим пулом сообщений
+    startMessageGeneration(messagePoolRef, isLoadingPersonalizedMessages);
 
-      // Через 1.5-2.5 сек добавляем сообщение с флагом isTransforming
-      const typingDuration = 1500 + Math.random() * 1000;
-      const messageId = `planet-msg-${Date.now()}-${Math.random()}`;
+    // Функция для запуска генерации сообщений
+    function startMessageGeneration(
+      initialMessagePool: Array<{ planet: string; message: string }>,
+      shouldWatchForPersonalized: boolean
+    ) {
+      // Перемешиваем пул сообщений для рандомного порядка
+      let shuffledPool = [...initialMessagePool].sort(() => Math.random() - 0.5);
+      let messageIndex = 0;
+      let isUsingPersonalized = personalizedPlanetMessages !== null;
 
-      const messageTimer = window.setTimeout(() => {
-        setCurrentTypingPlanet(null);
+      // Если нужно следить за загрузкой персонализированных сообщений
+      if (shouldWatchForPersonalized) {
+        const checkInterval = 500;
+        let checkCount = 0;
+        const maxChecks = 60; // Максимум 30 секунд (60 * 500ms)
 
-        // Рассчитываем время для сообщения
-        const messageTime = new Date();
-        const hours = messageTime.getHours().toString().padStart(2, '0');
-        const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+        const checkPersonalizedMessages = () => {
+          checkCount++;
 
-        // Добавляем сообщение
-        setPlanetChatMessages(prev => [
-          ...prev,
-          {
-            planet: randomPlanet,
-            message: randomMessage,
-            id: messageId,
-            time: `${hours}:${minutes}`,
-          },
-        ]);
+          const currentMessages = personalizedPlanetMessagesRef.current;
+          const currentLoading = isLoadingPersonalizedMessagesRef.current;
 
-        // Планируем следующее сообщение через 300-800 мс
-        const nextDelay = 300 + Math.random() * 500;
-        generatePlanetMessage(nextDelay);
-      }, delay + typingDuration);
-      planetMessagesTimeoutRef.current.push(messageTimer);
-    };
+          // Логируем каждые 4 проверки (каждые 2 секунды)
+          if (checkCount % 4 === 0) {
+            console.log(`[GenerationAnimation] Still using fallback... (${checkCount * checkInterval / 1000}s elapsed)`);
+          }
 
-    // Запускаем первое сообщение через 500 мс
-    generatePlanetMessage(500);
-  }, []);
+          // Проверяем, загрузились ли персонализированные сообщения
+          if (currentMessages && currentMessages.messages.length > 0 && !isUsingPersonalized) {
+            console.log('[GenerationAnimation] 🔄 Switching to personalized messages!');
+            isUsingPersonalized = true;
+
+            // Создаем новый пул с персонализированными сообщениями
+            const newPool: Array<{ planet: string; message: string }> = [];
+            for (const planetData of currentMessages.messages) {
+              for (const message of planetData.messages) {
+                newPool.push({ planet: planetData.planet, message });
+              }
+            }
+
+            // Перемешиваем и заменяем пул
+            shuffledPool = [...newPool].sort(() => Math.random() - 0.5);
+            messageIndex = 0;
+
+            console.log('[GenerationAnimation] ✅ Now using personalized messages');
+            return; // Больше не проверяем
+          }
+
+          // Проверяем, не было ли ошибки
+          if (!currentLoading && (!currentMessages || currentMessages.messages.length === 0)) {
+            console.log('[GenerationAnimation] ❌ Failed to load personalized messages, continuing with fallback');
+            return; // Продолжаем с fallback, больше не проверяем
+          }
+
+          // Продолжаем проверять, если не превысили лимит
+          if (checkCount < maxChecks && currentLoading) {
+            const timer = window.setTimeout(checkPersonalizedMessages, checkInterval);
+            planetMessagesTimeoutRef.current.push(timer);
+          } else if (checkCount >= maxChecks) {
+            console.log('[GenerationAnimation] ⏱️ Timeout waiting for personalized messages, continuing with fallback');
+          }
+        };
+
+        // Начинаем проверять через 500мс
+        const timer = window.setTimeout(checkPersonalizedMessages, checkInterval);
+        planetMessagesTimeoutRef.current.push(timer);
+      }
+
+      // Функция для генерации одного сообщения
+      const generatePlanetMessage = (delay: number) => {
+        // Если сообщения закончились, перемешиваем заново
+        if (messageIndex >= shuffledPool.length) {
+          messageIndex = 0;
+          shuffledPool.sort(() => Math.random() - 0.5);
+        }
+
+        const { planet, message } = shuffledPool[messageIndex];
+        messageIndex++;
+
+        // Показываем индикатор печати
+        const typingTimer = window.setTimeout(() => {
+          setCurrentTypingPlanet(planet);
+        }, delay);
+        planetMessagesTimeoutRef.current.push(typingTimer);
+
+        // Через 1.5-2.5 сек добавляем сообщение
+        const typingDuration = 1500 + Math.random() * 1000;
+        const messageId = `planet-msg-${Date.now()}-${Math.random()}`;
+
+        const messageTimer = window.setTimeout(() => {
+          setCurrentTypingPlanet(null);
+
+          // Рассчитываем время для сообщения
+          const messageTime = new Date();
+          const hours = messageTime.getHours().toString().padStart(2, '0');
+          const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+
+          // Добавляем сообщение
+          setPlanetChatMessages(prev => [
+            ...prev,
+            {
+              planet,
+              message,
+              id: messageId,
+              time: `${hours}:${minutes}`,
+            },
+          ]);
+
+          // Планируем следующее сообщение через 300-800 мс
+          const nextDelay = 300 + Math.random() * 500;
+          generatePlanetMessage(nextDelay);
+        }, delay + typingDuration);
+        planetMessagesTimeoutRef.current.push(messageTimer);
+      };
+
+      // Запускаем первое сообщение через 500 мс
+      generatePlanetMessage(500);
+    }
+  }, [personalizedPlanetMessages, isLoadingPersonalizedMessages]);
 
   const startIntroMessagesAnimation = useCallback(() => {
     clearIntroAnimationTimers();
@@ -1209,6 +1341,8 @@ const ModernNastiaApp: React.FC = () => {
 
     // Переходим в фазу генерации
     setHistoryStoryPhase('generating');
+
+    // Сразу запускаем анимацию - она будет ждать загрузки персонализированных сообщений
     startGenerationAnimation();
 
     // Выбираем случайный текст для кнопки отмены
@@ -1392,6 +1526,39 @@ const ModernNastiaApp: React.FC = () => {
     });
   }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase]);
 
+  // Сбрасываем badge при переходе на вкладку "Узнай себя" и прокручиваем вниз
+  useEffect(() => {
+    if (activeTab === 'discover') {
+      setHasNewStoryMessage(false);
+
+      // Прокручиваем до конца содержимого вкладки "Узнай себя"
+      // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: 'smooth'
+            });
+          });
+        });
+      });
+    }
+  }, [activeTab]);
+
+  // Устанавливаем badge, когда появляются новые варианты выбора
+  useEffect(() => {
+    if (
+      historyStoryPhase === 'ready' &&
+      historyStoryOptions.length > 0 &&
+      !historyStoryLoading &&
+      !historyStoryTyping &&
+      activeTab !== 'discover'
+    ) {
+      setHasNewStoryMessage(true);
+    }
+  }, [historyStoryPhase, historyStoryOptions.length, historyStoryLoading, historyStoryTyping, activeTab]);
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -1544,6 +1711,75 @@ const ModernNastiaApp: React.FC = () => {
       }
     };
   }, [activeTab, currentDate]);
+
+  // Синхронизация ref с state для персонализированных сообщений
+  useEffect(() => {
+    personalizedPlanetMessagesRef.current = personalizedPlanetMessages;
+  }, [personalizedPlanetMessages]);
+
+  useEffect(() => {
+    isLoadingPersonalizedMessagesRef.current = isLoadingPersonalizedMessages;
+  }, [isLoadingPersonalizedMessages]);
+
+  // Фоновая загрузка персонализированных сообщений от планет при переходе на вкладку "Узнай себя"
+  useEffect(() => {
+    if (activeTab !== 'discover') {
+      return;
+    }
+
+    // Если уже есть загруженные сообщения (не старше 1 часа), не загружаем заново
+    if (personalizedPlanetMessages) {
+      const age = Date.now() - personalizedPlanetMessages.timestamp;
+      const oneHour = 60 * 60 * 1000;
+      if (age < oneHour) {
+        console.log('[PersonalizedMessages] Using cached messages');
+        return;
+      }
+    }
+
+    // Если уже идет загрузка, не запускаем новую (используем ref для проверки)
+    if (isLoadingPersonalizedMessagesRef.current) {
+      return;
+    }
+
+    // Проверяем наличие API ключей
+    if (!hasAiCredentials) {
+      console.log('[PersonalizedMessages] No AI credentials available');
+      return;
+    }
+
+    // Запускаем фоновую загрузку
+    console.log('[PersonalizedMessages] Starting background load');
+    setIsLoadingPersonalizedMessages(true);
+
+    const abortController = new AbortController();
+    personalizedMessagesAbortControllerRef.current = abortController;
+
+    void generatePersonalizedPlanetMessages(
+      effectiveClaudeKey,
+      effectiveClaudeProxyUrl,
+      effectiveOpenAIKey,
+      effectiveOpenAIProxyUrl
+    )
+      .then(messages => {
+        if (!abortController.signal.aborted) {
+          console.log('[PersonalizedMessages] Successfully loaded personalized messages');
+          setPersonalizedPlanetMessages(messages);
+          setIsLoadingPersonalizedMessages(false);
+        }
+      })
+      .catch(error => {
+        if (!abortController.signal.aborted) {
+          console.error('[PersonalizedMessages] Failed to load:', error);
+          setIsLoadingPersonalizedMessages(false);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+      personalizedMessagesAbortControllerRef.current = null;
+    };
+  }, [activeTab, hasAiCredentials, effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey, effectiveOpenAIProxyUrl, personalizedPlanetMessages]);
 
   // Анимация элементов вкладки "Узнай себя"
   useEffect(() => {
@@ -2625,19 +2861,25 @@ const ModernNastiaApp: React.FC = () => {
           hasClaudeKey: Boolean(config.claude?.apiKey),
           hasClaudeProxyUrl: Boolean(config.claudeProxy?.url),
           hasOpenAIKey: Boolean(config.openAI?.apiKey),
+          hasOpenAIProxyUrl: Boolean(config.openAIProxy?.url),
         });
         if (config.claude?.apiKey) {
           setRemoteClaudeKey(config.claude.apiKey);
           console.log('[Config] ✅ Claude API key loaded from remote config');
         }
-        const proxyUrl = config.claudeProxy?.url ?? null;
-        setRemoteClaudeProxyUrl(proxyUrl);
-        if (proxyUrl) {
+        const claudeProxyUrl = config.claudeProxy?.url ?? null;
+        setRemoteClaudeProxyUrl(claudeProxyUrl);
+        if (claudeProxyUrl) {
           console.log('[Config] ✅ Claude proxy URL loaded from remote config');
         }
         if (config.openAI?.apiKey) {
           setRemoteOpenAIKey(config.openAI.apiKey);
           console.log('[Config] ✅ OpenAI API key loaded from remote config');
+        }
+        const openAIProxyUrl = config.openAIProxy?.url ?? null;
+        setRemoteOpenAIProxyUrl(openAIProxyUrl);
+        if (openAIProxyUrl) {
+          console.log('[Config] ✅ OpenAI proxy URL loaded from remote config');
         }
       })
       .catch(error => {
@@ -4373,6 +4615,7 @@ const ModernNastiaApp: React.FC = () => {
           }
         }}
         cycleCount={cycles.length}
+        hasNewStory={hasNewStoryMessage}
       />
     </div>
   );

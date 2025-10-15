@@ -107,6 +107,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* Для абсолютного позиционирования badge */
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -137,6 +138,60 @@
   background: linear-gradient(135deg, #FF6B9D 0%, #C239B3 100%);
   border-radius: 9px;
   box-shadow: 0 2px 4px rgba(194, 57, 179, 0.3);
+}
+
+/* Кружок с количеством циклов (вместо иконки) */
+.cycleCountCircle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #666;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tabButton.active .cycleCountCircle {
+  border-color: #FF6B9D;
+}
+
+.cycleCountNumber {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Notification badge для "Узнай себя" */
+.notificationBadge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #FF6B9D 0%, #C239B3 100%);
+  border-radius: 10px;
+  border: 2px solid rgba(253, 242, 248, 0.95);
+  box-shadow: 0 2px 8px rgba(194, 57, 179, 0.5);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
 }
 
 /* Состояние нажатия */

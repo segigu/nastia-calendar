@@ -14,6 +14,7 @@ interface GlassTabBarProps {
   activeTab: TabId;
   onTabChange: (tabId: TabId) => void;
   cycleCount?: number;
+  hasNewStory?: boolean; // Флаг для показа badge на "Узнай себя"
 }
 
 const tabs: Tab[] = [
@@ -43,6 +44,7 @@ export const GlassTabBar: React.FC<GlassTabBarProps> = ({
   activeTab,
   onTabChange,
   cycleCount,
+  hasNewStory,
 }) => {
   return (
     <div className={styles.glassTabBarContainer}>
@@ -50,6 +52,16 @@ export const GlassTabBar: React.FC<GlassTabBarProps> = ({
       <nav className={styles.glassTabBar}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
+
+          // Кастомная иконка для вкладки "Циклы" - кружок с числом
+          const tabIcon = tab.id === 'cycles' && cycleCount !== undefined && cycleCount > 0 ? (
+            <div className={styles.cycleCountCircle}>
+              <span className={styles.cycleCountNumber}>{cycleCount}</span>
+            </div>
+          ) : (
+            tab.icon
+          );
+
           return (
             <button
               key={tab.id}
@@ -58,12 +70,15 @@ export const GlassTabBar: React.FC<GlassTabBarProps> = ({
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
             >
-              <div className={styles.tabIcon}>{tab.icon}</div>
+              <div className={styles.tabIcon}>
+                {tabIcon}
+                {/* Badge с цифрой для "Узнай себя" при новых сообщениях */}
+                {tab.id === 'discover' && hasNewStory && !isActive && (
+                  <span className={styles.notificationBadge}>1</span>
+                )}
+              </div>
               <div className={styles.tabLabel}>
                 {tab.label}
-                {tab.id === 'cycles' && cycleCount !== undefined && cycleCount > 0 && (
-                  <span className={styles.badge}>{cycleCount}</span>
-                )}
               </div>
             </button>
           );
