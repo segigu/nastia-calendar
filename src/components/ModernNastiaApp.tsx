@@ -1037,6 +1037,7 @@ const ModernNastiaApp: React.FC = () => {
             timestamp: new Date().toISOString(),
           };
           startTypingHistorySegment(finaleSegment);
+
           setHistoryStoryFinalSummary({
             human: response.finale.humanInterpretation,
             astrological: response.finale.astrologicalInterpretation,
