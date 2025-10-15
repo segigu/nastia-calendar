@@ -8,6 +8,9 @@ export interface RemoteConfig {
   openAI?: {
     apiKey?: string;
   };
+  openAIProxy?: {
+    url?: string;
+  };
   claude?: {
     apiKey?: string;
   };

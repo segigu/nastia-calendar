@@ -128,6 +128,10 @@ export interface HistoryStoryRequestOptions {
    * Optional OpenAI API key for fallback.
    */
   openAIApiKey?: string;
+  /**
+   * Optional OpenAI proxy URL.
+   */
+  openAIProxyUrl?: string;
 }
 
 const STORY_STAGE_NAMES = [
@@ -273,6 +277,7 @@ async function generatePsychContractContext(
   claudeApiKey?: string,
   claudeProxyUrl?: string,
   openAIApiKey?: string,
+  openAIProxyUrl?: string,
 ): Promise<PsychContractContext> {
   const historySnapshot = getPsychContractHistorySnapshot();
   const recentContractIds = historySnapshot.contracts.slice(0, 8).map(entry => entry.id);
@@ -341,6 +346,7 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
+      openAIProxyUrl,
     });
 
     let text = result.text.trim();
@@ -434,6 +440,7 @@ async function ensurePsychContractContext(
   claudeApiKey?: string,
   claudeProxyUrl?: string,
   openAIApiKey?: string,
+  openAIProxyUrl?: string,
 ): Promise<PsychContractContext> {
   if (activePsychContext) {
     return activePsychContext;
@@ -443,6 +450,7 @@ async function ensurePsychContractContext(
     claudeApiKey,
     claudeProxyUrl,
     openAIApiKey,
+    openAIProxyUrl,
   );
   return activePsychContext;
 }
@@ -872,6 +880,7 @@ export async function generateHistoryStoryChunk({
   claudeApiKey,
   claudeProxyUrl,
   openAIApiKey,
+  openAIProxyUrl,
 }: HistoryStoryRequestOptions): Promise<HistoryStoryResponse> {
   const targetArc = mode === 'arc' ? (currentArc ?? 1) : arcLimit;
   let resolvedContract = contract;
@@ -883,6 +892,7 @@ export async function generateHistoryStoryChunk({
         claudeApiKey,
         claudeProxyUrl,
         openAIApiKey,
+        openAIProxyUrl,
       );
       resolvedContract = psychContext.contract.question;
     } else if (activePsychContext) {
@@ -941,6 +951,8 @@ export async function generateHistoryStoryChunk({
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
+      openAIProxyUrl,
+      // preferOpenAI не указываем - по умолчанию используется Claude первым
     });
 
     console.log(`[HistoryStory] Generated ${mode} using ${result.provider}`);

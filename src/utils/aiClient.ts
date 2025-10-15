@@ -16,6 +16,9 @@ export interface AIRequestOptions {
   claudeApiKey?: string;
   claudeProxyUrl?: string;
   openAIApiKey?: string;
+  openAIProxyUrl?: string;
+  preferOpenAI?: boolean; // Если true, сначала пробует OpenAI, затем Claude
+  useGPT4oMini?: boolean; // Если true, использует gpt-4o-mini вместо gpt-4o
 }
 
 interface AIResponse {
@@ -105,12 +108,19 @@ async function callClaudeAPI(
 async function callOpenAIAPI(
   options: AIRequestOptions
 ): Promise<string> {
-  const { system, messages, temperature = 0.8, maxTokens = 500, signal, openAIApiKey } = options;
+  const {
+    system,
+    messages,
+    temperature = 0.8,
+    maxTokens = 500,
+    signal,
+    openAIApiKey,
+    openAIProxyUrl,
+    useGPT4oMini = true
+  } = options;
 
+  const proxyUrl = (openAIProxyUrl || process.env.REACT_APP_OPENAI_PROXY_URL || '').trim();
   const key = (openAIApiKey || '').trim() || process.env.REACT_APP_OPENAI_API_KEY;
-  if (!key) {
-    throw new Error('OpenAI API key not available');
-  }
 
   const allMessages: AIMessage[] = [];
   if (system) {
@@ -118,18 +128,35 @@ async function callOpenAIAPI(
   }
   allMessages.push(...messages);
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Используем gpt-4o-mini по умолчанию для скорости и дешевизны
+  const model = useGPT4oMini ? 'gpt-4o-mini' : 'gpt-4o';
+
+  const payload = {
+    model,
+    messages: allMessages,
+    temperature,
+    max_tokens: maxTokens,
+  };
+
+  // Если есть proxy, используем его (не нужен API ключ в заголовках)
+  // Иначе идем напрямую к OpenAI
+  const endpoint = proxyUrl || 'https://api.openai.com/v1/chat/completions';
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // Добавляем Authorization только если идем напрямую (без proxy)
+  if (!proxyUrl) {
+    if (!key) {
+      throw new Error('OpenAI API key not available and no proxy configured');
+    }
+    headers['Authorization'] = `Bearer ${key}`;
+  }
+
+  const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: allMessages,
-      temperature,
-      max_tokens: maxTokens,
-    }),
+    headers,
+    body: JSON.stringify(payload),
     signal,
   });
 
@@ -149,17 +176,42 @@ async function callOpenAIAPI(
 }
 
 /**
- * Calls AI API with automatic fallback from Claude to OpenAI.
- * Tries Claude first (primary provider), falls back to OpenAI on failure.
+ * Calls AI API with automatic fallback.
+ * By default: Claude first, then OpenAI.
+ * With preferOpenAI: OpenAI first (with gpt-4o-mini), then Claude.
  */
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
   console.log('[AI Client] Attempting to call AI with options:', {
     hasClaudeKey: Boolean(options.claudeApiKey || process.env.REACT_APP_CLAUDE_API_KEY),
     hasClaudeProxy: Boolean(options.claudeProxyUrl || process.env.REACT_APP_CLAUDE_PROXY_URL),
     hasOpenAIKey: Boolean(options.openAIApiKey || process.env.REACT_APP_OPENAI_API_KEY),
+    hasOpenAIProxy: Boolean(options.openAIProxyUrl || process.env.REACT_APP_OPENAI_PROXY_URL),
+    preferOpenAI: Boolean(options.preferOpenAI),
+    useGPT4oMini: Boolean(options.useGPT4oMini),
   });
 
-  // Try Claude first (primary provider)
+  // Если установлен preferOpenAI, пробуем OpenAI первым
+  if (options.preferOpenAI) {
+    try {
+      const text = await callOpenAIAPI(options);
+      console.log('[AI Client] ✅ OpenAI API succeeded (primary)');
+      return { text, provider: 'openai' };
+    } catch (openAIError) {
+      console.warn('[AI Client] ❌ OpenAI API failed, falling back to Claude:', openAIError);
+
+      // Fallback to Claude
+      try {
+        const text = await callClaudeAPI(options);
+        console.log('[AI Client] ✅ Claude API succeeded (fallback)');
+        return { text, provider: 'claude' };
+      } catch (claudeError) {
+        console.error('[AI Client] ❌ Claude API also failed:', claudeError);
+        throw new Error(`Both AI providers failed. OpenAI: ${openAIError instanceof Error ? openAIError.message : 'Unknown error'}. Claude: ${claudeError instanceof Error ? claudeError.message : 'Unknown error'}`);
+      }
+    }
+  }
+
+  // По умолчанию: Try Claude first (primary provider)
   try {
     const text = await callClaudeAPI(options);
     console.log('[AI Client] ✅ Claude API succeeded (primary)');
