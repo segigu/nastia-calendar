@@ -34,6 +34,8 @@ jobs:
         run: npm run build
         env:
           CI: false
+          REACT_APP_OPENAI_PROXY_URL: https://nastia-openai-proxy.sergei-gubenov.workers.dev/v1/chat/completions
+          PUBLIC_URL: https://segigu.github.io/nastia-calendar
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
