@@ -412,29 +412,89 @@ const HISTORY_START_DESCRIPTIONS = [
   'Пройди историю с точками выбора, а я в конце объясню, где ты вела себя как обычно, а где пыталась выглядеть правильно',
 ];
 
-// Астрологические фразы для процесса генерации истории
-const HISTORY_GENERATION_PHRASES = [
-  { emoji: '🌙', text: 'Луна выбирает настроение для твоей истории' },
-  { emoji: '✨', text: 'Плутон копается в подсознании, ищет скрытые мотивы' },
-  { emoji: '🔮', text: 'Нептун добавляет тумана и символов' },
-  { emoji: '⚡', text: 'Уран встряхивает шаблоны, готовит неожиданности' },
-  { emoji: '🎭', text: 'Венера примеряет маски для твоих выборов' },
-  { emoji: '⚖️', text: 'Сатурн проверяет, где ты сама себе врёшь' },
-  { emoji: '🗝️', text: 'Хирон нащупывает твою главную рану' },
-  { emoji: '🌊', text: 'Планеты читают карту, ищут твои противоречия' },
-  { emoji: '🕯️', text: 'Меркурий формулирует дилемму' },
-  { emoji: '🔥', text: 'Марс подбирает правильный градус напряжения' },
-  { emoji: '🌌', text: 'Юпитер расширяет контекст истории' },
-  { emoji: '💫', text: 'Звёзды сплетают сценарий из твоих аспектов' },
-  { emoji: '🎪', text: 'Карта выбирает жанр для твоего внутреннего театра' },
-  { emoji: '🪞', text: 'Готовится зеркало, в котором увидишь себя' },
-  { emoji: '🌀', text: 'Аспекты закручиваются в сюжет' },
-  { emoji: '🗺️', text: 'Чертится карта твоих внутренних маршрутов' },
-  { emoji: '⏳', text: 'Сатурн отмеряет время для твоих выборов' },
-  { emoji: '🎨', text: 'Нептун рисует символы твоих страхов' },
-  { emoji: '🧭', text: 'Определяется точка старта твоего пути' },
-  { emoji: '🌑', text: 'Лунные узлы показывают направление роста' },
-];
+// Пулы сообщений для каждой планеты - они обсуждают Настю между собой
+const PLANET_MESSAGE_POOLS = {
+  'Луна': [
+    'Чувствую её настроение сегодня... непростое',
+    'Она явно что-то скрывает от себя',
+    'Вижу противоречие между тем, что она хочет и что делает',
+    'Интересно, как она реагирует на свои эмоции',
+    'Она боится показаться уязвимой',
+    'Замечаю, как она избегает неприятных чувств',
+  ],
+  'Плутон': [
+    'Копаюсь в её подсознании... тут темнее, чем кажется',
+    'Вижу страх, который она не признаёт',
+    'Обнаружил её теневую сторону',
+    'Она прячет свою силу, боится её',
+    'Нашёл то, от чего она убегает годами',
+    'Тут глубокая рана, которую она не хочет видеть',
+  ],
+  'Нептун': [
+    'Добавляю тумана... пусть поплутает между иллюзией и правдой',
+    'Вижу, как она себя обманывает',
+    'Растворяю границы между её желаниями и страхами',
+    'Интересно, что она себе придумала на этот раз',
+    'Она живёт в своих фантазиях больше, чем в реальности',
+    'Подброшу ей символов, посмотрим, разберётся ли',
+  ],
+  'Уран': [
+    'Встряхну её привычные паттерны',
+    'Пора выбить её из зоны комфорта',
+    'Подготовил несколько неожиданных поворотов',
+    'Посмотрим, как она отреагирует на хаос',
+    'Разрушу её иллюзию контроля',
+    'Готовлю революцию в её картине мира',
+  ],
+  'Венера': [
+    'Вижу, как она притворяется перед другими',
+    'Интересно, что она на самом деле ценит',
+    'Замечаю её маски в отношениях',
+    'Она выбирает удобное, а не настоящее',
+    'Посмотрю, готова ли она к честности с собой',
+    'Вижу конфликт между её желаниями и её выбором',
+  ],
+  'Сатурн': [
+    'Проверяю её на честность с собой',
+    'Вижу, где она сама себе врёт',
+    'Установлю границы, посмотрим, выдержит ли',
+    'Она избегает ответственности за свои решения',
+    'Пора столкнуться с последствиями',
+    'Жёсткий урок будет полезен',
+  ],
+  'Хирон': [
+    'Нащупал её главную рану',
+    'Вижу, откуда растут её страхи',
+    'Тут боль, с которой она не работала',
+    'Обнаружил её слабое место',
+    'Интересно, готова ли она к исцелению',
+    'Она повторяет одну и ту же ошибку',
+  ],
+  'Меркурий': [
+    'Формулирую её внутренний конфликт',
+    'Вижу противоречие в её логике',
+    'Составляю дилемму, где оба варианта её пугают',
+    'Интересно, как она аргументирует свой выбор',
+    'Она думает одно, говорит другое, делает третье',
+    'Подготовил вопросы, которые её заставят задуматься',
+  ],
+  'Марс': [
+    'Подбираю правильный градус напряжения',
+    'Добавлю агрессии в её выборы',
+    'Посмотрим, может ли она постоять за себя',
+    'Проверю её на смелость',
+    'Она часто уступает, когда надо бороться',
+    'Настало время действовать, а не размышлять',
+  ],
+  'Юпитер': [
+    'Расширяю контекст её истории',
+    'Вижу более широкую картину',
+    'Добавляю философский смысл',
+    'Интересно, какой урок она извлечёт',
+    'Показываю ей возможности, о которых она не думала',
+    'Направляю её к росту через этот опыт',
+  ],
+};
 
 // Тексты для кнопки отмены генерации истории
 const CANCEL_GENERATION_TEXTS = [
@@ -637,13 +697,12 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStartPrompt, setHistoryStartPrompt] = useState('');
   const [historyStartButton, setHistoryStartButton] = useState('');
   const [historyStartDescription, setHistoryStartDescription] = useState('');
-  const [historyGenerationPhrase, setHistoryGenerationPhrase] = useState<{ emoji: string; text: string } | null>(null);
   const [historyCancelButtonText, setHistoryCancelButtonText] = useState('');
-  const [phraseAnimationClass, setPhraseAnimationClass] = useState<string>('slideFromBottom');
-  const [iconAnimationClass, setIconAnimationClass] = useState<string>('scaleIn');
-  const historyGenerationIntervalRef = useRef<number | null>(null);
-  const currentEffectIndexRef = useRef<number>(0);
-  const historyGenerationPhraseRef = useRef<{ emoji: string; text: string } | null>(null);
+
+  // Новые состояния для чат-интерфейса генерации
+  const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string }>>([]);
+  const [currentTypingPlanet, setCurrentTypingPlanet] = useState<string | null>(null);
+  const planetMessagesTimeoutRef = useRef<number[]>([]);
   const [historyButtonsHiding, setHistoryButtonsHiding] = useState(false);
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
@@ -686,6 +745,12 @@ const ModernNastiaApp: React.FC = () => {
     introAnimationTimeoutsRef.current = [];
   }, []);
 
+  const stopGenerationAnimation = useCallback(() => {
+    // Очищаем все таймеры планет
+    planetMessagesTimeoutRef.current.forEach(timer => window.clearTimeout(timer));
+    planetMessagesTimeoutRef.current = [];
+  }, []);
+
   const resetHistoryStoryState = useCallback(() => {
     abortHistoryStoryRequest();
     clearHistoryStoryTypingTimer();
@@ -693,10 +758,8 @@ const ModernNastiaApp: React.FC = () => {
     clearIntroAnimationTimers();
 
     // Останавливаем анимацию генерации
-    if (historyGenerationIntervalRef.current) {
-      window.clearInterval(historyGenerationIntervalRef.current);
-      historyGenerationIntervalRef.current = null;
-    }
+    stopGenerationAnimation();
+    setPlanetChatMessages([]);
 
     clearPsychContractContext();
     historyStoryPendingOptionsRef.current = null;
@@ -715,7 +778,6 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryMenuOpen(false);
     setVisibleButtonsCount(0);
     setHistoryStoryPhase('idle');
-    setHistoryGenerationPhrase(null);
     setIntroMessagesVisible(0);
     setIntroTyping(false);
     historyScrollContainerRef.current = null;
@@ -724,6 +786,7 @@ const ModernNastiaApp: React.FC = () => {
     clearHistoryStoryTypingTimer,
     clearButtonAnimationTimers,
     clearIntroAnimationTimers,
+    stopGenerationAnimation,
   ]);
 
   const startTypingHistorySegment = useCallback((segment: HistoryStorySegment) => {
@@ -850,11 +913,7 @@ const ModernNastiaApp: React.FC = () => {
         }
 
         // Останавливаем анимацию генерации и переходим в режим готовности
-        if (historyGenerationIntervalRef.current) {
-          window.clearInterval(historyGenerationIntervalRef.current);
-          historyGenerationIntervalRef.current = null;
-        }
-        setHistoryGenerationPhrase(null);
+        stopGenerationAnimation();
         setHistoryStoryPhase('ready');
 
         const newSegment: HistoryStorySegment = {
@@ -898,6 +957,7 @@ const ModernNastiaApp: React.FC = () => {
       effectiveClaudeProxyUrl,
       effectiveOpenAIKey,
       startTypingHistorySegment,
+      stopGenerationAnimation,
     ],
   );
 
@@ -1009,75 +1069,64 @@ const ModernNastiaApp: React.FC = () => {
       effectiveClaudeProxyUrl,
       effectiveOpenAIKey,
       startTypingHistorySegment,
+      stopGenerationAnimation,
     ],
   );
 
   const startGenerationAnimation = useCallback(() => {
-    // Останавливаем предыдущую анимацию, если она была
-    if (historyGenerationIntervalRef.current) {
-      window.clearInterval(historyGenerationIntervalRef.current);
-    }
+    // Очищаем предыдущие таймеры
+    planetMessagesTimeoutRef.current.forEach(timer => window.clearTimeout(timer));
+    planetMessagesTimeoutRef.current = [];
 
-    // Сбрасываем индекс эффектов
-    currentEffectIndexRef.current = 0;
+    // Сбрасываем сообщения
+    setPlanetChatMessages([]);
+    setCurrentTypingPlanet(null);
 
-    // Массивы с эффектами
-    const entranceEffects = ['slideFromBottom', 'slideFromTop', 'fadeInScale'];
-    const exitEffects = ['slideOutTop', 'slideOutBottom', 'fadeOut'];
+    // Функция для генерации одного сообщения от случайной планеты
+    const generatePlanetMessage = (delay: number) => {
+      const planetNames = Object.keys(PLANET_MESSAGE_POOLS) as Array<keyof typeof PLANET_MESSAGE_POOLS>;
+      const randomPlanet = planetNames[Math.floor(Math.random() * planetNames.length)];
+      const messagePool = PLANET_MESSAGE_POOLS[randomPlanet];
+      const randomMessage = messagePool[Math.floor(Math.random() * messagePool.length)];
 
-    // Функция для показа случайной фразы с анимацией
-    const showRandomPhrase = () => {
-      // Сначала запускаем анимацию исчезновения
-      const currentPhrase = historyGenerationPhraseRef.current;
+      // Показываем индикатор печати
+      const typingTimer = window.setTimeout(() => {
+        setCurrentTypingPlanet(randomPlanet);
+      }, delay);
+      planetMessagesTimeoutRef.current.push(typingTimer);
 
-      if (currentPhrase) {
-        const exitEffect = exitEffects[currentEffectIndexRef.current % exitEffects.length];
-        console.log('[Animation] Exit effect:', exitEffect, 'index:', currentEffectIndexRef.current);
-        setPhraseAnimationClass(exitEffect);
-        setIconAnimationClass('iconFadeOut');
+      // Через 1.5-2.5 сек добавляем сообщение с флагом isTransforming
+      const typingDuration = 1500 + Math.random() * 1000;
+      const messageId = `planet-msg-${Date.now()}-${Math.random()}`;
 
-        // Через 400ms показываем новую фразу
-        setTimeout(() => {
-          const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
-          const newPhrase = HISTORY_GENERATION_PHRASES[randomIndex];
-          historyGenerationPhraseRef.current = newPhrase;
-          setHistoryGenerationPhrase(newPhrase);
+      const messageTimer = window.setTimeout(() => {
+        setCurrentTypingPlanet(null);
 
-          // Применяем эффект появления
-          const entranceEffect = entranceEffects[currentEffectIndexRef.current % entranceEffects.length];
-          console.log('[Animation] Entrance effect:', entranceEffect, 'index:', currentEffectIndexRef.current);
-          setPhraseAnimationClass(entranceEffect);
-          setIconAnimationClass('iconScaleIn');
+        // Рассчитываем время для сообщения
+        const messageTime = new Date();
+        const hours = messageTime.getHours().toString().padStart(2, '0');
+        const minutes = messageTime.getMinutes().toString().padStart(2, '0');
 
-          currentEffectIndexRef.current++;
-        }, 400);
-      } else {
-        // Первый показ без исчезновения
-        const randomIndex = Math.floor(Math.random() * HISTORY_GENERATION_PHRASES.length);
-        const newPhrase = HISTORY_GENERATION_PHRASES[randomIndex];
-        historyGenerationPhraseRef.current = newPhrase;
-        setHistoryGenerationPhrase(newPhrase);
-        console.log('[Animation] Initial show: slideFromBottom');
-        setPhraseAnimationClass('slideFromBottom');
-        setIconAnimationClass('iconScaleIn');
-        currentEffectIndexRef.current++;
-      }
+        // Добавляем сообщение
+        setPlanetChatMessages(prev => [
+          ...prev,
+          {
+            planet: randomPlanet,
+            message: randomMessage,
+            id: messageId,
+            time: `${hours}:${minutes}`,
+          },
+        ]);
+
+        // Планируем следующее сообщение через 300-800 мс
+        const nextDelay = 300 + Math.random() * 500;
+        generatePlanetMessage(nextDelay);
+      }, delay + typingDuration);
+      planetMessagesTimeoutRef.current.push(messageTimer);
     };
 
-    // Показываем первую фразу сразу
-    showRandomPhrase();
-
-    // Запускаем интервал для смены фраз каждые 3 секунды (увеличено для учета анимации)
-    historyGenerationIntervalRef.current = window.setInterval(showRandomPhrase, 3000);
-  }, []);
-
-  const stopGenerationAnimation = useCallback(() => {
-    if (historyGenerationIntervalRef.current) {
-      window.clearInterval(historyGenerationIntervalRef.current);
-      historyGenerationIntervalRef.current = null;
-    }
-    historyGenerationPhraseRef.current = null;
-    setHistoryGenerationPhrase(null);
+    // Запускаем первое сообщение через 500 мс
+    generatePlanetMessage(500);
   }, []);
 
   const startIntroMessagesAnimation = useCallback(() => {
@@ -1085,21 +1134,56 @@ const ModernNastiaApp: React.FC = () => {
     setIntroMessagesVisible(0);
     setIntroTyping(false);
 
-    // Последовательность: показать сообщение 1 -> печать -> сообщение 2 -> печать -> сообщение 3 -> печать -> сообщение 4
-    const timings = [
-      { delay: 600, action: () => setIntroMessagesVisible(1) }, // Показать "Жанр" от Пользователя
-      { delay: 1400, action: () => setIntroTyping(true) }, // Начать печать от Истории (800ms после появления)
-      { delay: 3900, action: () => { setIntroTyping(false); setIntroMessagesVisible(2); } }, // Показать ответ "триллер" (2500ms печать)
-      { delay: 5000, action: () => setIntroMessagesVisible(3) }, // Показать "Контракт" от Пользователя (1100ms после ответа)
-      { delay: 5800, action: () => setIntroTyping(true) }, // Начать печать от Истории (800ms после появления)
-      { delay: 8300, action: () => { setIntroTyping(false); setIntroMessagesVisible(4); } }, // Показать ответ контракта (2500ms печать)
-    ];
+    // Добавляем сообщения от "История" о жанре и контракте напрямую в planetChatMessages
+    const now = new Date();
 
-    timings.forEach(({ delay, action }) => {
-      const id = window.setTimeout(action, delay);
-      introAnimationTimeoutsRef.current.push(id);
-    });
-  }, [clearIntroAnimationTimers]);
+    // Сначала показываем индикатор печати для жанра
+    const genreTypingTimer = window.setTimeout(() => {
+      setCurrentTypingPlanet('История');
+    }, 600);
+    introAnimationTimeoutsRef.current.push(genreTypingTimer);
+
+    // Через 1.5 сек показываем сообщение с жанром
+    const genreMessageTimer = window.setTimeout(() => {
+      setCurrentTypingPlanet(null);
+      const messageTime = new Date(now.getTime() + 2100);
+      const hours = messageTime.getHours().toString().padStart(2, '0');
+      const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+      const genreMessage = {
+        planet: 'История',
+        message: `Жанр: ${historyStoryMetaRef.current?.genre ?? historyStoryAuthor?.genre ?? 'неизвестный жанр'}`,
+        id: `story-genre-${Date.now()}`,
+        time: `${hours}:${minutes}`,
+      };
+      setPlanetChatMessages(prev => [...prev, genreMessage]);
+    }, 2100);
+    introAnimationTimeoutsRef.current.push(genreMessageTimer);
+
+    // Показываем индикатор печати для контракта
+    const contractTypingTimer = window.setTimeout(() => {
+      setCurrentTypingPlanet('История');
+    }, 2800);
+    introAnimationTimeoutsRef.current.push(contractTypingTimer);
+
+    // Через 1.5 сек показываем сообщение с контрактом
+    const contractMessageTimer = window.setTimeout(() => {
+      setCurrentTypingPlanet(null);
+      const messageTime = new Date(now.getTime() + 4300);
+      const hours = messageTime.getHours().toString().padStart(2, '0');
+      const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+      const contractMessage = {
+        planet: 'История',
+        message: `Контракт: ${historyStoryMetaRef.current?.contract ?? 'Контракт не определён'}`,
+        id: `story-contract-${Date.now()}`,
+        time: `${hours}:${minutes}`,
+      };
+      setPlanetChatMessages(prev => [...prev, contractMessage]);
+
+      // После показа контракта переходим в ready
+      setIntroMessagesVisible(4);
+    }, 4300);
+    introAnimationTimeoutsRef.current.push(contractMessageTimer);
+  }, [clearIntroAnimationTimers, historyStoryAuthor]);
 
   const handleCancelGeneration = useCallback(() => {
     console.log('[HistoryStory] Cancelling generation');
@@ -1171,6 +1255,8 @@ const ModernNastiaApp: React.FC = () => {
       setTimeout(() => {
         setHistoryStoryOptions([]);
         setHistoryButtonsHiding(false);
+        // Показываем индикатор загрузки сразу
+        setHistoryStoryLoading(true);
         if (arcCount >= STORY_ARC_LIMIT) {
           void fetchHistoryStoryFinale(option);
         } else {
@@ -1260,6 +1346,50 @@ const ModernNastiaApp: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [historyStoryMenuOpen]);
+
+  // Автоскролл для планетарных сообщений в фазе generating
+  useEffect(() => {
+    if (historyStoryPhase !== 'generating') {
+      return;
+    }
+
+    if (planetChatMessages.length === 0 && !currentTypingPlanet) {
+      return;
+    }
+
+    // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Скроллим весь window до конца страницы
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth'
+          });
+        });
+      });
+    });
+  }, [planetChatMessages, currentTypingPlanet, historyStoryPhase]);
+
+  // Автоскролл для сообщений истории в фазе ready
+  useEffect(() => {
+    if (historyStoryPhase !== 'ready') {
+      return;
+    }
+
+    // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Скроллим весь window до конца страницы
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth'
+          });
+        });
+      });
+    });
+  }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase]);
 
   useEffect(() => {
     return () => {
@@ -1447,12 +1577,13 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [activeTab, historyStoryPhase]);
 
-  // Анимация интро-сообщений при переходе в фазу 'ready'
+  // Анимация интро-сообщений при переходе в фазу 'ready' ТОЛЬКО ПЕРВЫЙ РАЗ
   useEffect(() => {
-    if (historyStoryPhase === 'ready' && historyStoryMeta) {
+    // Показываем жанр и контракт только если нет ещё сегментов истории (первый раз)
+    if (historyStoryPhase === 'ready' && historyStoryMeta && historyStorySegments.length === 0) {
       startIntroMessagesAnimation();
     }
-  }, [historyStoryPhase, historyStoryMeta, startIntroMessagesAnimation]);
+  }, [historyStoryPhase, historyStoryMeta, historyStorySegments.length, startIntroMessagesAnimation]);
 
   const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
     if (typeof window === 'undefined') {
@@ -3384,20 +3515,6 @@ const ModernNastiaApp: React.FC = () => {
         {/* Вкладка: Узнай себя (интерактивная история) */}
         {activeTab === 'discover' && (
           <div className={styles.historyChatContainer}>
-                {/* Фиксированный заголовок для ready фазы */}
-                {historyStoryPhase === 'ready' && (
-                  <div className={styles.historyStoryHeader}>
-                    <h2 className={styles.historyStoryTitle}>История</h2>
-                    <button
-                      type="button"
-                      className={styles.historyEndButton}
-                      onClick={resetHistoryStoryState}
-                    >
-                      Закончить историю
-                    </button>
-                  </div>
-                )}
-
                 {/* Начальный экран (idle) */}
                 {historyStoryPhase === 'idle' && (
                   <div className={styles.historyStartScreen}>
@@ -3421,40 +3538,74 @@ const ModernNastiaApp: React.FC = () => {
                   </div>
                 )}
 
-                {/* Экран генерации (generating) */}
-                {historyStoryPhase === 'generating' && historyGenerationPhrase && (
-                  <div className={styles.historyGenerationScreen}>
-                    <div className={styles.historyGenerationContent}>
-                      <div className={`${styles.historyGenerationIconContainer} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-gen-icon') ? styles.calendarElementVisible : ''}`}>
-                        <div
-                          key={`icon-${historyGenerationPhrase.emoji}-${currentEffectIndexRef.current}`}
-                          className={`${styles.historyGenerationIcon} ${styles[iconAnimationClass]}`}
+                {/* Экран генерации и готовности - единый чат-интерфейс */}
+                {(historyStoryPhase === 'generating' || historyStoryPhase === 'ready') && (
+                  <>
+                    {/* Заголовок с кнопкой отмены/завершения */}
+                    <div className={styles.historyStoryHeader}>
+                      <h2 className={styles.historyStoryTitle}>История</h2>
+                      {historyStoryPhase === 'generating' && historyCancelButtonText && (
+                        <button
+                          type="button"
+                          className={styles.historyEndButton}
+                          onClick={handleCancelGeneration}
                         >
-                          {historyGenerationPhrase.emoji}
-                        </div>
-                      </div>
-                      <div
-                        key={`phrase-${historyGenerationPhrase.text}-${currentEffectIndexRef.current}`}
-                        className={`${styles.historyGenerationPhrase} ${styles[phraseAnimationClass]} ${styles.calendarElementAnimated} ${visibleDiscoverElements.includes('discover-gen-phrase') ? styles.calendarElementVisible : ''}`}
-                      >
-                        {historyGenerationPhrase.text}
-                      </div>
+                          {historyCancelButtonText}
+                        </button>
+                      )}
+                      {historyStoryPhase === 'ready' && (
+                        <button
+                          type="button"
+                          className={styles.historyEndButton}
+                          onClick={resetHistoryStoryState}
+                        >
+                          Закончить историю
+                        </button>
+                      )}
                     </div>
-                    {historyCancelButtonText && (
-                      <button
-                        className={styles.historyCancelButton}
-                        onClick={handleCancelGeneration}
-                        type="button"
-                      >
-                        {historyCancelButtonText}
-                      </button>
-                    )}
-                  </div>
+                  </>
                 )}
 
-                <div className={`${styles.historyChatMessages} ${historyStoryPhase !== 'ready' ? styles.calendarElementAnimated : ''} ${visibleDiscoverElements.includes('discover-messages') ? styles.calendarElementVisible : ''}`} ref={historyMessagesRef}>
+                <div
+                  className={`${styles.historyChatMessages} ${
+                    historyStoryPhase !== 'ready' ? styles.calendarElementAnimated : ''
+                  } ${
+                    (historyStoryPhase === 'generating' || historyStoryPhase === 'ready' || visibleDiscoverElements.includes('discover-messages'))
+                      ? styles.calendarElementVisible
+                      : ''
+                  }`}
+                  ref={historyMessagesRef}
+                >
+                  {/* Планетарные сообщения (фаза generating) */}
+                  {(historyStoryPhase === 'generating' || historyStoryPhase === 'ready') && planetChatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
+                    >
+                      <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
+                        {msg.planet}
+                      </div>
+                      <div className={styles.historyChatContent}>{msg.message}</div>
+                      <div className={styles.historyChatTime}>{msg.time}</div>
+                    </div>
+                  ))}
+
+                  {/* Индикатор печати для планет (НЕ для "История") */}
+                  {historyStoryPhase === 'generating' && currentTypingPlanet && currentTypingPlanet !== 'История' && (
+                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.planetMessage} ${styles.visible}`}>
+                      <div className={styles.historyChatSender}>
+                        {currentTypingPlanet}
+                      </div>
+                      <div className={styles.historyChatTyping}>
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Интро-сообщения для жанра и контракта */}
-                  {historyStoryPhase === 'ready' && historyStoryMeta && (
+                  {historyStoryPhase === 'ready' && historyStoryMeta && false && (
                     <>
                       {/* Сообщение 1: "Жанр" от Пользователя (Настя) */}
                       {introMessagesVisible >= 1 && (
@@ -3481,7 +3632,7 @@ const ModernNastiaApp: React.FC = () => {
                         <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
                           <div className={styles.historyChatContent}>
-                            {historyStoryMeta.genre ?? historyStoryAuthor.genre}
+                            {historyStoryMeta?.genre ?? historyStoryAuthor?.genre}
                           </div>
                         </div>
                       )}
@@ -3510,7 +3661,7 @@ const ModernNastiaApp: React.FC = () => {
                         <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
                           <div className={styles.historyChatContent}>
-                            {historyStoryMeta.contract ?? 'Контракт формируется'}
+                            {historyStoryMeta?.contract ?? 'Контракт формируется'}
                           </div>
                         </div>
                       )}
@@ -3566,8 +3717,9 @@ const ModernNastiaApp: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  {(historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
-                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming}`}>
+                  {/* Индикатор печати для самой истории (только в фазе ready) */}
+                  {historyStoryPhase === 'ready' && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                    <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
                       <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
                         <span />
