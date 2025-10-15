@@ -1,8 +1,14 @@
 /* Стили для компонента NastiaApp */
 
+/* Плавный скролл для всего приложения */
+html {
+  scroll-behavior: smooth;
+}
+
 .container {
   min-height: 100vh;
   padding: 1rem;
+  scroll-behavior: smooth;
 }
 
 .appWrapper {
@@ -1007,6 +1013,21 @@
   }
 }
 
+@keyframes messageFadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .historyStoryMetaBar {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1205,15 +1226,13 @@
   flex-direction: column;
   gap: 0.25rem;
   opacity: 0;
-  transform: translateY(14px) scale(0.97);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transform: translateY(20px) scale(0.95);
   transform-origin: left;
   line-height: 1.6;
 }
 
 .historyChatBubble.visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
+  animation: messageFadeSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .historyChatIncoming {
@@ -1397,16 +1416,16 @@
   width: auto;
   padding: 0.6rem 0;
   justify-content: flex-start;
-  animation: fadeInUp 0.3s ease;
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .historyChatTyping span {
   display: inline-block;
-  width: 0.3rem;
-  height: 0.3rem;
+  width: 0.35rem;
+  height: 0.35rem;
   background: #888;
   border-radius: 50%;
-  animation: typingPulse 1.2s infinite ease-in-out;
+  animation: typingPulse 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
   flex-shrink: 0;
 }
 
@@ -1420,10 +1439,12 @@
 
 @keyframes typingPulse {
   0%, 100% {
-    opacity: 0.3;
+    opacity: 0.25;
+    transform: scale(0.85);
   }
   50% {
     opacity: 1;
+    transform: scale(1.15);
   }
 }
 
@@ -1476,7 +1497,7 @@
 }
 
 .historyChatReplyButton.visible {
-  animation: slideInButton 0.3s ease forwards;
+  animation: slideInButton 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .historyChatReplyButton:hover:not(:disabled) {
@@ -1500,6 +1521,9 @@
   gap: 0.75rem;
   background: transparent;
   border: none;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  animation: messageFadeSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
 }
 
 .historyFinalSummaryHeader {
@@ -1650,13 +1674,17 @@
 }
 
 @keyframes slideInButton {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(15px);
+    transform: translateY(20px) scale(0.96);
   }
-  to {
+  60% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
