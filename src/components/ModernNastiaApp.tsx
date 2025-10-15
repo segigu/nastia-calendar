@@ -1087,12 +1087,12 @@ const ModernNastiaApp: React.FC = () => {
 
     // Последовательность: показать сообщение 1 -> печать -> сообщение 2 -> печать -> сообщение 3 -> печать -> сообщение 4
     const timings = [
-      { delay: 500, action: () => setIntroMessagesVisible(1) }, // Показать "Жанр" от Насти
-      { delay: 1000, action: () => setIntroTyping(true) }, // Начать печать
-      { delay: 2500, action: () => { setIntroTyping(false); setIntroMessagesVisible(2); } }, // Показать ответ "психологическая драма"
-      { delay: 3500, action: () => setIntroMessagesVisible(3) }, // Показать "Контракт" от Насти
-      { delay: 4000, action: () => setIntroTyping(true) }, // Начать печать
-      { delay: 5500, action: () => { setIntroTyping(false); setIntroMessagesVisible(4); } }, // Показать ответ контракта
+      { delay: 600, action: () => setIntroMessagesVisible(1) }, // Показать "Жанр" от Пользователя
+      { delay: 1400, action: () => setIntroTyping(true) }, // Начать печать от Истории (800ms после появления)
+      { delay: 3900, action: () => { setIntroTyping(false); setIntroMessagesVisible(2); } }, // Показать ответ "триллер" (2500ms печать)
+      { delay: 5000, action: () => setIntroMessagesVisible(3) }, // Показать "Контракт" от Пользователя (1100ms после ответа)
+      { delay: 5800, action: () => setIntroTyping(true) }, // Начать печать от Истории (800ms после появления)
+      { delay: 8300, action: () => { setIntroTyping(false); setIntroMessagesVisible(4); } }, // Показать ответ контракта (2500ms печать)
     ];
 
     timings.forEach(({ delay, action }) => {
@@ -3456,7 +3456,7 @@ const ModernNastiaApp: React.FC = () => {
                   {/* Интро-сообщения для жанра и контракта */}
                   {historyStoryPhase === 'ready' && historyStoryMeta && (
                     <>
-                      {/* Сообщение 1: "Жанр" от Насти */}
+                      {/* Сообщение 1: "Жанр" от Пользователя (Настя) */}
                       {introMessagesVisible >= 1 && (
                         <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatSender}>Настя</div>
@@ -3465,9 +3465,9 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {/* Анимация печати перед сообщением 2 */}
+                      {/* Анимация печати от Истории перед ответом на жанр */}
                       {introMessagesVisible >= 1 && introMessagesVisible < 2 && introTyping && (
-                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage}`}>
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
                           <div className={styles.historyChatTyping}>
                             <span />
@@ -3476,7 +3476,7 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {/* Сообщение 2: Жанр ответ */}
+                      {/* Сообщение 2: Ответ Истории на жанр */}
                       {introMessagesVisible >= 2 && (
                         <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
@@ -3485,7 +3485,7 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {/* Сообщение 3: "Контракт" от Насти */}
+                      {/* Сообщение 3: "Контракт" от Пользователя (Настя) */}
                       {introMessagesVisible >= 3 && (
                         <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatSender}>Настя</div>
@@ -3494,9 +3494,9 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {/* Анимация печати перед сообщением 4 */}
+                      {/* Анимация печати от Истории перед ответом на контракт */}
                       {introMessagesVisible >= 3 && introMessagesVisible < 4 && introTyping && (
-                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage}`}>
+                        <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
                           <div className={styles.historyChatTyping}>
                             <span />
@@ -3505,7 +3505,7 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      {/* Сообщение 4: Контракт ответ */}
+                      {/* Сообщение 4: Ответ Истории на контракт */}
                       {introMessagesVisible >= 4 && (
                         <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.historyIntroMessage} ${styles.visible}`}>
                           <div className={styles.historyChatStoryTitle}>История</div>
