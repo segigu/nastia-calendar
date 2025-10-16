@@ -1113,20 +1113,18 @@ const ModernNastiaApp: React.FC = () => {
     let messagePoolRef: Array<{ planet: string; message: string }> = [];
 
     // Проверяем статус персонализированных сообщений
-    if (personalizedPlanetMessages && personalizedPlanetMessages.messages.length > 0) {
-      // Персонализированные сообщения уже загружены - используем их
-      console.log('[GenerationAnimation] ✅ Using personalized messages');
-      for (const planetData of personalizedPlanetMessages.messages) {
-        for (const message of planetData.messages) {
-          messagePoolRef.push({ planet: planetData.planet, message });
-        }
+    if (personalizedPlanetMessages && personalizedPlanetMessages.dialogue.length > 0) {
+      // Персонализированный диалог уже загружен - используем его
+      console.log('[GenerationAnimation] ✅ Using personalized planet dialogue (' + personalizedPlanetMessages.dialogue.length + ' messages)');
+      for (const dialogueMessage of personalizedPlanetMessages.dialogue) {
+        messagePoolRef.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
       }
     } else {
-      // Сообщений еще нет - используем fallback, но будем динамически переключаться
+      // Диалога еще нет - используем fallback, но будем динамически переключаться
       if (isLoadingPersonalizedMessages) {
-        console.log('[GenerationAnimation] ⏳ Starting with fallback, will switch to personalized when ready...');
+        console.log('[GenerationAnimation] ⏳ Starting with fallback dialogue, will switch to personalized when ready...');
       } else {
-        console.log('[GenerationAnimation] Using fallback messages (no personalized messages available)');
+        console.log('[GenerationAnimation] Using fallback dialogue (no personalized dialogue available)');
       }
 
       // Заполняем fallback сообщениями
@@ -1147,8 +1145,12 @@ const ModernNastiaApp: React.FC = () => {
       initialMessagePool: Array<{ planet: string; message: string }>,
       shouldWatchForPersonalized: boolean
     ) {
-      // Перемешиваем пул сообщений для рандомного порядка
-      let shuffledPool = [...initialMessagePool].sort(() => Math.random() - 0.5);
+      // ВАЖНО: Если это персонализированный диалог, НЕ перемешиваем - это связный разговор!
+      // Только fallback сообщения перемешиваем для разнообразия
+      const isDialogue = personalizedPlanetMessages !== null && personalizedPlanetMessages.dialogue.length > 0;
+      let shuffledPool = isDialogue
+        ? [...initialMessagePool] // Диалог идёт по порядку
+        : [...initialMessagePool].sort(() => Math.random() - 0.5); // Fallback перемешиваем
       let messageIndex = 0;
       let isUsingPersonalized = personalizedPlanetMessages !== null;
 
@@ -1170,28 +1172,26 @@ const ModernNastiaApp: React.FC = () => {
           }
 
           // Проверяем, загрузились ли персонализированные сообщения
-          if (currentMessages && currentMessages.messages.length > 0 && !isUsingPersonalized) {
-            console.log('[GenerationAnimation] 🔄 Switching to personalized messages!');
+          if (currentMessages && currentMessages.dialogue.length > 0 && !isUsingPersonalized) {
+            console.log('[GenerationAnimation] 🔄 Switching to personalized dialogue!');
             isUsingPersonalized = true;
 
             // Создаем новый пул с персонализированными сообщениями
             const newPool: Array<{ planet: string; message: string }> = [];
-            for (const planetData of currentMessages.messages) {
-              for (const message of planetData.messages) {
-                newPool.push({ planet: planetData.planet, message });
-              }
+            for (const planetData of currentMessages.dialogue) {
+              newPool.push({ planet: planetData.planet, message: planetData.message });
             }
 
-            // Перемешиваем и заменяем пул
-            shuffledPool = [...newPool].sort(() => Math.random() - 0.5);
+            // НЕ перемешиваем - это связный диалог! Порядок важен
+            shuffledPool = [...newPool];
             messageIndex = 0;
 
-            console.log('[GenerationAnimation] ✅ Now using personalized messages');
+            console.log('[GenerationAnimation] ✅ Now using personalized dialogue (in order)');
             return; // Больше не проверяем
           }
 
           // Проверяем, не было ли ошибки
-          if (!currentLoading && (!currentMessages || currentMessages.messages.length === 0)) {
+          if (!currentLoading && (!currentMessages || currentMessages.dialogue.length === 0)) {
             console.log('[GenerationAnimation] ❌ Failed to load personalized messages, continuing with fallback');
             return; // Продолжаем с fallback, больше не проверяем
           }
@@ -1212,10 +1212,15 @@ const ModernNastiaApp: React.FC = () => {
 
       // Функция для генерации одного сообщения
       const generatePlanetMessage = (delay: number) => {
-        // Если сообщения закончились, перемешиваем заново
+        // Если сообщения закончились, начинаем сначала
         if (messageIndex >= shuffledPool.length) {
           messageIndex = 0;
-          shuffledPool.sort(() => Math.random() - 0.5);
+          // ВАЖНО: Диалог не перемешиваем, это связный разговор!
+          // Только fallback сообщения можно перемешать
+          const isCurrentlyDialogue = isUsingPersonalized && shuffledPool.length >= 20;
+          if (!isCurrentlyDialogue) {
+            shuffledPool.sort(() => Math.random() - 0.5);
+          }
         }
 
         const { planet, message } = shuffledPool[messageIndex];
