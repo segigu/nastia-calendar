@@ -304,7 +304,7 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
 - contract.astroIndicators — 3–4 маркера (текстом, можно на русском).
 - contract.commonTraps — массив из трёх объектов { "name": "...", "description": "..." }.
 - contract.scenarios — массив из трёх РЕАЛЬНЫХ жизненных ситуаций { "id": "kebab-case", "setting": "ОБЫЧНОЕ МЕСТО (офис/кафе/дом)", "situation": "КОНКРЕТНАЯ ЖИЗНЕННАЯ СИТУАЦИЯ", "symbolism": "краткий смысл" }.
-- contract.choicePoints — массив из трёх конкретных жизненных выборов.
+- contract.choicePoints — массив из трёх СТРОК (НЕ объектов!) с конкретными жизненными выборами. Пример: ["Остаться на работе или поехать в отпуск?", "Помочь подруге или отказать?", "Ответить на сообщение или игнорировать?"]
 - recommendedScenarioId — id сцены, с которой лучше начать историю.
 - Используй русский для описаний, но id оставь латиницей.
 
@@ -407,10 +407,15 @@ recent_scenarios: ${JSON.stringify(recentScenarios)}
       }
     }
 
+    console.log('[PsychContract] Parsed response:', JSON.stringify(parsed, null, 2));
+
     const contract = normalizePsychologicalContract(parsed?.contract ?? parsed);
     if (!contract) {
+      console.error('[PsychContract] Failed to normalize contract. Raw data:', parsed);
       throw new Error('Модель вернула некорректный контракт');
     }
+
+    console.log('[PsychContract] ✅ Contract validated:', contract.id, contract.question);
 
     const recommendedScenarioId = trimString(
       parsed?.recommendedScenarioId ?? parsed?.recommended_scenario_id ?? '',
@@ -1015,7 +1020,7 @@ export async function generateHistoryStoryChunk({
 Соблюдай формат JSON без Markdown и выполняй все требования пользователя.`,
       messages,
       temperature: 0.85,
-      maxTokens: mode === 'finale' ? 2000 : 600,
+      maxTokens: mode === 'finale' ? 2000 : 1000, // Увеличено с 600 до 1000 для arc из-за более детальных промптов
       signal,
       claudeApiKey,
       claudeProxyUrl,

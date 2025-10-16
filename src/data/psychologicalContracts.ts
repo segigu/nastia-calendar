@@ -389,6 +389,14 @@ export function normalizePsychologicalContract(raw: unknown): PsychologicalContr
   );
 
   if (!question || !theme || astroIndicators.length === 0 || commonTraps.length === 0 || scenarios.length === 0 || choicePoints.length === 0) {
+    console.error('[PsychContract Validation] Failed validation:', {
+      hasQuestion: !!question,
+      hasTheme: !!theme,
+      astroIndicatorsCount: astroIndicators.length,
+      commonTrapsCount: commonTraps.length,
+      scenariosCount: scenarios.length,
+      choicePointsCount: choicePoints.length,
+    });
     return null;
   }
 

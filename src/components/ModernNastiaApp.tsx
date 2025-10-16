@@ -1097,7 +1097,6 @@ const ModernNastiaApp: React.FC = () => {
       effectiveOpenAIKey,
       effectiveOpenAIProxyUrl,
       startTypingHistorySegment,
-      stopGenerationAnimation,
     ],
   );
 
@@ -1113,7 +1112,10 @@ const ModernNastiaApp: React.FC = () => {
     let messagePoolRef: Array<{ planet: string; message: string }> = [];
 
     // Проверяем статус персонализированных сообщений
-    if (personalizedPlanetMessages && personalizedPlanetMessages.dialogue.length > 0) {
+    if (personalizedPlanetMessages &&
+        personalizedPlanetMessages.dialogue &&
+        Array.isArray(personalizedPlanetMessages.dialogue) &&
+        personalizedPlanetMessages.dialogue.length > 0) {
       // Персонализированный диалог уже загружен - используем его
       console.log('[GenerationAnimation] ✅ Using personalized planet dialogue (' + personalizedPlanetMessages.dialogue.length + ' messages)');
       for (const dialogueMessage of personalizedPlanetMessages.dialogue) {
@@ -1147,7 +1149,10 @@ const ModernNastiaApp: React.FC = () => {
     ) {
       // ВАЖНО: Если это персонализированный диалог, НЕ перемешиваем - это связный разговор!
       // Только fallback сообщения перемешиваем для разнообразия
-      const isDialogue = personalizedPlanetMessages !== null && personalizedPlanetMessages.dialogue.length > 0;
+      const isDialogue = personalizedPlanetMessages !== null &&
+                         personalizedPlanetMessages.dialogue &&
+                         Array.isArray(personalizedPlanetMessages.dialogue) &&
+                         personalizedPlanetMessages.dialogue.length > 0;
       let shuffledPool = isDialogue
         ? [...initialMessagePool] // Диалог идёт по порядку
         : [...initialMessagePool].sort(() => Math.random() - 0.5); // Fallback перемешиваем
@@ -1172,7 +1177,11 @@ const ModernNastiaApp: React.FC = () => {
           }
 
           // Проверяем, загрузились ли персонализированные сообщения
-          if (currentMessages && currentMessages.dialogue.length > 0 && !isUsingPersonalized) {
+          if (currentMessages &&
+              currentMessages.dialogue &&
+              Array.isArray(currentMessages.dialogue) &&
+              currentMessages.dialogue.length > 0 &&
+              !isUsingPersonalized) {
             console.log('[GenerationAnimation] 🔄 Switching to personalized dialogue!');
             isUsingPersonalized = true;
 
@@ -1191,7 +1200,10 @@ const ModernNastiaApp: React.FC = () => {
           }
 
           // Проверяем, не было ли ошибки
-          if (!currentLoading && (!currentMessages || currentMessages.dialogue.length === 0)) {
+          if (!currentLoading && (!currentMessages ||
+              !currentMessages.dialogue ||
+              !Array.isArray(currentMessages.dialogue) ||
+              currentMessages.dialogue.length === 0)) {
             console.log('[GenerationAnimation] ❌ Failed to load personalized messages, continuing with fallback');
             return; // Продолжаем с fallback, больше не проверяем
           }
@@ -3106,7 +3118,20 @@ const ModernNastiaApp: React.FC = () => {
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 2000);
     } catch (error) {
-      console.error('Error syncing to cloud:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Cloud sync failed:', errorMsg);
+
+      // Показываем более дружелюбное сообщение в зависимости от типа ошибки
+      if (errorMsg.includes('409') || errorMsg.includes('Conflict')) {
+        console.log('💡 Tip: Multiple devices are syncing. Auto-retry in progress...');
+      } else if (errorMsg.includes('401') || errorMsg.includes('403')) {
+        console.error('🔐 Authentication error: Please check your GitHub token');
+      } else if (errorMsg.includes('404')) {
+        console.error('📁 Repository not found: Please ensure nastia-data repo exists');
+      } else {
+        console.error('🌐 Network error: Check your internet connection');
+      }
+
       setSyncStatus('error');
       setTimeout(() => setSyncStatus('idle'), 3000);
     }

@@ -88,8 +88,27 @@ export class CloudSync {
     }
   }
 
-  // Сохранение данных в GitHub
-  public async uploadToCloud(data: NastiaData): Promise<void> {
+  // Получение актуального SHA файла
+  private async getCurrentSha(): Promise<string> {
+    const getUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.fileName}`;
+    const getResponse = await fetch(getUrl, {
+      headers: {
+        'Authorization': `token ${this.config.token}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (getResponse.ok) {
+      const fileData = await getResponse.json();
+      return fileData.sha;
+    }
+    return '';
+  }
+
+  // Сохранение данных в GitHub с автоматическим retry при конфликте SHA
+  public async uploadToCloud(data: NastiaData, retryCount: number = 0): Promise<void> {
+    const MAX_RETRIES = 3;
+
     if (!this.isConfigured()) {
       throw new Error('Cloud sync not configured');
     }
@@ -102,22 +121,11 @@ export class CloudSync {
       };
       const content = JSON.stringify(payload, null, 2);
       const encodedContent = encodeBase64Unicode(content);
-      
+
       // Получаем SHA существующего файла (если есть)
       let sha = '';
       try {
-        const getUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.fileName}`;
-        const getResponse = await fetch(getUrl, {
-          headers: {
-            'Authorization': `token ${this.config.token}`,
-            'Accept': 'application/vnd.github.v3+json',
-          },
-        });
-        
-        if (getResponse.ok) {
-          const fileData = await getResponse.json();
-          sha = fileData.sha;
-        }
+        sha = await this.getCurrentSha();
       } catch (e) {
         // Файл не существует, создаем новый
       }
@@ -142,6 +150,14 @@ export class CloudSync {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // Если ошибка 409 (Conflict) и есть попытки - retry с новым SHA
+        if (response.status === 409 && retryCount < MAX_RETRIES) {
+          console.log(`⚠️ SHA conflict detected, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Небольшая задержка
+          return this.uploadToCloud(data, retryCount + 1);
+        }
+
         throw new Error(`GitHub API error: ${error.message || 'Unknown error'}`);
       }
 
