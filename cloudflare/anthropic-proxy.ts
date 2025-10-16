@@ -51,20 +51,22 @@ async function handleOptions(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleProxy(request: Request, env: Env): Promise<Response> {
+  const headers = buildCorsHeaders(request, env);
+
   if (!env.ANTHROPIC_API_KEY) {
+    headers.set('Content-Type', 'application/json');
     return new Response(JSON.stringify({ error: 'Missing ANTHROPIC_API_KEY env var' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     });
   }
-
-  const headers = buildCorsHeaders(request, env);
 
   let payload: unknown;
   try {
     payload = await request.json();
   } catch (error) {
     console.error('Failed to parse request body', error);
+    headers.set('Content-Type', 'application/json');
     return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
       status: 400,
       headers,

@@ -1,0 +1,8 @@
+name = "nastia-claude-proxy"
+main = "anthropic-proxy.ts"
+compatibility_date = "2024-10-15"
+workers_dev = true
+
+[env.production]
+name = "nastia-claude-proxy"
+routes = []
