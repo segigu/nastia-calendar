@@ -132,7 +132,20 @@ function serializeBirthData(profile: AstroProfile): string {
 }
 
 function serializeChartAnalysis(analysis: NatalChartAnalysis): string {
-  return `Планеты: ${analysis.corePlacements.slice(0, 5).join(', ')}. Напряжения: ${analysis.hardAspects.slice(0, 3).join(', ')}.`;
+  // Находим позицию Солнца (знак зодиака) - это ВАЖНО для понимания характера
+  const sunPlacement = analysis.corePlacements.find(p => p.includes('Солнце'));
+
+  // Берём остальные планеты (без Солнца)
+  const otherPlacements = analysis.corePlacements
+    .filter(p => !p.includes('Солнце'))
+    .slice(0, 4);
+
+  // Солнце ВСЕГДА первым, потом остальные
+  const placements = sunPlacement
+    ? [sunPlacement, ...otherPlacements]
+    : analysis.corePlacements.slice(0, 5);
+
+  return `Планеты: ${placements.join(', ')}. Напряжения: ${analysis.hardAspects.slice(0, 3).join(', ')}.`;
 }
 
 const NASTIA_PROFILE = ASTRO_PROFILES[PRIMARY_PROFILE_ID];
