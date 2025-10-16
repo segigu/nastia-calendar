@@ -1589,7 +1589,6 @@ html {
   background: transparent;
   border: 2px solid #8b5cf6;
   color: #333;
-  font-weight: 700;
 }
 
 .historyChatReplyPrimary:hover:not(:disabled) {
@@ -1612,15 +1611,15 @@ html {
 }
 
 .historyChatReplyAlt {
-  border: 2px solid #10b981;
+  border: 2px solid #8b5cf6;
   background: transparent;
 }
 
 .historyChatReplyAlt:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.05);
-  border-color: #10b981;
+  background: rgba(139, 92, 246, 0.05);
+  border-color: #8b5cf6;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 12px rgba(138, 89, 237, 0.2);
 }
 
 .historyChatReplyAlt:active:not(:disabled) {
@@ -1628,13 +1627,14 @@ html {
 }
 
 .historyChatReplyTitle {
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 1.125rem;
   color: #222;
 }
 
 .historyChatReplyDescription {
-  font-size: 0.875rem;
+  font-size: 1rem;
+  font-weight: 400;
   color: #555;
   line-height: 1.35;
 }
