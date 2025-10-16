@@ -97,6 +97,9 @@ import {
 import {
   generatePersonalizedPlanetMessages,
   type PersonalizedPlanetMessages,
+  calculateTypingDuration,
+  calculatePauseBefore,
+  calculatePauseAfter,
 } from '../utils/planetMessages';
 import styles from './NastiaApp.module.css';
 
@@ -416,90 +419,6 @@ const HISTORY_START_DESCRIPTIONS = [
   'Я запущу для тебя интерактивный сюжет. Твоя задача — принимать решения. Моя — потом рассказать, какие из них были честными, а какие нет',
   'Пройди историю с точками выбора, а я в конце объясню, где ты вела себя как обычно, а где пыталась выглядеть правильно',
 ];
-
-// Пулы сообщений для каждой планеты - они обсуждают Настю между собой
-const PLANET_MESSAGE_POOLS = {
-  'Луна': [
-    'Чувствую её настроение сегодня... непростое',
-    'Она явно что-то скрывает от себя',
-    'Вижу противоречие между тем, что она хочет и что делает',
-    'Интересно, как она реагирует на свои эмоции',
-    'Она боится показаться уязвимой',
-    'Замечаю, как она избегает неприятных чувств',
-  ],
-  'Плутон': [
-    'Копаюсь в её подсознании... тут темнее, чем кажется',
-    'Вижу страх, который она не признаёт',
-    'Обнаружил её теневую сторону',
-    'Она прячет свою силу, боится её',
-    'Нашёл то, от чего она убегает годами',
-    'Тут глубокая рана, которую она не хочет видеть',
-  ],
-  'Нептун': [
-    'Добавляю тумана... пусть поплутает между иллюзией и правдой',
-    'Вижу, как она себя обманывает',
-    'Растворяю границы между её желаниями и страхами',
-    'Интересно, что она себе придумала на этот раз',
-    'Она живёт в своих фантазиях больше, чем в реальности',
-    'Подброшу ей символов, посмотрим, разберётся ли',
-  ],
-  'Уран': [
-    'Встряхну её привычные паттерны',
-    'Пора выбить её из зоны комфорта',
-    'Подготовил несколько неожиданных поворотов',
-    'Посмотрим, как она отреагирует на хаос',
-    'Разрушу её иллюзию контроля',
-    'Готовлю революцию в её картине мира',
-  ],
-  'Венера': [
-    'Вижу, как она притворяется перед другими',
-    'Интересно, что она на самом деле ценит',
-    'Замечаю её маски в отношениях',
-    'Она выбирает удобное, а не настоящее',
-    'Посмотрю, готова ли она к честности с собой',
-    'Вижу конфликт между её желаниями и её выбором',
-  ],
-  'Сатурн': [
-    'Проверяю её на честность с собой',
-    'Вижу, где она сама себе врёт',
-    'Установлю границы, посмотрим, выдержит ли',
-    'Она избегает ответственности за свои решения',
-    'Пора столкнуться с последствиями',
-    'Жёсткий урок будет полезен',
-  ],
-  'Хирон': [
-    'Нащупал её главную рану',
-    'Вижу, откуда растут её страхи',
-    'Тут боль, с которой она не работала',
-    'Обнаружил её слабое место',
-    'Интересно, готова ли она к исцелению',
-    'Она повторяет одну и ту же ошибку',
-  ],
-  'Меркурий': [
-    'Формулирую её внутренний конфликт',
-    'Вижу противоречие в её логике',
-    'Составляю дилемму, где оба варианта её пугают',
-    'Интересно, как она аргументирует свой выбор',
-    'Она думает одно, говорит другое, делает третье',
-    'Подготовил вопросы, которые её заставят задуматься',
-  ],
-  'Марс': [
-    'Подбираю правильный градус напряжения',
-    'Добавлю агрессии в её выборы',
-    'Посмотрим, может ли она постоять за себя',
-    'Проверю её на смелость',
-    'Она часто уступает, когда надо бороться',
-    'Настало время действовать, а не размышлять',
-  ],
-  'Юпитер': [
-    'Расширяю контекст её истории',
-    'Вижу более широкую картину',
-    'Добавляю философский смысл',
-    'Интересно, какой урок она извлечёт',
-    'Показываю ей возможности, о которых она не думала',
-    'Направляю её к росту через этот опыт',
-  ],
-};
 
 // Тексты для кнопки отмены генерации истории
 const CANCEL_GENERATION_TEXTS = [
@@ -1121,131 +1040,122 @@ const ModernNastiaApp: React.FC = () => {
       for (const dialogueMessage of personalizedPlanetMessages.dialogue) {
         messagePoolRef.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
       }
-    } else {
-      // Диалога еще нет - используем fallback, но будем динамически переключаться
-      if (isLoadingPersonalizedMessages) {
-        console.log('[GenerationAnimation] ⏳ Starting with fallback dialogue, will switch to personalized when ready...');
-      } else {
-        console.log('[GenerationAnimation] Using fallback dialogue (no personalized dialogue available)');
-      }
 
-      // Заполняем fallback сообщениями
-      const planetNames = Object.keys(PLANET_MESSAGE_POOLS) as Array<keyof typeof PLANET_MESSAGE_POOLS>;
-      for (const planetName of planetNames) {
-        const messages = PLANET_MESSAGE_POOLS[planetName];
-        for (const message of messages) {
-          messagePoolRef.push({ planet: planetName, message });
-        }
+      // Запускаем генерацию с текущим пулом сообщений
+      startMessageGeneration(messagePoolRef, false);
+    } else {
+      // Диалога еще нет - показываем вступительное сообщение и ждём загрузки
+      if (isLoadingPersonalizedMessages) {
+        console.log('[GenerationAnimation] ⏳ Waiting for personalized dialogue to load...');
+
+        // Показываем вступительное сообщение
+        showIntroductionMessage();
+
+        // Запускаем ожидание загрузки
+        waitForPersonalizedMessages();
+      } else {
+        console.log('[GenerationAnimation] ⚠️ No personalized dialogue available and not loading');
       }
+      return; // Не запускаем анимацию до загрузки
     }
 
-    // Запускаем генерацию с текущим пулом сообщений
-    startMessageGeneration(messagePoolRef, isLoadingPersonalizedMessages);
+    // Функция показа вступительного сообщения
+    function showIntroductionMessage() {
+      const messageTime = new Date();
+      const hours = messageTime.getHours().toString().padStart(2, '0');
+      const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+
+      setPlanetChatMessages([{
+        planet: 'Луна',
+        message: 'Так, коллеги, собираемся! Сейчас обсудим, какую историю для Насти придумать...',
+        time: `${hours}:${minutes}`,
+        id: 'intro-message',
+      }]);
+    }
+
+    // Функция ожидания загрузки персонализированных сообщений
+    function waitForPersonalizedMessages() {
+      const checkInterval = 200;
+      let checkCount = 0;
+      const maxChecks = 150; // Максимум 30 секунд (150 * 200ms)
+
+      const checkMessages = () => {
+        checkCount++;
+
+        const currentMessages = personalizedPlanetMessagesRef.current;
+        const currentLoading = isLoadingPersonalizedMessagesRef.current;
+
+        // Проверяем, загрузились ли сообщения
+        if (currentMessages &&
+            currentMessages.dialogue &&
+            Array.isArray(currentMessages.dialogue) &&
+            currentMessages.dialogue.length > 0) {
+          console.log('[GenerationAnimation] ✅ Personalized dialogue loaded, starting animation!');
+
+          // Очищаем вступительное сообщение
+          setPlanetChatMessages([]);
+
+          // Создаём пул сообщений
+          const newPool: Array<{ planet: string; message: string }> = [];
+          for (const dialogueMessage of currentMessages.dialogue) {
+            newPool.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
+          }
+
+          // Запускаем анимацию
+          startMessageGeneration(newPool, false);
+          return;
+        }
+
+        // Если произошла ошибка
+        if (!currentLoading) {
+          console.log('[GenerationAnimation] ❌ Failed to load personalized messages');
+          return;
+        }
+
+        // Продолжаем проверять
+        if (checkCount < maxChecks) {
+          const timer = window.setTimeout(checkMessages, checkInterval);
+          planetMessagesTimeoutRef.current.push(timer);
+        } else {
+          console.log('[GenerationAnimation] ⏱️ Timeout waiting for personalized messages');
+        }
+      };
+
+      // Начинаем проверять
+      const timer = window.setTimeout(checkMessages, checkInterval);
+      planetMessagesTimeoutRef.current.push(timer);
+    }
 
     // Функция для запуска генерации сообщений
     function startMessageGeneration(
       initialMessagePool: Array<{ planet: string; message: string }>,
       shouldWatchForPersonalized: boolean
     ) {
-      // ВАЖНО: Если это персонализированный диалог, НЕ перемешиваем - это связный разговор!
-      // Только fallback сообщения перемешиваем для разнообразия
-      const isDialogue = personalizedPlanetMessages !== null &&
-                         personalizedPlanetMessages.dialogue &&
-                         Array.isArray(personalizedPlanetMessages.dialogue) &&
-                         personalizedPlanetMessages.dialogue.length > 0;
-      let shuffledPool = isDialogue
-        ? [...initialMessagePool] // Диалог идёт по порядку
-        : [...initialMessagePool].sort(() => Math.random() - 0.5); // Fallback перемешиваем
+      // Диалог идёт строго по порядку - это связный разговор!
+      let shuffledPool = [...initialMessagePool];
       let messageIndex = 0;
-      let isUsingPersonalized = personalizedPlanetMessages !== null;
 
-      // Если нужно следить за загрузкой персонализированных сообщений
-      if (shouldWatchForPersonalized) {
-        const checkInterval = 500;
-        let checkCount = 0;
-        const maxChecks = 60; // Максимум 30 секунд (60 * 500ms)
-
-        const checkPersonalizedMessages = () => {
-          checkCount++;
-
-          const currentMessages = personalizedPlanetMessagesRef.current;
-          const currentLoading = isLoadingPersonalizedMessagesRef.current;
-
-          // Логируем каждые 4 проверки (каждые 2 секунды)
-          if (checkCount % 4 === 0) {
-            console.log(`[GenerationAnimation] Still using fallback... (${checkCount * checkInterval / 1000}s elapsed)`);
-          }
-
-          // Проверяем, загрузились ли персонализированные сообщения
-          if (currentMessages &&
-              currentMessages.dialogue &&
-              Array.isArray(currentMessages.dialogue) &&
-              currentMessages.dialogue.length > 0 &&
-              !isUsingPersonalized) {
-            console.log('[GenerationAnimation] 🔄 Switching to personalized dialogue!');
-            isUsingPersonalized = true;
-
-            // Создаем новый пул с персонализированными сообщениями
-            const newPool: Array<{ planet: string; message: string }> = [];
-            for (const planetData of currentMessages.dialogue) {
-              newPool.push({ planet: planetData.planet, message: planetData.message });
-            }
-
-            // НЕ перемешиваем - это связный диалог! Порядок важен
-            shuffledPool = [...newPool];
-            messageIndex = 0;
-
-            console.log('[GenerationAnimation] ✅ Now using personalized dialogue (in order)');
-            return; // Больше не проверяем
-          }
-
-          // Проверяем, не было ли ошибки
-          if (!currentLoading && (!currentMessages ||
-              !currentMessages.dialogue ||
-              !Array.isArray(currentMessages.dialogue) ||
-              currentMessages.dialogue.length === 0)) {
-            console.log('[GenerationAnimation] ❌ Failed to load personalized messages, continuing with fallback');
-            return; // Продолжаем с fallback, больше не проверяем
-          }
-
-          // Продолжаем проверять, если не превысили лимит
-          if (checkCount < maxChecks && currentLoading) {
-            const timer = window.setTimeout(checkPersonalizedMessages, checkInterval);
-            planetMessagesTimeoutRef.current.push(timer);
-          } else if (checkCount >= maxChecks) {
-            console.log('[GenerationAnimation] ⏱️ Timeout waiting for personalized messages, continuing with fallback');
-          }
-        };
-
-        // Начинаем проверять через 500мс
-        const timer = window.setTimeout(checkPersonalizedMessages, checkInterval);
-        planetMessagesTimeoutRef.current.push(timer);
-      }
-
-      // Функция для генерации одного сообщения
+      // Функция для генерации одного сообщения с индивидуальными задержками для каждой планеты
       const generatePlanetMessage = (delay: number) => {
-        // Если сообщения закончились, начинаем сначала
+        // Если сообщения закончились, начинаем сначала (не перемешиваем - это связный диалог!)
         if (messageIndex >= shuffledPool.length) {
           messageIndex = 0;
-          // ВАЖНО: Диалог не перемешиваем, это связный разговор!
-          // Только fallback сообщения можно перемешать
-          const isCurrentlyDialogue = isUsingPersonalized && shuffledPool.length >= 20;
-          if (!isCurrentlyDialogue) {
-            shuffledPool.sort(() => Math.random() - 0.5);
-          }
         }
 
         const { planet, message } = shuffledPool[messageIndex];
         messageIndex++;
 
-        // Показываем индикатор печати
+        // Рассчитываем индивидуальную паузу перед началом печати для этой планеты
+        const pauseBefore = calculatePauseBefore(planet);
+
+        // Показываем индикатор печати с индивидуальной задержкой
         const typingTimer = window.setTimeout(() => {
           setCurrentTypingPlanet(planet);
-        }, delay);
+        }, delay + pauseBefore);
         planetMessagesTimeoutRef.current.push(typingTimer);
 
-        // Через 1.5-2.5 сек добавляем сообщение
-        const typingDuration = 1500 + Math.random() * 1000;
+        // Рассчитываем индивидуальную длительность печати на основе длины сообщения и скорости планеты
+        const typingDuration = calculateTypingDuration(message, planet);
         const messageId = `planet-msg-${Date.now()}-${Math.random()}`;
 
         const messageTimer = window.setTimeout(() => {
@@ -1267,15 +1177,15 @@ const ModernNastiaApp: React.FC = () => {
             },
           ]);
 
-          // Планируем следующее сообщение через 300-800 мс
-          const nextDelay = 300 + Math.random() * 500;
-          generatePlanetMessage(nextDelay);
-        }, delay + typingDuration);
+          // Рассчитываем индивидуальную паузу после сообщения для этой планеты
+          const pauseAfter = calculatePauseAfter(planet);
+          generatePlanetMessage(pauseAfter);
+        }, delay + pauseBefore + typingDuration);
         planetMessagesTimeoutRef.current.push(messageTimer);
       };
 
-      // Запускаем первое сообщение через 500 мс
-      generatePlanetMessage(500);
+      // Запускаем первое сообщение через небольшую начальную задержку
+      generatePlanetMessage(0);
     }
   }, [personalizedPlanetMessages, isLoadingPersonalizedMessages]);
 
@@ -1284,46 +1194,24 @@ const ModernNastiaApp: React.FC = () => {
     setIntroMessagesVisible(0);
     setIntroTyping(false);
 
-    // Добавляем сообщения от "История" о жанре и контракте напрямую в planetChatMessages
+    // Добавляем сообщение от "История" о контракте напрямую в planetChatMessages
     const now = new Date();
-
-    // Сначала показываем индикатор печати для жанра
-    const genreTypingTimer = window.setTimeout(() => {
-      setCurrentTypingPlanet('История');
-    }, 600);
-    introAnimationTimeoutsRef.current.push(genreTypingTimer);
-
-    // Через 1.5 сек показываем сообщение с жанром
-    const genreMessageTimer = window.setTimeout(() => {
-      setCurrentTypingPlanet(null);
-      const messageTime = new Date(now.getTime() + 2100);
-      const hours = messageTime.getHours().toString().padStart(2, '0');
-      const minutes = messageTime.getMinutes().toString().padStart(2, '0');
-      const genreMessage = {
-        planet: 'История',
-        message: `Жанр: ${historyStoryMetaRef.current?.genre ?? historyStoryAuthor?.genre ?? 'неизвестный жанр'}`,
-        id: `story-genre-${Date.now()}`,
-        time: `${hours}:${minutes}`,
-      };
-      setPlanetChatMessages(prev => [...prev, genreMessage]);
-    }, 2100);
-    introAnimationTimeoutsRef.current.push(genreMessageTimer);
 
     // Показываем индикатор печати для контракта
     const contractTypingTimer = window.setTimeout(() => {
       setCurrentTypingPlanet('История');
-    }, 2800);
+    }, 600);
     introAnimationTimeoutsRef.current.push(contractTypingTimer);
 
-    // Через 1.5 сек показываем сообщение с контрактом
+    // Через 1.5 сек показываем сообщение с контрактом (без слова "Контракт:")
     const contractMessageTimer = window.setTimeout(() => {
       setCurrentTypingPlanet(null);
-      const messageTime = new Date(now.getTime() + 4300);
+      const messageTime = new Date(now.getTime() + 2100);
       const hours = messageTime.getHours().toString().padStart(2, '0');
       const minutes = messageTime.getMinutes().toString().padStart(2, '0');
       const contractMessage = {
         planet: 'История',
-        message: `Контракт: ${historyStoryMetaRef.current?.contract ?? 'Контракт не определён'}`,
+        message: historyStoryMetaRef.current?.contract ?? 'Контракт не определён',
         id: `story-contract-${Date.now()}`,
         time: `${hours}:${minutes}`,
       };
@@ -1331,7 +1219,7 @@ const ModernNastiaApp: React.FC = () => {
 
       // После показа контракта переходим в ready
       setIntroMessagesVisible(4);
-    }, 4300);
+    }, 2100);
     introAnimationTimeoutsRef.current.push(contractMessageTimer);
   }, [clearIntroAnimationTimers, historyStoryAuthor]);
 
@@ -1757,6 +1645,13 @@ const ModernNastiaApp: React.FC = () => {
     // Если уже идет загрузка, не запускаем новую (используем ref для проверки)
     if (isLoadingPersonalizedMessagesRef.current) {
       return;
+    }
+
+    // Очищаем старый кэш (одноразово)
+    try {
+      localStorage.removeItem('nastia_personalized_planet_messages');
+    } catch (e) {
+      // ignore
     }
 
     // Проверяем наличие API ключей
