@@ -37,7 +37,7 @@ async function translateWithChatGPT(apiKey) {
 }
 
 async function translateWithClaude(apiKey) {
-  console.log('\n🧠 Claude 4.5 Sonnet перевод:\n');
+  console.log('\n🧠 Claude Haiku 4.5 перевод:\n');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -47,7 +47,7 @@ async function translateWithClaude(apiKey) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-haiku-4-5',
       max_tokens: 500,
       temperature: 0.8,
       system: PROMPT,

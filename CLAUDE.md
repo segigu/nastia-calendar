@@ -42,6 +42,7 @@ npm test -- --watch  # Watch mode for test development
   - [src/utils/insightContent.ts](src/utils/insightContent.ts) - Daily insight descriptions
   - [src/utils/historyStory.ts](src/utils/historyStory.ts) - Interactive story generation with psychological contracts
 - **Configuration**: Uses `REACT_APP_CLAUDE_API_KEY`, `REACT_APP_CLAUDE_PROXY_URL`, `REACT_APP_OPENAI_API_KEY` env vars
+- **IMPORTANT**: Always use model **`claude-haiku-4-5`** (Haiku 4.5) for all Claude API requests - it provides the best balance of speed and quality for this application
 
 ### Astrology Features
 - **Natal charts**: [src/utils/astro.ts](src/utils/astro.ts) - Uses `astronomy-engine` for planetary positions, aspects, houses

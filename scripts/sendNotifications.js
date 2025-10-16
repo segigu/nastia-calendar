@@ -14,7 +14,7 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
+const CLAUDE_MODEL = 'claude-haiku-4-5';
 const OPENAI_MODEL = 'gpt-4o-mini';
 
 const CONFIG_FILE = 'nastia-config.json';

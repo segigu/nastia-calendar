@@ -42,7 +42,7 @@ async function callClaudeAPI(
   const proxyUrl = (claudeProxyUrl || process.env.REACT_APP_CLAUDE_PROXY_URL || '').trim();
 
   const payload = {
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-haiku-4-5',
     max_tokens: maxTokens,
     temperature,
     system,
