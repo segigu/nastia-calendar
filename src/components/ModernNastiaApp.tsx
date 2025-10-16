@@ -635,7 +635,7 @@ const ModernNastiaApp: React.FC = () => {
   const [historyCancelButtonText, setHistoryCancelButtonText] = useState('');
 
   // Новые состояния для чат-интерфейса генерации
-  const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string }>>([]);
+  const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string; isSystem?: boolean }>>([]);
   const [currentTypingPlanet, setCurrentTypingPlanet] = useState<string | null>(null);
   const planetMessagesTimeoutRef = useRef<number[]>([]);
 
@@ -1059,18 +1059,44 @@ const ModernNastiaApp: React.FC = () => {
       return; // Не запускаем анимацию до загрузки
     }
 
-    // Функция показа вступительного сообщения
+    // Функция показа вступительного сообщения и подключения планет
     function showIntroductionMessage() {
       const messageTime = new Date();
       const hours = messageTime.getHours().toString().padStart(2, '0');
       const minutes = messageTime.getMinutes().toString().padStart(2, '0');
 
+      // Сначала приветствие от Луны
       setPlanetChatMessages([{
         planet: 'Луна',
         message: 'Так, коллеги, собираемся! Сейчас обсудим, какую историю для Насти придумать...',
         time: `${hours}:${minutes}`,
         id: 'intro-message',
       }]);
+
+      // Потом планеты по очереди подключаются
+      const planets = ['Плутон', 'Венера', 'Марс', 'Сатурн', 'Меркурий', 'Нептун', 'Уран', 'Юпитер', 'Хирон'];
+
+      planets.forEach((planet, index) => {
+        const delay = 800 + index * 600; // Каждая планета через ~600 мс
+        const timer = window.setTimeout(() => {
+          const time = new Date();
+          const h = time.getHours().toString().padStart(2, '0');
+          const m = time.getMinutes().toString().padStart(2, '0');
+
+          setPlanetChatMessages(prev => [
+            ...prev,
+            {
+              planet,
+              message: `подключился к чату...`,
+              id: `planet-join-${planet}-${Date.now()}`,
+              time: `${h}:${m}`,
+              isSystem: true,
+            },
+          ]);
+        }, delay);
+
+        planetMessagesTimeoutRef.current.push(timer);
+      });
     }
 
     // Функция ожидания загрузки персонализированных сообщений
@@ -3746,16 +3772,27 @@ const ModernNastiaApp: React.FC = () => {
                 >
                   {/* Планетарные сообщения (фаза generating) */}
                   {(historyStoryPhase === 'generating' || historyStoryPhase === 'ready') && planetChatMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
-                    >
-                      <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
-                        {msg.planet}
+                    msg.isSystem ? (
+                      // Системное сообщение о подключении
+                      <div
+                        key={msg.id}
+                        className={`${styles.historyChatSystem} ${styles.visible}`}
+                      >
+                        <span className={styles.historyChatSystemPlanet}>{msg.planet}</span> {msg.message}
                       </div>
-                      <div className={styles.historyChatContent}>{msg.message}</div>
-                      <div className={styles.historyChatTime}>{msg.time}</div>
-                    </div>
+                    ) : (
+                      // Обычное сообщение
+                      <div
+                        key={msg.id}
+                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
+                      >
+                        <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
+                          {msg.planet}
+                        </div>
+                        <div className={styles.historyChatContent}>{msg.message}</div>
+                        <div className={styles.historyChatTime}>{msg.time}</div>
+                      </div>
+                    )
                   ))}
 
                   {/* Индикатор печати для планет (НЕ для "История") */}

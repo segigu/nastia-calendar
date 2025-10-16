@@ -1235,6 +1235,35 @@ html {
   animation: messageFadeSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Системные сообщения о подключении планет */
+.historyChatSystem {
+  align-self: center;
+  text-align: center;
+  font-size: 0.8rem;
+  color: rgba(139, 0, 139, 0.5);
+  padding: 0.4rem 0;
+  opacity: 0;
+  transform: translateY(10px);
+  font-style: italic;
+}
+
+.historyChatSystem.visible {
+  animation: systemMessageFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.historyChatSystemPlanet {
+  font-weight: 600;
+  color: var(--nastia-purple);
+  font-style: normal;
+}
+
+@keyframes systemMessageFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .historyChatIncoming {
   align-self: flex-start;
 }
