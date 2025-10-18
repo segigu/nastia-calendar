@@ -3831,7 +3831,7 @@ const ModernNastiaApp: React.FC = () => {
                 )}
 
                 {/* Экран генерации и готовности - единый чат-интерфейс */}
-                {(historyStoryPhase === 'generating' || historyStoryPhase === 'ready') && (
+                {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing' || historyStoryPhase === 'ready') && (
                   <>
                     {/* Заголовок с кнопкой отмены/завершения */}
                     <div className={styles.historyStoryHeader}>
@@ -3868,13 +3868,13 @@ const ModernNastiaApp: React.FC = () => {
                   }`}
                   ref={historyMessagesRef}
                 >
-                  {/* Планетарные сообщения (фаза generating) */}
-                  {(historyStoryPhase === 'generating' || historyStoryPhase === 'ready') && planetChatMessages.map((msg) => (
+                  {/* Планетарные сообщения и контракт (фазы generating, clearing, ready) */}
+                  {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing' || (historyStoryPhase === 'ready' && historyStorySegments.length === 0)) && planetChatMessages.map((msg) => (
                     msg.isSystem ? (
                       // Системное сообщение о подключении
                       <div
                         key={msg.id}
-                        className={`${styles.historyChatSystem} ${styles.visible}`}
+                        className={`${styles.historyChatSystem} ${planetMessagesClearing ? styles.clearing : styles.visible}`}
                       >
                         <span className={styles.historyChatSystemPlanet}>{msg.planet}</span> {msg.message}
                       </div>
@@ -3882,7 +3882,7 @@ const ModernNastiaApp: React.FC = () => {
                       // Обычное сообщение
                       <div
                         key={msg.id}
-                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
+                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${planetMessagesClearing ? styles.clearing : styles.visible}`}
                         data-author={msg.planet === 'Luna' ? 'Luna' : undefined}
                       >
                         <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
