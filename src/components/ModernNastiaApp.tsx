@@ -705,6 +705,8 @@ const ModernNastiaApp: React.FC = () => {
     // Останавливаем анимацию генерации
     stopGenerationAnimation();
     setPlanetChatMessages([]);
+    setPlanetMessagesClearing(false);
+    planetMessagesGenerationStartedRef.current = false;
 
     clearPsychContractContext();
     historyStoryPendingOptionsRef.current = null;
@@ -859,9 +861,9 @@ const ModernNastiaApp: React.FC = () => {
           historyStoryMetaRef.current = response.meta;
         }
 
-        // Останавливаем анимацию генерации и переходим в режим готовности
+        // Останавливаем анимацию генерации и переходим в режим очистки диалога планет
         stopGenerationAnimation();
-        setHistoryStoryPhase('ready');
+        setHistoryStoryPhase('clearing');
 
         const newSegment: HistoryStorySegment = {
           id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -1131,18 +1133,23 @@ const ModernNastiaApp: React.FC = () => {
             currentMessages.dialogue &&
             Array.isArray(currentMessages.dialogue) &&
             currentMessages.dialogue.length > 0) {
-          console.log('[GenerationAnimation] ✅ Personalized dialogue loaded, starting animation!');
+          console.log('[GenerationAnimation] ✅ Personalized dialogue loaded, continuing dialogue!');
 
-          // Очищаем вступительное сообщение
-          setPlanetChatMessages([]);
+          // Проверяем, не запущена ли уже генерация
+          if (planetMessagesGenerationStartedRef.current) {
+            console.log('[GenerationAnimation] ⚠️ Generation already started, skipping duplicate');
+            return;
+          }
 
+          // НЕ очищаем чат - диалог продолжается в том же чате!
           // Создаём пул сообщений
           const newPool: Array<{ planet: string; message: string }> = [];
           for (const dialogueMessage of currentMessages.dialogue) {
             newPool.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
           }
 
-          // Запускаем анимацию
+          // Запускаем анимацию - сообщения добавятся к уже существующим
+          planetMessagesGenerationStartedRef.current = true;
           startMessageGeneration(newPool, false);
           return;
         }
@@ -1178,9 +1185,10 @@ const ModernNastiaApp: React.FC = () => {
 
       // Функция для генерации одного сообщения с индивидуальными задержками для каждой планеты
       const generatePlanetMessage = (delay: number) => {
-        // Если сообщения закончились, начинаем сначала (не перемешиваем - это связный диалог!)
+        // Если сообщения закончились, останавливаем генерацию
         if (messageIndex >= shuffledPool.length) {
-          messageIndex = 0;
+          console.log('[GenerationAnimation] ✅ All personalized messages shown');
+          return;
         }
 
         const { planet, message } = shuffledPool[messageIndex];
@@ -1504,6 +1512,47 @@ const ModernNastiaApp: React.FC = () => {
       });
     }
   }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions]);
+
+  // Анимация удаления сообщений планет и показ контракта при переходе в фазу 'clearing'
+  useEffect(() => {
+    if (historyStoryPhase !== 'clearing') {
+      return;
+    }
+
+    console.log('[HistoryStory] Story is ready, clearing planet messages with animation');
+
+    // Устанавливаем флаг начала анимации удаления
+    setPlanetMessagesClearing(true);
+
+    // Даем время на CSS анимацию удаления сообщений планет (600ms)
+    const clearTimer = window.setTimeout(() => {
+      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" (контракт)
+      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История'));
+      setCurrentTypingPlanet(null);
+      setPlanetMessagesClearing(false);
+      console.log('[HistoryStory] Planet messages cleared, contract preserved');
+    }, 600);
+
+    // Сразу после завершения анимации удаления (600ms) + пауза (400ms) = 1000ms
+    const contractTimer = window.setTimeout(() => {
+      console.log('[HistoryStory] Starting intro messages animation (contract)');
+      // Показываем контракт с анимацией печати
+      startIntroMessagesAnimation();
+    }, 1000);
+
+    // Переходим в фазу 'ready' после показа контракта:
+    // 1000ms (удаление + пауза) + 2700ms (анимация контракта) = 3700ms
+    const readyTimer = window.setTimeout(() => {
+      setHistoryStoryPhase('ready');
+      console.log('[HistoryStory] Showing story');
+    }, 3700);
+
+    return () => {
+      window.clearTimeout(clearTimer);
+      window.clearTimeout(contractTimer);
+      window.clearTimeout(readyTimer);
+    };
+  }, [historyStoryPhase, startIntroMessagesAnimation]);
 
   // Сбрасываем badge при переходе на вкладку "Узнай себя" и прокручиваем вниз
   useEffect(() => {

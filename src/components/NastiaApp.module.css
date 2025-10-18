@@ -1239,6 +1239,10 @@ html {
   animation: messageFadeSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.historyChatBubble.clearing {
+  animation: fadeOut 0.6s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 .historyChatBubble.nastiaReplyStatic {
   opacity: 1 !important;
   transform: translateY(0) !important;
@@ -1259,6 +1263,10 @@ html {
 
 .historyChatSystem.visible {
   animation: systemMessageFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.historyChatSystem.clearing {
+  animation: fadeOut 0.6s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 .historyChatSystemPlanet {
