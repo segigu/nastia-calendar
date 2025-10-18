@@ -628,7 +628,7 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
   const [historyStoryMode, setHistoryStoryMode] = useState<'story' | 'cycles'>('story');
   const [historyStoryTyping, setHistoryStoryTyping] = useState(false);
-  const [historyStoryPhase, setHistoryStoryPhase] = useState<'idle' | 'generating' | 'ready'>('idle');
+  const [historyStoryPhase, setHistoryStoryPhase] = useState<'idle' | 'generating' | 'clearing' | 'ready'>('idle');
   const [historyStartPrompt, setHistoryStartPrompt] = useState('');
   const [historyStartButton, setHistoryStartButton] = useState('');
   const [historyStartDescription, setHistoryStartDescription] = useState('');
@@ -638,6 +638,8 @@ const ModernNastiaApp: React.FC = () => {
   const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string; isSystem?: boolean }>>([]);
   const [currentTypingPlanet, setCurrentTypingPlanet] = useState<string | null>(null);
   const planetMessagesTimeoutRef = useRef<number[]>([]);
+  const [planetMessagesClearing, setPlanetMessagesClearing] = useState(false);
+  const planetMessagesGenerationStartedRef = useRef(false);
 
   // Персонализированные сообщения от планет на основе натальной карты
   const [personalizedPlanetMessages, setPersonalizedPlanetMessages] = useState<PersonalizedPlanetMessages | null>(null);
@@ -1032,33 +1034,34 @@ const ModernNastiaApp: React.FC = () => {
 
     let messagePoolRef: Array<{ planet: string; message: string }> = [];
 
+    // ВСЕГДА показываем пролог и подключения планет
+    showIntroductionMessage();
+
     // Проверяем статус персонализированных сообщений
     if (personalizedPlanetMessages &&
         personalizedPlanetMessages.dialogue &&
         Array.isArray(personalizedPlanetMessages.dialogue) &&
         personalizedPlanetMessages.dialogue.length > 0) {
-      // Персонализированный диалог уже загружен - используем его
-      console.log('[GenerationAnimation] ✅ Using personalized planet dialogue (' + personalizedPlanetMessages.dialogue.length + ' messages)');
-      for (const dialogueMessage of personalizedPlanetMessages.dialogue) {
-        messagePoolRef.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
-      }
+      // Персонализированный диалог уже загружен - запускаем его ПОСЛЕ подключения планет
+      console.log('[GenerationAnimation] ✅ Personalized dialogue ready, will start after planets connect');
 
-      // Запускаем генерацию с текущим пулом сообщений
-      startMessageGeneration(messagePoolRef, false);
+      // Задержка после последнего подключения планет (Нептун: 4800ms) + пауза 600ms
+      const startDialogueTimer = window.setTimeout(() => {
+        console.log('[GenerationAnimation] Starting personalized dialogue');
+        const pool: Array<{ planet: string; message: string }> = [];
+        for (const dialogueMessage of personalizedPlanetMessages.dialogue) {
+          pool.push({ planet: dialogueMessage.planet, message: dialogueMessage.message });
+        }
+        startMessageGeneration(pool, false);
+      }, 5400);
+
+      planetMessagesTimeoutRef.current.push(startDialogueTimer);
+    } else if (isLoadingPersonalizedMessages) {
+      // Диалог загружается - ждём
+      console.log('[GenerationAnimation] ⏳ Waiting for personalized dialogue to load...');
+      waitForPersonalizedMessages();
     } else {
-      // Диалога еще нет - показываем вступительное сообщение и ждём загрузки
-      if (isLoadingPersonalizedMessages) {
-        console.log('[GenerationAnimation] ⏳ Waiting for personalized dialogue to load...');
-
-        // Показываем вступительное сообщение
-        showIntroductionMessage();
-
-        // Запускаем ожидание загрузки
-        waitForPersonalizedMessages();
-      } else {
-        console.log('[GenerationAnimation] ⚠️ No personalized dialogue available and not loading');
-      }
-      return; // Не запускаем анимацию до загрузки
+      console.log('[GenerationAnimation] ⚠️ No personalized dialogue available and not loading');
     }
 
     // Функция показа вступительного сообщения и подключения планет
