@@ -3967,8 +3967,8 @@ const ModernNastiaApp: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  {/* Индикатор печати для самой истории (в фазах ready и clearing) */}
-                  {(historyStoryPhase === 'ready' || historyStoryPhase === 'clearing') && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                  {/* Индикатор печати для самой истории (только в фазе ready) */}
+                  {historyStoryPhase === 'ready' && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
                       <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
