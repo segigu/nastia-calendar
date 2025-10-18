@@ -663,6 +663,7 @@ const ModernNastiaApp: React.FC = () => {
   const historyScrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const historyScrollTimeoutRef = useRef<number | null>(null);
   const historyScrollContainerRef = useRef<HTMLElement | null>(null);
+  const moonScrollPerformedRef = useRef(false);
   const clearHistoryStoryTypingTimer = useCallback(() => {
     if (historyStoryTypingTimeoutRef.current !== null) {
       window.clearTimeout(historyStoryTypingTimeoutRef.current);
@@ -709,6 +710,7 @@ const ModernNastiaApp: React.FC = () => {
     historyStorySegmentsRef.current = [];
     historyStorySummaryRef.current = '';
     historyStoryMetaRef.current = null;
+    moonScrollPerformedRef.current = false;
     setHistoryStorySegments([]);
     setHistoryStoryOptions([]);
     setHistoryStoryMeta(null);
@@ -1265,6 +1267,14 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryPhase('idle');
   }, [resetHistoryStoryState]);
 
+  const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
+    const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+    setFinaleInterpretationMode(mode);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: currentScroll, behavior: 'auto' });
+    });
+  }, []);
+
   const initiateHistoryStory = useCallback(() => {
     if (!hasAiCredentials) {
       if (!historyStoryAwaitingKeys) {
@@ -1318,7 +1328,7 @@ const ModernNastiaApp: React.FC = () => {
             if (segment.selectedOptionId === option.id) {
               break;
             }
-            updated[index] = { ...segment, selectedOptionId: option.id };
+            updated[index] = { ...segment, selectedOptionId: option.id, option: option };
             break;
           }
         }
@@ -1453,19 +1463,44 @@ const ModernNastiaApp: React.FC = () => {
       return;
     }
 
-    // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
-    requestAnimationFrame(() => {
+    // Проверяем, это Arc 1 и есть ли история с кнопками
+    const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : undefined;
+    const isArc1 = currentArc === 1;
+    const hasChoices = historyStoryOptions.length > 0;
+
+    if (isArc1 && hasChoices && !moonScrollPerformedRef.current && !historyStoryLoading && !historyStoryTyping) {
+      // Arc 1: скроллим к сообщению Луны после того, как появились кнопки
+      const buttonCount = historyStoryOptions.length;
+      const waitTime = (buttonCount * 500) + 700; // Время анимации кнопок + запас
+
+      setTimeout(() => {
+        const moonEl = document.querySelector('[data-author="Luna"]');
+        if (moonEl) {
+          const rect = (moonEl as HTMLElement).getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const targetTop = scrollTop + rect.top - 20; // 20px отступ сверху
+
+          window.scrollTo({
+            top: targetTop,
+            behavior: 'smooth'
+          });
+          moonScrollPerformedRef.current = true;
+        }
+      }, waitTime);
+    } else if (!isArc1) {
+      // Все остальные дуги: скроллим вниз
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          // Скроллим весь window до конца страницы
-          window.scrollTo({
-            top: document.documentElement.scrollHeight,
-            behavior: 'smooth'
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: 'smooth'
+            });
           });
         });
       });
-    });
-  }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase]);
+    }
+  }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions]);
 
   // Сбрасываем badge при переходе на вкладку "Узнай себя" и прокручиваем вниз
   useEffect(() => {
@@ -3796,6 +3831,7 @@ const ModernNastiaApp: React.FC = () => {
                       <div
                         key={msg.id}
                         className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
+                        data-author={msg.planet === 'Luna' ? 'Luna' : undefined}
                       >
                         <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
                           {msg.planet}
@@ -3892,9 +3928,7 @@ const ModernNastiaApp: React.FC = () => {
                     });
                     const storyTitle = historyStoryMeta?.title ?? 'История';
 
-                    const selectedChoice = segment.selectedOptionId && segment.choices
-                      ? segment.choices.find(choice => choice.id === segment.selectedOptionId)
-                      : undefined;
+                    const selectedChoice = segment.option;
 
                     return (
                       <React.Fragment key={segment.id}>
@@ -3912,7 +3946,7 @@ const ModernNastiaApp: React.FC = () => {
                           </div>
                         </div>
                         {selectedChoice && (
-                          <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.visible}`}>
+                          <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.nastiaReplyStatic} ${styles.visible}`}>
                             <div className={styles.historyChatSender}>Настя</div>
                             <div className={styles.historyChatMessageWrapper}>
                               <div className={styles.historyChatTextBlock}>
@@ -3933,8 +3967,8 @@ const ModernNastiaApp: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  {/* Индикатор печати для самой истории (только в фазе ready) */}
-                  {historyStoryPhase === 'ready' && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                  {/* Индикатор печати для самой истории (в фазах ready и clearing) */}
+                  {(historyStoryPhase === 'ready' || historyStoryPhase === 'clearing') && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
                       <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
@@ -3952,14 +3986,14 @@ const ModernNastiaApp: React.FC = () => {
                           <button
                             type="button"
                             className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'human' ? styles.active : ''}`}
-                            onClick={() => setFinaleInterpretationMode('human')}
+                            onClick={() => handleFinaleInterpretationToggle('human')}
                           >
                             На человеческом
                           </button>
                           <button
                             type="button"
                             className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'astrological' ? styles.active : ''}`}
-                            onClick={() => setFinaleInterpretationMode('astrological')}
+                            onClick={() => handleFinaleInterpretationToggle('astrological')}
                           >
                             На астрологическом
                           </button>

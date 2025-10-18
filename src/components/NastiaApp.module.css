@@ -1239,6 +1239,12 @@ html {
   animation: messageFadeSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.historyChatBubble.nastiaReplyStatic {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  animation: none !important;
+}
+
 /* Системные сообщения о подключении планет */
 .historyChatSystem {
   align-self: center;
