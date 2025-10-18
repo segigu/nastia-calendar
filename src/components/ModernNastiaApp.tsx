@@ -27,7 +27,7 @@ import {
 import {
   calculateCycleStats,
   isPredictedPeriod,
-  isPastPeriod,
+  isPeriodStartDay,
   getDaysUntilNext,
   calculateFertileWindow,
   isFertileDay,
@@ -3293,7 +3293,8 @@ const ModernNastiaApp: React.FC = () => {
 
     if (isToday(date)) {
       classes += ` ${styles.today}`;
-    } else if (isPastPeriod(date, cycles)) {
+    } else if (isPeriodStartDay(date, cycles)) {
+      // Показываем только первый день цикла (начало менструации)
       classes += ` ${styles.period}`;
     } else if (isPredictedPeriod(date, cycles)) {
       classes += ` ${styles.predicted}`;
@@ -4587,6 +4588,7 @@ const ModernNastiaApp: React.FC = () => {
           }
         }}
         cycleCount={cycles.length}
+        daysUntilNext={getDaysUntilNext(cycles)}
         hasNewStory={hasNewStoryMessage}
       />
     </div>

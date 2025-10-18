@@ -14,6 +14,7 @@ interface GlassTabBarProps {
   activeTab: TabId;
   onTabChange: (tabId: TabId) => void;
   cycleCount?: number;
+  daysUntilNext?: number; // Количество дней до следующего цикла
   hasNewStory?: boolean; // Флаг для показа badge на "Узнай себя"
 }
 
@@ -44,6 +45,7 @@ export const GlassTabBar: React.FC<GlassTabBarProps> = ({
   activeTab,
   onTabChange,
   cycleCount,
+  daysUntilNext,
   hasNewStory,
 }) => {
   return (
@@ -53,14 +55,23 @@ export const GlassTabBar: React.FC<GlassTabBarProps> = ({
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
 
-          // Кастомная иконка для вкладки "Циклы" - кружок с числом
-          const tabIcon = tab.id === 'cycles' && cycleCount !== undefined && cycleCount > 0 ? (
-            <div className={styles.cycleCountCircle}>
-              <span className={styles.cycleCountNumber}>{cycleCount}</span>
-            </div>
-          ) : (
-            tab.icon
-          );
+          // Кастомная иконка для вкладки "Календарь" - квадратик с днями до следующего цикла
+          let tabIcon = tab.icon;
+
+          if (tab.id === 'calendar' && daysUntilNext !== undefined) {
+            tabIcon = (
+              <div className={styles.calendarDaysSquare}>
+                <span className={styles.calendarDaysNumber}>{daysUntilNext}</span>
+              </div>
+            );
+          } else if (tab.id === 'cycles' && cycleCount !== undefined && cycleCount > 0) {
+            // Кастомная иконка для вкладки "Циклы" - кружок с числом
+            tabIcon = (
+              <div className={styles.cycleCountCircle}>
+                <span className={styles.cycleCountNumber}>{cycleCount}</span>
+              </div>
+            );
+          }
 
           return (
             <button

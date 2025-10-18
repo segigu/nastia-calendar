@@ -162,6 +162,30 @@
   color: inherit;
 }
 
+/* Квадратик с количеством дней до цикла (для вкладки Календарь) */
+.calendarDaysSquare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #666;
+  border-top: 6px solid #666; /* Верхняя граница в 6 раз толще */
+  border-radius: 4px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tabButton.active .calendarDaysSquare {
+  border-color: #FF6B9D;
+  border-top-color: #FF6B9D;
+}
+
+.calendarDaysNumber {
+  font-size: 15px;
+  font-weight: 700;
+  color: inherit;
+}
+
 /* Notification badge для "Узнай себя" */
 .notificationBadge {
   position: absolute;
