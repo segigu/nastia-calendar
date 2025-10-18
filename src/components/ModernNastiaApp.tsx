@@ -1251,7 +1251,7 @@ const ModernNastiaApp: React.FC = () => {
     if (moonSummary && moonSummary.trim().length > 0) {
       // Показываем индикатор печати от Луны
       const moonTypingTimer = window.setTimeout(() => {
-        setCurrentTypingPlanet('Luna');
+        setCurrentTypingPlanet('Луна');
       }, delay);
       introAnimationTimeoutsRef.current.push(moonTypingTimer);
 
@@ -1264,7 +1264,7 @@ const ModernNastiaApp: React.FC = () => {
         const hours = messageTime.getHours().toString().padStart(2, '0');
         const minutes = messageTime.getMinutes().toString().padStart(2, '0');
         const moonMessage = {
-          planet: 'Luna',
+          planet: 'Луна',
           message: moonSummary,
           id: `story-moon-${Date.now()}`,
           time: `${hours}:${minutes}`,
@@ -1517,7 +1517,7 @@ const ModernNastiaApp: React.FC = () => {
       const waitTime = (buttonCount * 500) + 700; // Время анимации кнопок + запас
 
       setTimeout(() => {
-        const moonEl = document.querySelector('[data-author="Luna"]');
+        const moonEl = document.querySelector('[data-author="Луна"]');
         if (moonEl) {
           const rect = (moonEl as HTMLElement).getBoundingClientRect();
           const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -1558,16 +1558,16 @@ const ModernNastiaApp: React.FC = () => {
 
     // Даем время на CSS анимацию удаления сообщений планет (600ms)
     const clearTimer = window.setTimeout(() => {
-      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" и "Luna"
-      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История' || msg.planet === 'Luna'));
+      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" и "Луна"
+      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История' || msg.planet === 'Луна'));
       setCurrentTypingPlanet(null);
       setPlanetMessagesClearing(false);
-      console.log('[HistoryStory] Planet messages cleared, Luna and contract preserved');
+      console.log('[HistoryStory] Planet messages cleared, Луна and contract preserved');
     }, 600);
 
     // Сразу после завершения анимации удаления (600ms) + пауза (400ms) = 1000ms
     const contractTimer = window.setTimeout(() => {
-      console.log('[HistoryStory] Starting intro messages animation (Luna + contract)');
+      console.log('[HistoryStory] Starting intro messages animation (Луна + contract)');
       // Показываем сообщение от Луны (если есть) и контракт с анимацией печати
       startIntroMessagesAnimation();
     }, 1000);
@@ -1590,9 +1590,10 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [historyStoryPhase, startIntroMessagesAnimation]);
 
-  // Сбрасываем badge при переходе на вкладку "Узнай себя" и прокручиваем вниз
+  // Управление прокруткой при переключении вкладок
   useEffect(() => {
     if (activeTab === 'discover') {
+      // Сбрасываем badge при переходе на вкладку "Узнай себя"
       setHasNewStoryMessage(false);
 
       // Прокручиваем до конца содержимого вкладки "Узнай себя"
@@ -1605,6 +1606,14 @@ const ModernNastiaApp: React.FC = () => {
               behavior: 'smooth'
             });
           });
+        });
+      });
+    } else if (activeTab === 'calendar' || activeTab === 'cycles') {
+      // Прокручиваем на самый верх для вкладок "Календарь" и "Циклы"
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
         });
       });
     }
@@ -3919,7 +3928,7 @@ const ModernNastiaApp: React.FC = () => {
                       <div
                         key={msg.id}
                         className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${planetMessagesClearing ? styles.clearing : styles.visible}`}
-                        data-author={msg.planet === 'Luna' ? 'Luna' : undefined}
+                        data-author={msg.planet === 'Луна' ? 'Луна' : undefined}
                       >
                         <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
                           {msg.planet}
