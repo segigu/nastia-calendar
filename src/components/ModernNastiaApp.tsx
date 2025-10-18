@@ -1243,19 +1243,51 @@ const ModernNastiaApp: React.FC = () => {
     setIntroMessagesVisible(0);
     setIntroTyping(false);
 
-    // Добавляем сообщение от "История" о контракте напрямую в planetChatMessages
     const now = new Date();
+    const moonSummary = historyStoryMetaRef.current?.moonSummary;
+    let delay = 600;
 
-    // Показываем индикатор печати для контракта
+    // Если есть сообщение от Луны (только в Arc 1), показываем его сначала
+    if (moonSummary && moonSummary.trim().length > 0) {
+      // Показываем индикатор печати от Луны
+      const moonTypingTimer = window.setTimeout(() => {
+        setCurrentTypingPlanet('Luna');
+      }, delay);
+      introAnimationTimeoutsRef.current.push(moonTypingTimer);
+
+      delay += 1500; // Время печати Луны
+
+      // Показываем сообщение от Луны
+      const moonMessageTimer = window.setTimeout(() => {
+        setCurrentTypingPlanet(null);
+        const messageTime = new Date(now.getTime() + delay);
+        const hours = messageTime.getHours().toString().padStart(2, '0');
+        const minutes = messageTime.getMinutes().toString().padStart(2, '0');
+        const moonMessage = {
+          planet: 'Luna',
+          message: moonSummary,
+          id: `story-moon-${Date.now()}`,
+          time: `${hours}:${minutes}`,
+        };
+        setPlanetChatMessages(prev => [...prev, moonMessage]);
+      }, delay);
+      introAnimationTimeoutsRef.current.push(moonMessageTimer);
+
+      delay += 800; // Пауза после сообщения Луны
+    }
+
+    // Показываем индикатор печати для контракта от "История"
     const contractTypingTimer = window.setTimeout(() => {
       setCurrentTypingPlanet('История');
-    }, 600);
+    }, delay);
     introAnimationTimeoutsRef.current.push(contractTypingTimer);
 
-    // Через 1.5 сек показываем сообщение с контрактом (без слова "Контракт:")
+    delay += 1500; // Время печати контракта
+
+    // Показываем сообщение с контрактом
     const contractMessageTimer = window.setTimeout(() => {
       setCurrentTypingPlanet(null);
-      const messageTime = new Date(now.getTime() + 2100);
+      const messageTime = new Date(now.getTime() + delay);
       const hours = messageTime.getHours().toString().padStart(2, '0');
       const minutes = messageTime.getMinutes().toString().padStart(2, '0');
       const contractMessage = {
@@ -1268,7 +1300,7 @@ const ModernNastiaApp: React.FC = () => {
 
       // После показа контракта переходим в ready
       setIntroMessagesVisible(4);
-    }, 2100);
+    }, delay);
     introAnimationTimeoutsRef.current.push(contractMessageTimer);
   }, [clearIntroAnimationTimers, historyStoryAuthor]);
 
@@ -1526,26 +1558,30 @@ const ModernNastiaApp: React.FC = () => {
 
     // Даем время на CSS анимацию удаления сообщений планет (600ms)
     const clearTimer = window.setTimeout(() => {
-      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" (контракт)
-      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История'));
+      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" и "Luna"
+      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История' || msg.planet === 'Luna'));
       setCurrentTypingPlanet(null);
       setPlanetMessagesClearing(false);
-      console.log('[HistoryStory] Planet messages cleared, contract preserved');
+      console.log('[HistoryStory] Planet messages cleared, Luna and contract preserved');
     }, 600);
 
     // Сразу после завершения анимации удаления (600ms) + пауза (400ms) = 1000ms
     const contractTimer = window.setTimeout(() => {
-      console.log('[HistoryStory] Starting intro messages animation (contract)');
-      // Показываем контракт с анимацией печати
+      console.log('[HistoryStory] Starting intro messages animation (Luna + contract)');
+      // Показываем сообщение от Луны (если есть) и контракт с анимацией печати
       startIntroMessagesAnimation();
     }, 1000);
 
-    // Переходим в фазу 'ready' после показа контракта:
-    // 1000ms (удаление + пауза) + 2700ms (анимация контракта) = 3700ms
+    // Переходим в фазу 'ready' после показа Луны и контракта:
+    // 1000ms (удаление + пауза) + анимация (Луна + контракт)
+    // Если есть moonSummary: 600 + 1500 + 800 + 1500 = 4400ms
+    // Если нет: 600 + 1500 = 2100ms
+    const hasMoonSummary = historyStoryMetaRef.current?.moonSummary && historyStoryMetaRef.current.moonSummary.trim().length > 0;
+    const animationTime = hasMoonSummary ? 4400 : 2100;
     const readyTimer = window.setTimeout(() => {
       setHistoryStoryPhase('ready');
       console.log('[HistoryStory] Showing story');
-    }, 3700);
+    }, 1000 + animationTime);
 
     return () => {
       window.clearTimeout(clearTimer);
@@ -4019,8 +4055,8 @@ const ModernNastiaApp: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  {/* Индикатор печати для самой истории (только в фазе ready) */}
-                  {historyStoryPhase === 'ready' && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                  {/* Индикатор печати для самой истории (в фазах ready и clearing) */}
+                  {(historyStoryPhase === 'ready' || historyStoryPhase === 'clearing') && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
                       <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
