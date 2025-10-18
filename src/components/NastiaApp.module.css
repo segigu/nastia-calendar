@@ -285,19 +285,21 @@ html {
 }
 
 .dayCell.predicted {
-  background-color: var(--nastia-pink);
+  background-color: transparent;
+  border: 2px solid #ff6b9d;
   color: var(--nastia-dark);
   position: relative;
   overflow: hidden;
 }
 
 .dayCell.predicted:hover {
-  background-color: var(--nastia-purple);
-  color: white;
+  background-color: rgba(255, 107, 157, 0.1);
+  border-color: #ff6b9d;
+  color: var(--nastia-dark);
 }
 
 .dayCell.predictedFocus {
-  background-color: #ff5c87;
+  background-color: #ff6b9d;
   color: white;
   position: relative;
   animation: predictedPulse 2.8s ease-in-out infinite;
@@ -305,7 +307,7 @@ html {
 }
 
 .dayCell.predictedFocus:hover {
-  background-color: #ff3d6f;
+  background-color: #ff5582;
   color: white;
 }
 
@@ -455,12 +457,14 @@ html {
 }
 
 .dayCell.fertile {
-  background-color: #86efac;
+  background-color: transparent;
+  border: 2px solid #10b981;
   color: #065f46;
 }
 
 .dayCell.fertile:hover {
-  background-color: #6ee7b7;
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
 }
 
 .legend {

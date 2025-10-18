@@ -121,6 +121,14 @@ export const isPastPeriod = (date: Date, cycles: CycleData[]): boolean => {
   });
 };
 
+// Проверка, является ли день первым днем цикла (началом менструации)
+export const isPeriodStartDay = (date: Date, cycles: CycleData[]): boolean => {
+  return cycles.some(cycle => {
+    const cycleDate = new Date(cycle.startDate);
+    return diffInDays(date, cycleDate) === 0; // Только первый день цикла
+  });
+};
+
 export const getDaysUntilNext = (cycles: CycleData[]): number => {
   const stats = calculateCycleStats(cycles);
   const today = new Date();
