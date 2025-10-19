@@ -659,7 +659,6 @@ html {
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.5rem;
-  padding-bottom: 120px;
   margin-bottom: 1rem;
   background: transparent;
   min-height: 70vh;
