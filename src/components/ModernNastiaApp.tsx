@@ -1545,35 +1545,26 @@ const ModernNastiaApp: React.FC = () => {
     }
   }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions]);
 
-  // Анимация удаления сообщений планет и показ контракта при переходе в фазу 'clearing'
+  // Показ сообщения от Луны и контракта при переходе в фазу 'clearing'
   useEffect(() => {
     if (historyStoryPhase !== 'clearing') {
       return;
     }
 
-    console.log('[HistoryStory] Story is ready, clearing planet messages with animation');
+    console.log('[HistoryStory] Story is ready, adding Луна message and contract to dialogue');
 
-    // Устанавливаем флаг начала анимации удаления
-    setPlanetMessagesClearing(true);
+    // НЕ удаляем сообщения планет - они остаются в чате!
+    // Просто добавляем к ним сообщение от Луны и контракт
 
-    // Даем время на CSS анимацию удаления сообщений планет (600ms)
-    const clearTimer = window.setTimeout(() => {
-      // Удаляем ТОЛЬКО сообщения планет, оставляем сообщения от "История" и "Луна"
-      setPlanetChatMessages(prev => prev.filter(msg => msg.planet === 'История' || msg.planet === 'Луна'));
-      setCurrentTypingPlanet(null);
-      setPlanetMessagesClearing(false);
-      console.log('[HistoryStory] Planet messages cleared, Луна and contract preserved');
-    }, 600);
-
-    // Сразу после завершения анимации удаления (600ms) + пауза (400ms) = 1000ms
+    // Сразу запускаем анимацию показа Луны и контракта
     const contractTimer = window.setTimeout(() => {
       console.log('[HistoryStory] Starting intro messages animation (Луна + contract)');
       // Показываем сообщение от Луны (если есть) и контракт с анимацией печати
       startIntroMessagesAnimation();
-    }, 1000);
+    }, 200);
 
     // Переходим в фазу 'ready' после показа Луны и контракта:
-    // 1000ms (удаление + пауза) + анимация (Луна + контракт)
+    // 200ms (пауза) + анимация (Луна + контракт)
     // Если есть moonSummary: 600 + 1500 + 800 + 1500 = 4400ms
     // Если нет: 600 + 1500 = 2100ms
     const hasMoonSummary = historyStoryMetaRef.current?.moonSummary && historyStoryMetaRef.current.moonSummary.trim().length > 0;
@@ -1581,10 +1572,9 @@ const ModernNastiaApp: React.FC = () => {
     const readyTimer = window.setTimeout(() => {
       setHistoryStoryPhase('ready');
       console.log('[HistoryStory] Showing story');
-    }, 1000 + animationTime);
+    }, 200 + animationTime);
 
     return () => {
-      window.clearTimeout(clearTimer);
       window.clearTimeout(contractTimer);
       window.clearTimeout(readyTimer);
     };
@@ -3913,13 +3903,13 @@ const ModernNastiaApp: React.FC = () => {
                   }`}
                   ref={historyMessagesRef}
                 >
-                  {/* Планетарные сообщения и контракт (фазы generating, clearing, ready) */}
-                  {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing' || (historyStoryPhase === 'ready' && historyStorySegments.length === 0)) && planetChatMessages.map((msg) => (
+                  {/* Планетарные сообщения и контракт - показываем всегда кроме idle */}
+                  {historyStoryPhase !== 'idle' && planetChatMessages.map((msg) => (
                     msg.isSystem ? (
                       // Системное сообщение о подключении
                       <div
                         key={msg.id}
-                        className={`${styles.historyChatSystem} ${planetMessagesClearing ? styles.clearing : styles.visible}`}
+                        className={`${styles.historyChatSystem} ${styles.visible}`}
                       >
                         <span className={styles.historyChatSystemPlanet}>{msg.planet}</span> {msg.message}
                       </div>
@@ -3927,7 +3917,7 @@ const ModernNastiaApp: React.FC = () => {
                       // Обычное сообщение
                       <div
                         key={msg.id}
-                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${planetMessagesClearing ? styles.clearing : styles.visible}`}
+                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
                         data-author={msg.planet === 'Луна' ? 'Луна' : undefined}
                       >
                         <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
