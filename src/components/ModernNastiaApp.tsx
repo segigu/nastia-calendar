@@ -1559,9 +1559,9 @@ const ModernNastiaApp: React.FC = () => {
     const hasChoices = historyStoryOptions.length > 0;
     console.log('[AutoScroll READY] Arc:', currentArc, 'isArc1:', isArc1, 'hasChoices:', hasChoices);
 
-    // Если это Arc 1, но кнопок еще нет - не скроллим, ждем следующего рендера
-    if (isArc1 && !hasChoices) {
-      console.log('[AutoScroll READY] Skipping - Arc 1 but choices not loaded yet');
+    // Если кнопок еще нет - не скроллим, ждем следующего рендера (для всех Arc)
+    if (!hasChoices) {
+      console.log('[AutoScroll READY] Skipping - choices not loaded yet');
       return;
     }
 
