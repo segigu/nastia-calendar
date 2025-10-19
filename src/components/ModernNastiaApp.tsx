@@ -1324,8 +1324,13 @@ const ModernNastiaApp: React.FC = () => {
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
     const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
     setFinaleInterpretationMode(mode);
+    // Используем тройной requestAnimationFrame для гарантированного восстановления позиции после рендера
     requestAnimationFrame(() => {
-      window.scrollTo({ top: currentScroll, behavior: 'auto' });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: currentScroll, behavior: 'auto' });
+        });
+      });
     });
   }, []);
 
