@@ -1517,6 +1517,32 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, []);
 
+  // Автоскролл при переключении вкладок
+  useEffect(() => {
+    // Используем тройной requestAnimationFrame для гарантированного рендера
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (activeTab === 'calendar' || activeTab === 'cycles') {
+            // Календарь и Циклы → наверх
+            window.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            });
+            console.log(`[Tab Switch] Scrolled to TOP for tab: ${activeTab}`);
+          } else if (activeTab === 'discover') {
+            // Узнать себя (чат) → вниз
+            window.scrollTo({
+              top: document.documentElement.scrollHeight,
+              behavior: 'smooth'
+            });
+            console.log(`[Tab Switch] Scrolled to BOTTOM for tab: ${activeTab}`);
+          }
+        });
+      });
+    });
+  }, [activeTab]);
+
   // Автоскролл для планетарных сообщений в фазе generating (НЕ clearing!)
   useEffect(() => {
     console.log('[AutoScroll GEN/CLEAR] Effect fired, phase:', historyStoryPhase, 'messages:', planetChatMessages.length);
