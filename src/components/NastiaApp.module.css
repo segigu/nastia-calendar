@@ -1573,40 +1573,12 @@ html {
   cursor: not-allowed;
 }
 
-.historyChatReplyButtonCustom {
-  border-color: rgba(139, 92, 246, 0.35);
-}
-
-.historyChatReplyButtonRecording {
-  border-color: rgba(248, 113, 113, 0.7);
-  background: rgba(248, 113, 113, 0.08);
-  box-shadow: 0 6px 18px rgba(248, 113, 113, 0.14);
-}
-
-.historyChatReplyButtonRecording::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 50% 50%, rgba(248, 113, 113, 0.18), transparent 70%);
-  animation: pulseGlow 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.historyChatReplyButtonProcessing {
-  border-color: rgba(96, 165, 250, 0.7);
-  background: rgba(96, 165, 250, 0.08);
-}
-
-.historyChatReplyButtonError {
-  border-color: rgba(248, 113, 113, 0.7);
-  background: rgba(248, 113, 113, 0.12);
-}
-
 .historyCustomButtonLayout {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .historyCustomButtonTexts {
@@ -1616,41 +1588,188 @@ html {
   gap: 0.25rem;
 }
 
-.historyCustomBadge {
+.historyCustomButton {
+  width: 100%;
+  border: none;
+  border-radius: 24px;
+  padding: 1.15rem 4.5rem 1.15rem 1.6rem;
+  background: #ffffff;
+  border: 2px solid transparent;
+  box-shadow: 0 10px 26px rgba(99, 102, 241, 0.12);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: block;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.historyCustomButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(99, 102, 241, 0.16);
+}
+
+.historyCustomButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.88;
+}
+
+.historyCustomButtonIdle {
+  --custom-border: linear-gradient(135deg, #f472b6, #8b5cf6);
+  --custom-shadow: rgba(99, 102, 241, 0.16);
+}
+
+.historyCustomButtonProcessing {
+  --custom-border: linear-gradient(135deg, rgba(167, 139, 250, 0.85), rgba(99, 102, 241, 0.7));
+  --custom-shadow: rgba(129, 140, 248, 0.22);
+}
+
+.historyCustomButtonReady {
+  --custom-border: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(59, 130, 246, 0.65));
+  --custom-shadow: rgba(45, 212, 191, 0.22);
+}
+
+.historyCustomButtonError {
+  --custom-border: linear-gradient(135deg, rgba(248, 113, 113, 0.85), rgba(251, 191, 36, 0.6));
+  --custom-shadow: rgba(248, 113, 113, 0.2);
+}
+
+.historyCustomButtonRecording {
+  --recording-glow: 0.35;
+  --recording-border-alpha: 0.6;
+  --recording-pulse: 0.45;
+  --custom-border: linear-gradient(135deg, rgba(244, 114, 182, var(--recording-border-alpha)), rgba(139, 92, 246, var(--recording-border-alpha)));
+  --custom-shadow: rgba(139, 92, 246, var(--recording-glow));
+}
+
+.historyCustomButtonRecording::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 28% 35%, rgba(244, 114, 182, var(--recording-pulse)), transparent 68%);
+  opacity: 0.85;
+  pointer-events: none;
+  filter: blur(3px);
+  transition: opacity 0.15s ease;
+}
+
+.historyCustomButton .historyChatReplyTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #1f2933;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: rgba(139, 92, 246, 0.12);
-  margin-bottom: 0.25rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: #111827;
 }
 
-.historyCustomStatusPill {
+
+.historyCustomButton .historyChatReplyDescription {
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.historyCustomTitle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: #1f2933;
-  background: rgba(15, 23, 42, 0.05);
-  padding: 0.4rem 0.75rem;
+  gap: 0.4rem;
+}
+
+.historyCustomDescription {
+  margin-top: 0.15rem;
+}
+
+.historyCustomMicroHint {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.historyCustomButtonRecording .historyCustomMicroHint {
+  color: #b45309;
+}
+
+.historyCustomButtonProcessing .historyCustomMicroHint {
+  color: #5b5e75;
+}
+
+.historyCustomButtonReady .historyCustomMicroHint {
+  color: #0f766e;
+}
+
+.historyCustomTranscript {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 0.1rem;
+}
+
+.historyCustomButtonReady .historyCustomTranscript {
+  color: #0f766e;
+}
+
+.historyCustomIconCircle {
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.26);
+  transition: transform 0.24s ease, box-shadow 0.24s ease;
+}
+
+.historyCustomIconCircle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.historyCustomIconIdle {
+  background: linear-gradient(135deg, #f472b6 0%, #8b5cf6 100%);
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.26);
+}
+
+.historyCustomIconRecording {
+  background: linear-gradient(135deg, #f472b6 0%, #8b5cf6 100%);
+  animation: customIconPulse 1.6s ease-in-out infinite;
+  box-shadow: 0 14px 32px rgba(236, 72, 153, var(--recording-glow, 0.32));
+}
+
+.historyCustomIconProcessing {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+}
+
+.historyCustomIconReady {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 16px 32px rgba(16, 185, 129, 0.32);
+}
+
+.historyCustomIconError {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  box-shadow: 0 16px 32px rgba(239, 68, 68, 0.3);
+}
+
+.historyCustomLoaderIcon {
+  animation: spin 1s linear infinite;
+}
+
+.historyCustomLiveDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  animation: customLiveDot 1.4s ease-in-out infinite;
 }
 
 .historyCustomIconButton {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 50%;
+  right: 14px;
   width: 38px;
   height: 38px;
   border-radius: 999px;
-  background: rgba(139, 92, 246, 0.16);
+  background: rgba(139, 92, 246, 0.18);
   color: #6b21a8;
   display: flex;
   align-items: center;
@@ -1658,16 +1777,27 @@ html {
   border: none;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transform: translateY(-50%);
+}
+
+.historyCustomIconButtonReady {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(16, 185, 129, 0.32);
 }
 
 .historyCustomIconButton:hover:not(:disabled) {
-  transform: scale(1.05);
-  background: rgba(139, 92, 246, 0.28);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.24);
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 10px 24px rgba(139, 92, 246, 0.28);
+}
+
+.historyCustomIconButtonReady:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 16px 30px rgba(16, 185, 129, 0.36);
 }
 
 .historyCustomIconButton:active:not(:disabled) {
-  transform: scale(0.95);
+  transform: translateY(-50%) scale(0.95);
 }
 
 .historyCustomIconButton:disabled {
@@ -1676,51 +1806,51 @@ html {
   box-shadow: none;
 }
 
-.historyCustomErrorText {
-  font-size: 0.85rem;
-  color: #b91c1c;
-}
-
-.historyCustomRecordingHint {
-  font-size: 0.85rem;
-  color: #7c2d12;
-}
-
-.historyCustomSpinner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
-  color: #1f2937;
-}
-
-.historyCustomMicroHint {
-  font-size: 0.8rem;
-  color: #4b5563;
-}
-
-.historyCustomTranscript {
-  font-size: 0.8rem;
-  color: #6b7280;
-  font-style: italic;
-}
-
 .historyCustomSubtle {
   color: #6b7280;
 }
 
-@keyframes pulseGlow {
+.historyCustomButton {
+  --customFocus: rgba(139, 92, 246, 0.4);
+}
+
+.historyCustomButton:focus-visible {
+  outline: 3px solid var(--customFocus);
+  outline-offset: 2px;
+}
+
+.historyCustomButtonReady:focus-visible {
+  --customFocus: rgba(34, 197, 94, 0.4);
+}
+
+.historyCustomButtonRecording:focus-visible {
+  --customFocus: rgba(239, 68, 68, 0.45);
+}
+
+@keyframes customIconPulse {
   0% {
-    opacity: 0.4;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.8;
+    transform: scale(1.12);
   }
   100% {
-    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+@keyframes customLiveDot {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
   }
 }
 .historyFinalSummaryBubble {

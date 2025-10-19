@@ -8,9 +8,9 @@ import {
   Cloud,
   CloudOff,
   Mic,
-  CircleStop,
   Loader2,
   RotateCcw,
+  Square,
 } from 'lucide-react';
 import { GlassTabBar, type TabId } from './GlassTabBar';
 import {
@@ -651,6 +651,7 @@ const ModernNastiaApp: React.FC = () => {
     transcript: undefined,
     error: undefined,
   });
+  const [historyCustomRecordingLevel, setHistoryCustomRecordingLevel] = useState(0);
   const [historyStoryLoading, setHistoryStoryLoading] = useState(false);
   const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
   const [historyStoryMode, setHistoryStoryMode] = useState<'story' | 'cycles'>('story');
@@ -693,6 +694,10 @@ const ModernNastiaApp: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const analyserDataRef = useRef<Uint8Array | null>(null);
+  const recordingAnimationFrameRef = useRef<number | null>(null);
   const historyMessagesRef = useRef<HTMLDivElement | null>(null);
   const historyScrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const historyScrollTimeoutRef = useRef<number | null>(null);
@@ -786,10 +791,33 @@ const ModernNastiaApp: React.FC = () => {
       mediaRecorderRef.current = null;
     }
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (error) {
+          console.warn('[HistoryStory] Failed to stop media track', error);
+        }
+      });
       mediaStreamRef.current = null;
     }
+    if (recordingAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(recordingAnimationFrameRef.current);
+      recordingAnimationFrameRef.current = null;
+    }
+    if (audioContextRef.current) {
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+      audioAnalyserRef.current = null;
+      analyserDataRef.current = null;
+      void context.close().catch(error => {
+        console.warn('[HistoryStory] Failed to close audio context', error);
+      });
+    } else {
+      audioAnalyserRef.current = null;
+      analyserDataRef.current = null;
+    }
     audioChunksRef.current = [];
+    setHistoryCustomRecordingLevel(0);
     setHistoryStorySegments([]);
     setHistoryStoryOptions([]);
     setHistoryCustomOption({
@@ -1666,6 +1694,59 @@ const ModernNastiaApp: React.FC = () => {
     }
   }, [cleanupCustomOptionResources]);
 
+  const startRecordingLevelMonitor = useCallback(async (stream: MediaStream) => {
+    try {
+      const AudioContextClass: typeof AudioContext | undefined = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) {
+        return;
+      }
+
+      const audioContext = new AudioContextClass();
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+        } catch (error) {
+          console.warn('[HistoryStory] Failed to resume audio context', error);
+        }
+      }
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.3;
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      audioContextRef.current = audioContext;
+      audioAnalyserRef.current = analyser;
+      analyserDataRef.current = dataArray;
+
+      const updateLevel = () => {
+        if (!audioAnalyserRef.current || !analyserDataRef.current) {
+          return;
+        }
+
+        audioAnalyserRef.current.getByteTimeDomainData(analyserDataRef.current);
+        let sumSquares = 0;
+        for (let index = 0; index < analyserDataRef.current.length; index += 1) {
+          const deviation = analyserDataRef.current[index] - 128;
+          sumSquares += deviation * deviation;
+        }
+        const rms = Math.sqrt(sumSquares / analyserDataRef.current.length) / 128;
+        const normalized = Math.min(1, rms * 2.4);
+
+        setHistoryCustomRecordingLevel(prev => prev * 0.55 + normalized * 0.45);
+
+        recordingAnimationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+
+      recordingAnimationFrameRef.current = requestAnimationFrame(updateLevel);
+    } catch (error) {
+      console.warn('[HistoryStory] Failed to initialize audio analyser', error);
+    }
+  }, []);
+
   const startHistoryCustomRecording = useCallback(async () => {
     const activeRecorder = mediaRecorderRef.current;
     if (activeRecorder && activeRecorder.state === 'recording') {
@@ -1738,6 +1819,8 @@ const ModernNastiaApp: React.FC = () => {
         error: undefined,
       }));
 
+      void startRecordingLevelMonitor(stream);
+
       recorder.start();
     } catch (error) {
       console.error('[HistoryStory] Failed to start recording', error);
@@ -1756,6 +1839,7 @@ const ModernNastiaApp: React.FC = () => {
     cleanupCustomOptionResources,
     processRecordedCustomOption,
     stopHistoryCustomRecording,
+    startRecordingLevelMonitor,
   ]);
 
   useEffect(() => {
@@ -1813,6 +1897,12 @@ const ModernNastiaApp: React.FC = () => {
       };
     });
   }, [historyStoryOptions]);
+
+  useEffect(() => {
+    if (historyCustomOption.status !== 'recording') {
+      setHistoryCustomRecordingLevel(0);
+    }
+  }, [historyCustomOption.status]);
 
   useEffect(() => {
     if (!historyStoryMenuOpen) {
@@ -2619,16 +2709,7 @@ const ModernNastiaApp: React.FC = () => {
   const customOptionReady = historyCustomOption.option;
   const isCustomOptionProcessing = customOptionStatus === 'transcribing' || customOptionStatus === 'generating';
   const showCustomOption = historyStoryOptions.length > 0;
-  const customTranscriptPreview = useMemo(() => {
-    const transcriptText = historyCustomOption.transcript?.trim();
-    if (!transcriptText) {
-      return null;
-    }
-    if (transcriptText.length <= 120) {
-      return transcriptText;
-    }
-    return `${transcriptText.slice(0, 117).trimEnd()}…`;
-  }, [historyCustomOption.transcript]);
+  const showLiveRecordingDot = customOptionStatus === 'recording';
 
   const handleCustomOptionClick = useCallback(() => {
     if (customOptionStatus === 'recording') {
@@ -2666,69 +2747,84 @@ const ModernNastiaApp: React.FC = () => {
     [startHistoryCustomRecording],
   );
 
-  const customBadgeLabel = customOptionStatus === 'ready' ? 'Твой вариант' : 'Голосом';
-  let customButtonClassName = `${styles.historyChatReplyButton} ${styles.historyChatReplyButtonCustom}`;
-  let customButtonTitle = 'Свой вариант';
-  let customButtonDescription = 'Продиктуй, как бы ты продолжила историю — я превращу это в карточку.';
-  let customButtonHint: string | null = 'Нажми, чтобы начать запись.';
-  let customButtonIcon: React.ReactNode = <Mic size={20} />;
+  const customButtonClassNames = [styles.historyCustomButton, styles.historyCustomButtonIdle];
+  let customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconIdle}`;
+  let customButtonTitle: React.ReactNode = 'Свой вариант';
+  let customButtonDescription = 'Продиктуй, как бы ты продолжила историю.';
+  let customButtonIcon: React.ReactNode = <Mic size={18} strokeWidth={2.2} />;
   let customButtonAriaLabel = 'Записать свой вариант голосом';
   let customButtonDisabled = (historyStoryLoading && customOptionStatus !== 'recording') || isCustomOptionProcessing;
+  let reRecordButtonClassName = `${styles.historyCustomIconButton}`;
 
   switch (customOptionStatus) {
     case 'idle':
-      customButtonHint = 'Запись начнётся сразу после нажатия.';
       break;
     case 'recording':
-      customButtonTitle = 'Запись идёт';
-      customButtonDescription = 'Говори — и нажми ещё раз, когда закончишь.';
-      customButtonClassName += ` ${styles.historyChatReplyButtonRecording}`;
-      customButtonIcon = <CircleStop size={20} />;
+      customButtonClassNames.push(styles.historyCustomButtonRecording);
+      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconRecording}`;
+      customButtonTitle = 'Идёт запись…';
+      customButtonDescription = 'Нажми, чтобы остановить.';
+      customButtonIcon = <Square size={16} strokeWidth={3} fill="currentColor" />;
       customButtonAriaLabel = 'Остановить запись';
       customButtonDisabled = false;
-      customButtonHint = 'Можно остановить запись повторным нажатием.';
       break;
     case 'transcribing':
-      customButtonTitle = 'Расшифровываю запись';
-      customButtonDescription = 'Перевожу голос в текст...';
-      customButtonClassName += ` ${styles.historyChatReplyButtonProcessing}`;
-      customButtonIcon = <Loader2 size={20} className={styles.spinning} />;
-      customButtonAriaLabel = 'Расшифровываем запись';
+      customButtonClassNames.push(styles.historyCustomButtonProcessing);
+      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconProcessing}`;
+      customButtonTitle = 'Обрабатываем запись…';
+      customButtonDescription = 'Перевожу голос в текст.';
+      customButtonIcon = <Loader2 size={18} className={styles.historyCustomLoaderIcon} strokeWidth={2.4} />;
+      customButtonAriaLabel = 'Распознаём аудио';
       customButtonDisabled = true;
-      customButtonHint = null;
       break;
     case 'generating':
-      customButtonTitle = 'Придумываю формулировку';
+      customButtonClassNames.push(styles.historyCustomButtonProcessing);
+      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconProcessing}`;
+      customButtonTitle = 'Придумываем формулировку…';
       customButtonDescription = 'Собираю заголовок и описание из твоих слов.';
-      customButtonClassName += ` ${styles.historyChatReplyButtonProcessing}`;
-      customButtonIcon = <Loader2 size={20} className={styles.spinning} />;
+      customButtonIcon = <Loader2 size={18} className={styles.historyCustomLoaderIcon} strokeWidth={2.4} />;
       customButtonAriaLabel = 'Готовим карточку из записи';
       customButtonDisabled = true;
-      customButtonHint = null;
       break;
     case 'error':
+      customButtonClassNames.push(styles.historyCustomButtonError);
+      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconError}`;
       customButtonTitle = 'Не удалось распознать';
       customButtonDescription = historyCustomOption.error ?? 'Попробуем записать снова?';
-      customButtonClassName += ` ${styles.historyChatReplyButtonError}`;
-      customButtonIcon = <RotateCcw size={18} />;
+      customButtonIcon = <RotateCcw size={18} strokeWidth={2.4} />;
       customButtonAriaLabel = 'Попробовать записать ещё раз';
       customButtonDisabled = false;
-      customButtonHint = 'Нажми, чтобы перезаписать.';
       break;
     case 'ready':
+      customButtonClassNames.push(styles.historyCustomButtonReady);
+      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconReady}`;
       customButtonTitle = customOptionReady?.title ?? 'Свой вариант';
       customButtonDescription =
         customOptionReady?.description ??
         historyCustomOption.transcript ??
         'Проверь, всё ли звучит, как тебе хочется.';
-      customButtonClassName += ` ${styles.historyChatReplyButtonCustom}`;
       customButtonIcon = null;
       customButtonAriaLabel = 'Выбрать свой вариант';
       customButtonDisabled = historyStoryLoading;
-      customButtonHint = 'Нажми, чтобы продолжить историю с этим вариантом.';
+      reRecordButtonClassName = `${styles.historyCustomIconButton} ${styles.historyCustomIconButtonReady}`;
       break;
     default:
       break;
+  }
+
+  const customButtonClassName = customButtonClassNames.join(' ');
+  const customButtonStyle: (React.CSSProperties & Record<string, string | number>) = {};
+
+  if (customOptionStatus === 'recording') {
+    const glow = Math.min(0.95, 0.28 + historyCustomRecordingLevel * 0.55);
+    const borderAlpha = Math.min(0.95, 0.5 + historyCustomRecordingLevel * 0.4);
+    const pulse = Math.min(0.95, 0.4 + historyCustomRecordingLevel * 0.6);
+    customButtonStyle['--recording-glow'] = glow;
+    customButtonStyle['--recording-border-alpha'] = borderAlpha;
+    customButtonStyle['--recording-pulse'] = pulse;
+    const borderGradient = `linear-gradient(135deg, rgba(244, 114, 182, ${borderAlpha}), rgba(139, 92, 246, ${borderAlpha}))`;
+    customButtonStyle['--custom-border'] = borderGradient;
+    customButtonStyle['--custom-shadow'] = `rgba(139, 92, 246, ${Math.max(0.2, glow)})`;
   }
 
   const fallbackPeriodContent = useMemo(
@@ -4726,23 +4822,20 @@ const ModernNastiaApp: React.FC = () => {
                           onClick={handleCustomOptionClick}
                           disabled={customButtonDisabled}
                           aria-label={customButtonAriaLabel}
+                          style={customButtonStyle}
                         >
                           <div className={styles.historyCustomButtonLayout}>
                             <div className={styles.historyCustomButtonTexts}>
-                              <span className={styles.historyCustomBadge}>{customBadgeLabel}</span>
-                              <span className={styles.historyChatReplyTitle}>{customButtonTitle}</span>
-                              <span className={styles.historyChatReplyDescription}>{customButtonDescription}</span>
-                              {customButtonHint && (
-                                <span className={styles.historyCustomMicroHint}>{customButtonHint}</span>
-                              )}
-                              {customOptionStatus === 'ready' && customTranscriptPreview && (
-                                <span className={styles.historyCustomTranscript}>
-                                  Распознано:&nbsp;«{customTranscriptPreview}»
-                                </span>
-                              )}
+                              <span className={`${styles.historyChatReplyTitle} ${styles.historyCustomTitle}`}>
+                                {showLiveRecordingDot && <span className={styles.historyCustomLiveDot} aria-hidden="true" />}
+                                {customButtonTitle}
+                              </span>
+                              <span className={`${styles.historyChatReplyDescription} ${styles.historyCustomDescription}`}>
+                                {customButtonDescription}
+                              </span>
                             </div>
                             {customButtonIcon && (
-                              <div className={styles.historyCustomSpinner}>
+                              <div className={customIconWrapperClass}>
                                 {customButtonIcon}
                               </div>
                             )}
@@ -4751,7 +4844,7 @@ const ModernNastiaApp: React.FC = () => {
                         {customOptionStatus === 'ready' && (
                           <button
                             type="button"
-                            className={styles.historyCustomIconButton}
+                            className={reRecordButtonClassName}
                             onClick={event => handleCustomOptionRerecord(event)}
                             disabled={historyStoryLoading || isCustomOptionProcessing}
                             title="Перезаписать голосом"
