@@ -920,11 +920,16 @@ function normalizeResponse(raw: unknown, options: NormalizeOptions): HistoryStor
 
   const metaSource = (raw as any)?.meta ?? (raw as any);
   const nodeSource = (raw as any)?.node ?? (raw as any);
-  const choicesSource = Array.isArray((raw as any)?.choices)
-    ? (raw as any).choices
-    : Array.isArray((raw as any)?.options)
-      ? (raw as any).options
-      : [];
+  // Ищем choices внутри node или на верхнем уровне (для обратной совместимости)
+  const choicesSource = Array.isArray(nodeSource?.choices)
+    ? nodeSource.choices
+    : Array.isArray(nodeSource?.options)
+      ? nodeSource.options
+      : Array.isArray((raw as any)?.choices)
+        ? (raw as any).choices
+        : Array.isArray((raw as any)?.options)
+          ? (raw as any).options
+          : [];
 
   const resolvedContract =
     typeof metaSource?.contract === 'string' && metaSource.contract.trim().length > 0

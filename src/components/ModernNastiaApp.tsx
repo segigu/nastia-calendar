@@ -1247,7 +1247,7 @@ const ModernNastiaApp: React.FC = () => {
     const moonSummary = historyStoryMetaRef.current?.moonSummary;
     let delay = 600;
 
-    // Если есть сообщение от Луны (только в Arc 1), показываем его сначала
+    // Если есть сообщение от Луны (только в Arc 1), показываем его
     if (moonSummary && moonSummary.trim().length > 0) {
       // Показываем индикатор печати от Луны
       const moonTypingTimer = window.setTimeout(() => {
@@ -1270,39 +1270,16 @@ const ModernNastiaApp: React.FC = () => {
           time: `${hours}:${minutes}`,
         };
         setPlanetChatMessages(prev => [...prev, moonMessage]);
+
+        // После показа Луны переходим в ready
+        setIntroMessagesVisible(4);
       }, delay);
       introAnimationTimeoutsRef.current.push(moonMessageTimer);
-
-      delay += 800; // Пауза после сообщения Луны
-    }
-
-    // Показываем индикатор печати для контракта от "История"
-    const contractTypingTimer = window.setTimeout(() => {
-      setCurrentTypingPlanet('История');
-    }, delay);
-    introAnimationTimeoutsRef.current.push(contractTypingTimer);
-
-    delay += 1500; // Время печати контракта
-
-    // Показываем сообщение с контрактом
-    const contractMessageTimer = window.setTimeout(() => {
-      setCurrentTypingPlanet(null);
-      const messageTime = new Date(now.getTime() + delay);
-      const hours = messageTime.getHours().toString().padStart(2, '0');
-      const minutes = messageTime.getMinutes().toString().padStart(2, '0');
-      const contractMessage = {
-        planet: 'История',
-        message: historyStoryMetaRef.current?.contract ?? 'Контракт не определён',
-        id: `story-contract-${Date.now()}`,
-        time: `${hours}:${minutes}`,
-      };
-      setPlanetChatMessages(prev => [...prev, contractMessage]);
-
-      // После показа контракта переходим в ready
+    } else {
+      // Если нет сообщения от Луны, сразу переходим в ready
       setIntroMessagesVisible(4);
-    }, delay);
-    introAnimationTimeoutsRef.current.push(contractMessageTimer);
-  }, [clearIntroAnimationTimers, historyStoryAuthor]);
+    }
+  }, [clearIntroAnimationTimers]);
 
   const handleCancelGeneration = useCallback(() => {
     console.log('[HistoryStory] Cancelling generation');
@@ -1476,16 +1453,20 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [historyStoryMenuOpen]);
 
-  // Автоскролл для планетарных сообщений в фазе generating
+  // Автоскролл для планетарных сообщений в фазе generating и clearing
   useEffect(() => {
-    if (historyStoryPhase !== 'generating') {
+    console.log('[AutoScroll GEN/CLEAR] Effect fired, phase:', historyStoryPhase, 'messages:', planetChatMessages.length);
+    if (historyStoryPhase !== 'generating' && historyStoryPhase !== 'clearing') {
+      console.log('[AutoScroll GEN/CLEAR] Skipping - wrong phase');
       return;
     }
 
     if (planetChatMessages.length === 0 && !currentTypingPlanet) {
+      console.log('[AutoScroll GEN/CLEAR] Skipping - no messages or typing');
       return;
     }
 
+    console.log('[AutoScroll GEN/CLEAR] ✅ Scrolling to BOTTOM');
     // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -1502,90 +1483,111 @@ const ModernNastiaApp: React.FC = () => {
 
   // Автоскролл для сообщений истории в фазе ready
   useEffect(() => {
+    console.log('[AutoScroll READY] Effect fired, phase:', historyStoryPhase);
     if (historyStoryPhase !== 'ready') {
+      console.log('[AutoScroll READY] Skipping - wrong phase');
       return;
     }
 
-    // Проверяем, это Arc 1 и есть ли история с кнопками
-    const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : undefined;
+    // Проверяем, это Arc 1 или последующие
+    const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
     const isArc1 = currentArc === 1;
     const hasChoices = historyStoryOptions.length > 0;
+    console.log('[AutoScroll READY] Arc:', currentArc, 'isArc1:', isArc1, 'hasChoices:', hasChoices);
 
-    if (isArc1 && hasChoices && !moonScrollPerformedRef.current && !historyStoryLoading && !historyStoryTyping) {
-      // Arc 1: скроллим к сообщению Луны после того, как появились кнопки
-      const buttonCount = historyStoryOptions.length;
-      const waitTime = (buttonCount * 500) + 700; // Время анимации кнопок + запас
-
-      setTimeout(() => {
-        const moonEl = document.querySelector('[data-author="Луна"]');
-        if (moonEl) {
-          const rect = (moonEl as HTMLElement).getBoundingClientRect();
-          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          const targetTop = scrollTop + rect.top - 20; // 20px отступ сверху
-
-          window.scrollTo({
-            top: targetTop,
-            behavior: 'smooth'
-          });
-          moonScrollPerformedRef.current = true;
-        }
-      }, waitTime);
-    } else if (!isArc1) {
-      // Все остальные дуги: скроллим вниз
+    // Ждём, пока история и кнопки полностью отрендерятся
+    const scrollTimeout = window.setTimeout(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            window.scrollTo({
-              top: document.documentElement.scrollHeight,
-              behavior: 'smooth'
-            });
+            if (isArc1 && hasChoices) {
+              // Arc 1: прокручиваем к последнему сообщению Луны (с moon_summary)
+              const moonElements = document.querySelectorAll('[data-author="Луна"]');
+              console.log('[AutoScroll READY] Found', moonElements.length, 'Moon elements');
+              if (moonElements.length > 0) {
+                const lastMoonEl = moonElements[moonElements.length - 1] as HTMLElement;
+                const rect = lastMoonEl.getBoundingClientRect();
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const targetTop = scrollTop + rect.top - 20; // 20px отступ сверху
+
+                console.log('[AutoScroll READY] ✅ Scrolling to MOON, targetTop:', targetTop);
+                window.scrollTo({
+                  top: targetTop,
+                  behavior: 'smooth'
+                });
+              } else {
+                console.log('[AutoScroll READY] ✅ No Moon elements, scrolling to BOTTOM');
+                window.scrollTo({
+                  top: document.documentElement.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+            } else {
+              // Остальные дуги: прокручиваем вниз к истории и кнопкам
+              console.log('[AutoScroll READY] ✅ Not Arc 1, scrolling to BOTTOM');
+              window.scrollTo({
+                top: document.documentElement.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
           });
         });
       });
-    }
+    }, 1000); // Задержка 1000ms для гарантированного рендера истории и кнопок
+
+    return () => {
+      window.clearTimeout(scrollTimeout);
+    };
   }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions]);
 
-  // Показ сообщения от Луны и контракта при переходе в фазу 'clearing'
+  // Показ сообщения от Луны при переходе в фазу 'clearing'
   useEffect(() => {
     if (historyStoryPhase !== 'clearing') {
       return;
     }
 
-    console.log('[HistoryStory] Story is ready, adding Луна message and contract to dialogue');
+    console.log('[HistoryStory] Story is ready, adding Moon message to dialogue');
 
     // НЕ удаляем сообщения планет - они остаются в чате!
-    // Просто добавляем к ним сообщение от Луны и контракт
+    // Просто добавляем к ним сообщение от Луны (если есть)
 
-    // Сразу запускаем анимацию показа Луны и контракта
-    const contractTimer = window.setTimeout(() => {
-      console.log('[HistoryStory] Starting intro messages animation (Луна + contract)');
-      // Показываем сообщение от Луны (если есть) и контракт с анимацией печати
+    // Сразу запускаем анимацию показа Луны
+    const moonTimer = window.setTimeout(() => {
+      console.log('[HistoryStory] Starting intro messages animation (Moon)');
+      // Показываем сообщение от Луны с анимацией печати
       startIntroMessagesAnimation();
     }, 200);
 
-    // Переходим в фазу 'ready' после показа Луны и контракта:
-    // 200ms (пауза) + анимация (Луна + контракт)
-    // Если есть moonSummary: 600 + 1500 + 800 + 1500 = 4400ms
-    // Если нет: 600 + 1500 = 2100ms
+    // Переходим в фазу 'ready' после показа Луны:
+    // 200ms (пауза) + 600 (задержка) + 1500 (печать) = 2300ms
     const hasMoonSummary = historyStoryMetaRef.current?.moonSummary && historyStoryMetaRef.current.moonSummary.trim().length > 0;
-    const animationTime = hasMoonSummary ? 4400 : 2100;
+    const animationTime = hasMoonSummary ? 2100 : 0;
     const readyTimer = window.setTimeout(() => {
       setHistoryStoryPhase('ready');
       console.log('[HistoryStory] Showing story');
     }, 200 + animationTime);
 
     return () => {
-      window.clearTimeout(contractTimer);
+      window.clearTimeout(moonTimer);
       window.clearTimeout(readyTimer);
     };
-  }, [historyStoryPhase, startIntroMessagesAnimation]);
+  }, [historyStoryPhase]);
 
   // Управление прокруткой при переключении вкладок
   useEffect(() => {
+    console.log('[AutoScroll TAB] Effect fired, activeTab:', activeTab, 'phase:', historyStoryPhase);
     if (activeTab === 'discover') {
       // Сбрасываем badge при переходе на вкладку "Узнай себя"
       setHasNewStoryMessage(false);
 
+      // НЕ скроллим, если мы в фазе ready, generating или clearing -
+      // в этих фазах за скролл отвечают специализированные эффекты выше
+      if (historyStoryPhase === 'ready' || historyStoryPhase === 'generating' || historyStoryPhase === 'clearing') {
+        console.log('[AutoScroll TAB] Skipping - story in progress');
+        return;
+      }
+
+      console.log('[AutoScroll TAB] ✅ Scrolling to BOTTOM');
       // Прокручиваем до конца содержимого вкладки "Узнай себя"
       // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
       requestAnimationFrame(() => {
@@ -1607,7 +1609,7 @@ const ModernNastiaApp: React.FC = () => {
         });
       });
     }
-  }, [activeTab]);
+  }, [activeTab, historyStoryPhase]);
 
   // Устанавливаем badge, когда появляются новые варианты выбора
   useEffect(() => {
@@ -1884,13 +1886,7 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [activeTab, historyStoryPhase]);
 
-  // Анимация интро-сообщений при переходе в фазу 'ready' ТОЛЬКО ПЕРВЫЙ РАЗ
-  useEffect(() => {
-    // Показываем жанр и контракт только если нет ещё сегментов истории (первый раз)
-    if (historyStoryPhase === 'ready' && historyStoryMeta && historyStorySegments.length === 0) {
-      startIntroMessagesAnimation();
-    }
-  }, [historyStoryPhase, historyStoryMeta, historyStorySegments.length, startIntroMessagesAnimation]);
+  // Удалён дублирующий useEffect - анимация уже запускается в фазе 'clearing'
 
   const resolveHistoryScrollContainer = useCallback((): HTMLElement | null => {
     if (typeof window === 'undefined') {
@@ -3897,7 +3893,7 @@ const ModernNastiaApp: React.FC = () => {
                   className={`${styles.historyChatMessages} ${
                     historyStoryPhase !== 'ready' ? styles.calendarElementAnimated : ''
                   } ${
-                    (historyStoryPhase === 'generating' || historyStoryPhase === 'ready' || visibleDiscoverElements.includes('discover-messages'))
+                    (historyStoryPhase === 'generating' || historyStoryPhase === 'clearing' || historyStoryPhase === 'ready' || visibleDiscoverElements.includes('discover-messages'))
                       ? styles.calendarElementVisible
                       : ''
                   }`}
@@ -3929,8 +3925,8 @@ const ModernNastiaApp: React.FC = () => {
                     )
                   ))}
 
-                  {/* Индикатор печати для планет (НЕ для "История") */}
-                  {historyStoryPhase === 'generating' && currentTypingPlanet && currentTypingPlanet !== 'История' && (
+                  {/* Индикатор печати для планет и Луны (НЕ для "История") */}
+                  {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing') && currentTypingPlanet && currentTypingPlanet !== 'История' && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.planetMessage} ${styles.visible}`}>
                       <div className={styles.historyChatSender}>
                         {currentTypingPlanet}
@@ -4054,8 +4050,8 @@ const ModernNastiaApp: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  {/* Индикатор печати для самой истории (в фазах ready и clearing) */}
-                  {(historyStoryPhase === 'ready' || historyStoryPhase === 'clearing') && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
+                  {/* Индикатор печати для самой истории (только в фазе ready) */}
+                  {historyStoryPhase === 'ready' && (historyStoryTyping || (historyStoryLoading && !historyStoryTyping)) && (
                     <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
                       <div className={styles.historyChatStoryTitle}>{historyStoryMeta?.title ?? 'История'}</div>
                       <div className={styles.historyChatTyping}>
