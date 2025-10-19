@@ -4118,9 +4118,8 @@ const ModernNastiaApp: React.FC = () => {
                     const storyTitle = historyStoryMeta?.title ?? 'История';
 
                     const selectedChoice = segment.option;
-                    const arcNumber = segment.arcNumber ?? 1;
-                    // НЕ показываем сообщение Насти для Arc 1 (там еще не было выбора)
-                    const shouldShowReply = selectedChoice && arcNumber > 1;
+                    // Показываем сообщение Насти только если был selectedOptionId (кнопка была нажата для ЭТОГО сегмента)
+                    const shouldShowReply = selectedChoice && segment.selectedOptionId;
 
                     return (
                       <React.Fragment key={segment.id}>
