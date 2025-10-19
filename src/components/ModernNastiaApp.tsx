@@ -4096,6 +4096,8 @@ const ModernNastiaApp: React.FC = () => {
                     const storyTitle = historyStoryMeta?.title ?? 'История';
 
                     const selectedChoice = segment.option;
+                    // Показываем сообщение Насти только для последнего Arc с выбором
+                    const isLastSegmentWithChoice = selectedChoice && segmentIndex === historyStorySegments.length - 1;
 
                     return (
                       <React.Fragment key={segment.id}>
@@ -4112,7 +4114,7 @@ const ModernNastiaApp: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                        {selectedChoice && (
+                        {isLastSegmentWithChoice && (
                           <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.nastiaReplyStatic} ${styles.visible}`}>
                             <div className={styles.historyChatSender}>Настя</div>
                             <div className={styles.historyChatMessageWrapper}>
