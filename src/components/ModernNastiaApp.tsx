@@ -1517,10 +1517,10 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, []);
 
-  // Автоскролл для планетарных сообщений в фазе generating и clearing
+  // Автоскролл для планетарных сообщений в фазе generating (НЕ clearing!)
   useEffect(() => {
     console.log('[AutoScroll GEN/CLEAR] Effect fired, phase:', historyStoryPhase, 'messages:', planetChatMessages.length);
-    if (historyStoryPhase !== 'generating' && historyStoryPhase !== 'clearing') {
+    if (historyStoryPhase !== 'generating') {
       console.log('[AutoScroll GEN/CLEAR] Skipping - wrong phase');
       return;
     }
