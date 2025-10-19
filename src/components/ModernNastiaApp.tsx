@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
   Bell,
   ChevronLeft,
@@ -1407,6 +1408,15 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryPhase('idle');
   }, [resetHistoryStoryState]);
 
+  // Вспомогательная функция для вычисления позиции скролла с учетом tab bar
+  const getScrollToBottomPosition = useCallback(() => {
+    // Высота градиента под tab bar = 120px (из GlassTabBar.module.css)
+    // Добавляем небольшой отступ 20px, чтобы последний элемент не прилипал к меню
+    const TAB_BAR_AREA_HEIGHT = 120;
+    const PADDING = 20;
+    return document.documentElement.scrollHeight - TAB_BAR_AREA_HEIGHT - PADDING;
+  }, []);
+
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
     const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
     setFinaleInterpretationMode(mode);
@@ -1964,17 +1974,17 @@ const ModernNastiaApp: React.FC = () => {
             });
             console.log(`[Tab Switch] Scrolled to TOP for tab: ${activeTab}`);
           } else if (activeTab === 'discover') {
-            // Узнать себя (чат) → вниз
+            // Узнать себя (чат) → вниз (с учетом высоты tab bar)
             window.scrollTo({
-              top: document.documentElement.scrollHeight,
+              top: getScrollToBottomPosition(),
               behavior: 'smooth'
             });
-            console.log(`[Tab Switch] Scrolled to BOTTOM for tab: ${activeTab}`);
+            console.log(`[Tab Switch] Scrolled to BOTTOM (with tab bar offset) for tab: ${activeTab}`);
           }
         });
       });
     });
-  }, [activeTab]);
+  }, [activeTab, getScrollToBottomPosition]);
 
   // Автоскролл для планетарных сообщений в фазе generating (НЕ clearing!)
   useEffect(() => {
@@ -1994,15 +2004,15 @@ const ModernNastiaApp: React.FC = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          // Скроллим весь window до конца страницы
+          // Скроллим весь window до конца страницы (с учетом высоты tab bar)
           window.scrollTo({
-            top: document.documentElement.scrollHeight,
+            top: getScrollToBottomPosition(),
             behavior: 'smooth'
           });
         });
       });
     });
-  }, [planetChatMessages, currentTypingPlanet, historyStoryPhase]);
+  }, [planetChatMessages, currentTypingPlanet, historyStoryPhase, getScrollToBottomPosition]);
 
   // Автоскролл для сообщений истории в фазе ready
   useEffect(() => {
@@ -2053,15 +2063,15 @@ const ModernNastiaApp: React.FC = () => {
               } else {
                 console.log('[AutoScroll READY] ✅ No Moon elements, scrolling to BOTTOM');
                 window.scrollTo({
-                  top: document.documentElement.scrollHeight,
+                  top: getScrollToBottomPosition(),
                   behavior: 'smooth'
                 });
               }
             } else {
-              // Остальные дуги: прокручиваем вниз к истории и кнопкам
+              // Остальные дуги: прокручиваем вниз к истории и кнопкам (с учетом высоты tab bar)
               console.log('[AutoScroll READY] ✅ Not Arc 1, scrolling to BOTTOM');
               window.scrollTo({
-                top: document.documentElement.scrollHeight,
+                top: getScrollToBottomPosition(),
                 behavior: 'smooth'
               });
             }
@@ -2073,7 +2083,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       window.clearTimeout(scrollTimeout);
     };
-  }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions]);
+  }, [historyStorySegments, historyStoryLoading, historyStoryTyping, historyStoryPhase, historyStoryOptions, getScrollToBottomPosition]);
 
   // Показ сообщения от Луны при переходе в фазу 'clearing'
   useEffect(() => {
@@ -2123,13 +2133,13 @@ const ModernNastiaApp: React.FC = () => {
       }
 
       console.log('[AutoScroll TAB] ✅ Scrolling to BOTTOM');
-      // Прокручиваем до конца содержимого вкладки "Узнай себя"
+      // Прокручиваем до конца содержимого вкладки "Узнай себя" (с учетом высоты tab bar)
       // Используем тройной requestAnimationFrame для гарантированного ожидания рендера
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             window.scrollTo({
-              top: document.documentElement.scrollHeight,
+              top: getScrollToBottomPosition(),
               behavior: 'smooth'
             });
           });
@@ -2144,7 +2154,7 @@ const ModernNastiaApp: React.FC = () => {
         });
       });
     }
-  }, [activeTab, historyStoryPhase]);
+  }, [activeTab, historyStoryPhase, getScrollToBottomPosition]);
 
   // Устанавливаем badge, когда появляются новые варианты выбора
   useEffect(() => {
@@ -2736,16 +2746,6 @@ const ModernNastiaApp: React.FC = () => {
     stopHistoryCustomRecording,
   ]);
 
-  const handleCustomOptionRerecord = useCallback(
-    (event?: React.MouseEvent | React.KeyboardEvent) => {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      void startHistoryCustomRecording();
-    },
-    [startHistoryCustomRecording],
-  );
 
   const customButtonClassNames = [styles.historyCustomButton, styles.historyCustomButtonIdle];
   let customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconIdle}`;
@@ -2754,7 +2754,6 @@ const ModernNastiaApp: React.FC = () => {
   let customButtonIcon: React.ReactNode = <Mic size={18} strokeWidth={2.2} />;
   let customButtonAriaLabel = 'Записать свой вариант голосом';
   let customButtonDisabled = (historyStoryLoading && customOptionStatus !== 'recording') || isCustomOptionProcessing;
-  let reRecordButtonClassName = `${styles.historyCustomIconButton}`;
 
   switch (customOptionStatus) {
     case 'idle':
@@ -2763,8 +2762,8 @@ const ModernNastiaApp: React.FC = () => {
       customButtonClassNames.push(styles.historyCustomButtonRecording);
       customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconRecording}`;
       customButtonTitle = 'Идёт запись…';
-      customButtonDescription = 'Нажми, чтобы остановить.';
-      customButtonIcon = <Square size={16} strokeWidth={3} fill="currentColor" />;
+      customButtonDescription = 'Нажмите, чтобы остановить';
+      customButtonIcon = <Square size={12} strokeWidth={2.5} fill="white" />;
       customButtonAriaLabel = 'Остановить запись';
       customButtonDisabled = false;
       break;
@@ -2803,10 +2802,9 @@ const ModernNastiaApp: React.FC = () => {
         customOptionReady?.description ??
         historyCustomOption.transcript ??
         'Проверь, всё ли звучит, как тебе хочется.';
-      customButtonIcon = null;
+      customButtonIcon = <RotateCcw size={20} strokeWidth={2} />;
       customButtonAriaLabel = 'Выбрать свой вариант';
       customButtonDisabled = historyStoryLoading;
-      reRecordButtonClassName = `${styles.historyCustomIconButton} ${styles.historyCustomIconButtonReady}`;
       break;
     default:
       break;
@@ -4816,43 +4814,81 @@ const ModernNastiaApp: React.FC = () => {
                         key="custom-history-option"
                         className={`${styles.historyChatReplyItem} ${visibleButtonsCount > historyStoryOptions.length ? styles.visible : ''}`}
                       >
-                        <button
+                        <motion.button
                           type="button"
                           className={customButtonClassName}
                           onClick={handleCustomOptionClick}
                           disabled={customButtonDisabled}
                           aria-label={customButtonAriaLabel}
                           style={customButtonStyle}
+                          initial={{ scale: 0.95, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: 0.2 }}
                         >
                           <div className={styles.historyCustomButtonLayout}>
                             <div className={styles.historyCustomButtonTexts}>
                               <span className={`${styles.historyChatReplyTitle} ${styles.historyCustomTitle}`}>
-                                {showLiveRecordingDot && <span className={styles.historyCustomLiveDot} aria-hidden="true" />}
+                                {showLiveRecordingDot && (
+                                  <span
+                                    className={styles.historyCustomLiveDot}
+                                    aria-hidden="true"
+                                  />
+                                )}
                                 {customButtonTitle}
                               </span>
                               <span className={`${styles.historyChatReplyDescription} ${styles.historyCustomDescription}`}>
                                 {customButtonDescription}
                               </span>
                             </div>
-                            {customButtonIcon && (
+                            {customButtonIcon && customOptionStatus === 'recording' ? (
+                              <div className={styles.historyCustomRecordingPulseWrapper}>
+                                <div
+                                  className={`${styles.historyCustomRecordingPulse} ${styles.historyCustomRecordingPulse1}`}
+                                  style={{
+                                    transform: `scale(${1 + historyCustomRecordingLevel * 1.2})`,
+                                    opacity: 0.3 + historyCustomRecordingLevel * 0.4,
+                                    transition: 'transform 0.05s ease-out, opacity 0.05s ease-out'
+                                  }}
+                                />
+                                <div
+                                  className={`${styles.historyCustomRecordingPulse} ${styles.historyCustomRecordingPulse2}`}
+                                  style={{
+                                    transform: `scale(${1 + historyCustomRecordingLevel * 1.8})`,
+                                    opacity: 0.2 + historyCustomRecordingLevel * 0.3,
+                                    transition: 'transform 0.05s ease-out, opacity 0.05s ease-out'
+                                  }}
+                                />
+                                <div
+                                  className={customIconWrapperClass}
+                                  style={{
+                                    transform: `scale(${1 + historyCustomRecordingLevel * 0.15})`,
+                                    transition: 'transform 0.05s ease-out'
+                                  }}
+                                >
+                                  {customButtonIcon}
+                                </div>
+                              </div>
+                            ) : customButtonIcon && customOptionStatus === 'ready' ? (
+                              <motion.div
+                                className={customIconWrapperClass}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void startHistoryCustomRecording();
+                                }}
+                                style={{ cursor: 'pointer' }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                {customButtonIcon}
+                              </motion.div>
+                            ) : customButtonIcon ? (
                               <div className={customIconWrapperClass}>
                                 {customButtonIcon}
                               </div>
-                            )}
+                            ) : null}
                           </div>
-                        </button>
-                        {customOptionStatus === 'ready' && (
-                          <button
-                            type="button"
-                            className={reRecordButtonClassName}
-                            onClick={event => handleCustomOptionRerecord(event)}
-                            disabled={historyStoryLoading || isCustomOptionProcessing}
-                            title="Перезаписать голосом"
-                            aria-label="Перезаписать голосом"
-                          >
-                            <RotateCcw size={18} />
-                          </button>
-                        )}
+                        </motion.button>
                       </div>
                     )}
                   </div>

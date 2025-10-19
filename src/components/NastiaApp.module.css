@@ -659,6 +659,7 @@ html {
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.5rem;
+  padding-bottom: 120px;
   margin-bottom: 1rem;
   background: transparent;
   min-height: 70vh;
@@ -1212,7 +1213,7 @@ html {
   flex-direction: column;
   gap: 0.9rem;
   min-height: 6.5rem;
-  padding-bottom: 1.5rem; /* Небольшой отступ для визуального комфорта */
+  padding-bottom: 0.5rem; /* Небольшой отступ; основной отступ от tab bar учитывается в JS через getScrollToBottomPosition() */
 }
 
 
@@ -1590,23 +1591,19 @@ html {
 
 .historyCustomButton {
   width: 100%;
-  border: none;
-  border-radius: 24px;
-  padding: 1.15rem 4.5rem 1.15rem 1.6rem;
-  background: #ffffff;
-  border: 2px solid transparent;
-  box-shadow: 0 10px 26px rgba(99, 102, 241, 0.12);
+  border-radius: 16px;
+  padding: 1.125rem;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: block;
   text-align: left;
-  transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
+  background: white;
 }
 
 .historyCustomButton:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(99, 102, 241, 0.16);
+  border-color: #C27AFF;
 }
 
 .historyCustomButton:disabled {
@@ -1615,58 +1612,48 @@ html {
 }
 
 .historyCustomButtonIdle {
-  --custom-border: linear-gradient(135deg, #f472b6, #8b5cf6);
-  --custom-shadow: rgba(99, 102, 241, 0.16);
+  border: 2px solid #C27AFF;
 }
 
 .historyCustomButtonProcessing {
-  --custom-border: linear-gradient(135deg, rgba(167, 139, 250, 0.85), rgba(99, 102, 241, 0.7));
-  --custom-shadow: rgba(129, 140, 248, 0.22);
+  border: 2px solid #C27AFF;
 }
 
 .historyCustomButtonReady {
-  --custom-border: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(59, 130, 246, 0.65));
-  --custom-shadow: rgba(45, 212, 191, 0.22);
+  border: 2px solid #00C950;
 }
 
 .historyCustomButtonError {
-  --custom-border: linear-gradient(135deg, rgba(248, 113, 113, 0.85), rgba(251, 191, 36, 0.6));
-  --custom-shadow: rgba(248, 113, 113, 0.2);
+  border: 2px solid #fca5a5;
 }
 
 .historyCustomButtonRecording {
-  --recording-glow: 0.35;
-  --recording-border-alpha: 0.6;
-  --recording-pulse: 0.45;
-  --custom-border: linear-gradient(135deg, rgba(244, 114, 182, var(--recording-border-alpha)), rgba(139, 92, 246, var(--recording-border-alpha)));
-  --custom-shadow: rgba(139, 92, 246, var(--recording-glow));
-}
-
-.historyCustomButtonRecording::before {
-  content: '';
-  position: absolute;
-  inset: -12px;
-  border-radius: inherit;
-  background: radial-gradient(circle at 28% 35%, rgba(244, 114, 182, var(--recording-pulse)), transparent 68%);
-  opacity: 0.85;
-  pointer-events: none;
-  filter: blur(3px);
-  transition: opacity 0.15s ease;
+  border: 2px solid #C27AFF;
 }
 
 .historyCustomButton .historyChatReplyTitle {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: #222;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: #111827;
 }
 
+.historyCustomButtonReady .historyChatReplyTitle {
+  color: #000000;
+}
 
 .historyCustomButton .historyChatReplyDescription {
-  color: #1f2937;
-  line-height: 1.45;
+  font-size: 1rem;
+  font-weight: 400;
+  color: #555;
+  line-height: 1.35;
+}
+
+.historyCustomButtonReady .historyChatReplyDescription {
+  color: #000000;
+  margin-top: 0.5rem;
 }
 
 .historyCustomTitle {
@@ -1708,45 +1695,46 @@ html {
 }
 
 .historyCustomIconCircle {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.26);
-  transition: transform 0.24s ease, box-shadow 0.24s ease;
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .historyCustomIconCircle svg {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .historyCustomIconIdle {
-  background: linear-gradient(135deg, #f472b6 0%, #8b5cf6 100%);
-  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.26);
+  background: linear-gradient(135deg, #AD46FF 0%, #F6339A 100%);
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
 }
 
 .historyCustomIconRecording {
-  background: linear-gradient(135deg, #f472b6 0%, #8b5cf6 100%);
-  animation: customIconPulse 1.6s ease-in-out infinite;
-  box-shadow: 0 14px 32px rgba(236, 72, 153, var(--recording-glow, 0.32));
+  background: #EF4444;
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
 }
 
 .historyCustomIconProcessing {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #C27AFF 0%, #FB64B6 100%);
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
 }
 
 .historyCustomIconReady {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  box-shadow: 0 16px 32px rgba(16, 185, 129, 0.32);
+  background: linear-gradient(135deg, #00C950 0%, #00BC7D 100%);
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
 }
 
 .historyCustomIconError {
   background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-  box-shadow: 0 16px 32px rgba(239, 68, 68, 0.3);
+  box-shadow: 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
 }
 
 .historyCustomLoaderIcon {
@@ -1754,20 +1742,18 @@ html {
 }
 
 .historyCustomLiveDot {
-  width: 10px;
-  height: 10px;
+  width: 8.77px;
+  height: 8.77px;
   border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
-  animation: customLiveDot 1.4s ease-in-out infinite;
+  background: #FB2C36;
 }
 
 .historyCustomIconButton {
   position: absolute;
   top: 50%;
-  right: 14px;
-  width: 38px;
-  height: 38px;
+  right: 12px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   background: rgba(139, 92, 246, 0.18);
   color: #6b21a8;
@@ -1776,14 +1762,39 @@ html {
   justify-content: center;
   border: none;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: all 0.2s ease;
   transform: translateY(-50%);
+  flex-shrink: 0;
 }
 
 .historyCustomIconButtonReady {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
   color: #ffffff;
-  box-shadow: 0 14px 28px rgba(16, 185, 129, 0.32);
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.35);
+}
+
+.historyCustomRecordingPulseWrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.historyCustomRecordingPulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.historyCustomRecordingPulse1 {
+  background: #EF4444;
+  opacity: 0.25;
+}
+
+.historyCustomRecordingPulse2 {
+  background: #EF4444;
+  opacity: 0.2;
 }
 
 .historyCustomIconButton:hover:not(:disabled) {
