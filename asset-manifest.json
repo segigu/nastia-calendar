@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "https://segigu.github.io/nastia-calendar/static/css/main.7f1a24d9.css",
-    "main.js": "https://segigu.github.io/nastia-calendar/static/js/main.c3e91bac.js",
+    "main.css": "https://segigu.github.io/nastia-calendar/static/css/main.bbd9e15c.css",
+    "main.js": "https://segigu.github.io/nastia-calendar/static/js/main.66652cf1.js",
     "static/js/453.0396567c.chunk.js": "https://segigu.github.io/nastia-calendar/static/js/453.0396567c.chunk.js",
     "service-worker.js": "https://segigu.github.io/nastia-calendar/service-worker.js",
     "index.html": "https://segigu.github.io/nastia-calendar/index.html",
-    "main.7f1a24d9.css.map": "https://segigu.github.io/nastia-calendar/static/css/main.7f1a24d9.css.map",
-    "main.c3e91bac.js.map": "https://segigu.github.io/nastia-calendar/static/js/main.c3e91bac.js.map",
+    "main.bbd9e15c.css.map": "https://segigu.github.io/nastia-calendar/static/css/main.bbd9e15c.css.map",
+    "main.66652cf1.js.map": "https://segigu.github.io/nastia-calendar/static/js/main.66652cf1.js.map",
     "453.0396567c.chunk.js.map": "https://segigu.github.io/nastia-calendar/static/js/453.0396567c.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.7f1a24d9.css",
-    "static/js/main.c3e91bac.js"
+    "static/css/main.bbd9e15c.css",
+    "static/js/main.66652cf1.js"
   ]
 }
