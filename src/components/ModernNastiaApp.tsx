@@ -2100,13 +2100,18 @@ const ModernNastiaApp: React.FC = () => {
     [resolveHistoryScrollContainer],
   );
 
-  // Автоскролл при появлении интро-сообщений
+  // Автоскролл при появлении интро-сообщений (НЕ для Arc 1 - там используется автоскролл READY к Луне)
   useEffect(() => {
     if (historyStoryPhase === 'ready' && historyStoryMode === 'story' && introMessagesVisible > 0) {
-      scrollToBottom({ delay: 200 });
+      const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+      const isArc1 = currentArc === 1;
+      if (!isArc1) {
+        scrollToBottom({ delay: 200 });
+      }
     }
-  }, [introMessagesVisible, historyStoryPhase, historyStoryMode, scrollToBottom]);
+  }, [introMessagesVisible, historyStoryPhase, historyStoryMode, scrollToBottom, historyStorySegments]);
 
+  // ResizeObserver для автоскролла при изменении размера контейнера (НЕ для Arc 1 в фазе ready)
   useEffect(() => {
     if (historyStoryMode !== 'story') {
       return;
@@ -2130,7 +2135,12 @@ const ModernNastiaApp: React.FC = () => {
         window.cancelAnimationFrame(rafId);
       }
       rafId = window.requestAnimationFrame(() => {
-        scrollToBottom({ behavior: 'smooth' });
+        // НЕ скроллим для Arc 1 в фазе ready - там используется автоскролл READY к Луне
+        const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+        const isArc1 = currentArc === 1;
+        if (!(isArc1 && historyStoryPhase === 'ready')) {
+          scrollToBottom({ behavior: 'smooth' });
+        }
       });
     });
 
@@ -2142,31 +2152,39 @@ const ModernNastiaApp: React.FC = () => {
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [historyStoryMode, scrollToBottom]);
+  }, [historyStoryMode, scrollToBottom, historyStorySegments, historyStoryPhase]);
 
-  // Автоскролл при появлении typing indicator
+  // Автоскролл при появлении typing indicator (НЕ для Arc 1 в фазе ready)
   useEffect(() => {
     if (historyStoryMode !== 'story') {
       return;
     }
 
     if (historyStoryTyping) {
-      scrollToBottom({ delay: 350 });
+      const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+      const isArc1 = currentArc === 1;
+      if (!(isArc1 && historyStoryPhase === 'ready')) {
+        scrollToBottom({ delay: 350 });
+      }
     }
-  }, [historyStoryTyping, historyStoryMode, scrollToBottom]);
+  }, [historyStoryTyping, historyStoryMode, scrollToBottom, historyStorySegments, historyStoryPhase]);
 
-  // Автоскролл при появлении нового сообщения
+  // Автоскролл при появлении нового сообщения (НЕ для Arc 1 в фазе ready)
   useEffect(() => {
     if (historyStoryMode !== 'story') {
       return;
     }
 
     if (historyStorySegments.length > 0 && !historyStoryTyping) {
-      scrollToBottom({ delay: 400 });
+      const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+      const isArc1 = currentArc === 1;
+      if (!(isArc1 && historyStoryPhase === 'ready')) {
+        scrollToBottom({ delay: 400 });
+      }
     }
-  }, [historyStorySegments.length, historyStoryTyping, historyStoryMode, scrollToBottom]);
+  }, [historyStorySegments.length, historyStoryTyping, historyStoryMode, scrollToBottom, historyStorySegments, historyStoryPhase]);
 
-  // Автоскролл при выборе опции (добавлении сообщения от Насти)
+  // Автоскролл при выборе опции (добавлении сообщения от Насти) - НЕ для Arc 1
   useEffect(() => {
     if (historyStoryMode !== 'story') {
       return;
@@ -2174,7 +2192,11 @@ const ModernNastiaApp: React.FC = () => {
 
     const lastSegment = historyStorySegments[historyStorySegments.length - 1];
     if (lastSegment?.selectedOptionId) {
-      scrollToBottom({ delay: 150 });
+      const currentArc = lastSegment.arcNumber;
+      const isArc1 = currentArc === 1;
+      if (!isArc1) {
+        scrollToBottom({ delay: 150 });
+      }
     }
   }, [historyStorySegments, historyStoryMode, scrollToBottom]);
 
