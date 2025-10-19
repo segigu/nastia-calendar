@@ -2154,19 +2154,22 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [historyStoryMode, scrollToBottom, historyStorySegments, historyStoryPhase]);
 
-  // Автоскролл при появлении typing indicator (НЕ для Arc 1 в фазе ready)
+  // Автоскролл при появлении typing indicator - ОТКЛЮЧЕН
+  // Индикатор печати и так виден, не нужно скроллить
+  // (раньше вызывал прыжок вниз для Arc 2+ пока показываются три точки)
   useEffect(() => {
     if (historyStoryMode !== 'story') {
       return;
     }
 
-    if (historyStoryTyping) {
-      const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
-      const isArc1 = currentArc === 1;
-      if (!(isArc1 && historyStoryPhase === 'ready')) {
-        scrollToBottom({ delay: 350 });
-      }
-    }
+    // ОТКЛЮЧЕНО: не скроллим при появлении typing indicator
+    // if (historyStoryTyping) {
+    //   const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+    //   const isArc1 = currentArc === 1;
+    //   if (!(isArc1 && historyStoryPhase === 'ready')) {
+    //     scrollToBottom({ delay: 350 });
+    //   }
+    // }
   }, [historyStoryTyping, historyStoryMode, scrollToBottom, historyStorySegments, historyStoryPhase]);
 
   // Автоскролл при появлении нового сообщения (НЕ для Arc 1 в фазе ready)
