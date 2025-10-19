@@ -1408,14 +1408,10 @@ const ModernNastiaApp: React.FC = () => {
     setHistoryStoryPhase('idle');
   }, [resetHistoryStoryState]);
 
-  // Вспомогательная функция для вычисления позиции скролла с учетом tab bar
+  // Вспомогательная функция для скролла до конца страницы
   const getScrollToBottomPosition = useCallback(() => {
-    // Реальная высота tab bar:
-    // margin-top: 24px + padding: 6px + min-height: 52px + padding: 6px = ~88px
-    // Добавляем небольшой отступ 12px для комфорта
-    const TAB_BAR_HEIGHT = 88;
-    const PADDING = 12;
-    return document.documentElement.scrollHeight - TAB_BAR_HEIGHT - PADDING;
+    // Просто скроллим до конца - отступ от tab bar уже учтён в padding-bottom контейнера
+    return document.documentElement.scrollHeight;
   }, []);
 
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
