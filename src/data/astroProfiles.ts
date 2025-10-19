@@ -1,5 +1,5 @@
 export interface AstroProfile {
-  id: 'nastia' | 'sergey' | 'sveta' | 'damir' | 'michelle';
+  id: 'nastia' | 'sergey';
   name: string;
   birthDate: string; // ISO YYYY-MM-DD
   birthTime?: string; // HH:mm (24h). Defaults to noon if missing
@@ -29,36 +29,6 @@ export const ASTRO_PROFILES: Record<AstroProfile['id'], AstroProfile> = {
     latitude: 53.9833,
     longitude: 86.6667,
     notes: 'Киселёвск, Россия (UTC+7).',
-  },
-  sveta: {
-    id: 'sveta',
-    name: 'Света',
-    birthDate: '1970-07-05',
-    birthTime: '09:00',
-    timeZone: 'Europe/Kyiv',
-    latitude: 46.6183,
-    longitude: 31.5411,
-    notes: 'Дата условная, уточнить при возможности.',
-  },
-  damir: {
-    id: 'damir',
-    name: 'Дамир',
-    birthDate: '2020-05-15',
-    birthTime: '14:45',
-    timeZone: 'Europe/Kyiv',
-    latitude: 46.6183,
-    longitude: 31.5411,
-    notes: 'Дата условная, уточнить при возможности.',
-  },
-  michelle: {
-    id: 'michelle',
-    name: 'Мишель',
-    birthDate: '2023-03-17',
-    birthTime: '06:20',
-    timeZone: 'Europe/Kyiv',
-    latitude: 46.6183,
-    longitude: 31.5411,
-    notes: 'Дата условная, уточнить при возможности.',
   },
 };
 
