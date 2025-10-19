@@ -1501,7 +1501,7 @@ html {
   flex-direction: column;
   gap: 0.6rem;
   margin-top: 0.5rem;
-  padding-bottom: 100px; /* Отступ для нижнего меню */
+  padding-bottom: 20px; /* Небольшой отступ для визуального комфорта */
 }
 
 .historyChatRepliesHiding {
