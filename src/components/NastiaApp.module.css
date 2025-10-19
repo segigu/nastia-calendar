@@ -1597,8 +1597,8 @@ html {
   overflow: visible;
   display: block;
   text-align: left;
-  transition: all 0.2s ease;
-  background: white;
+  transition: all 0.3s ease-out;
+  background: transparent;
 }
 
 .historyCustomButton:hover:not(:disabled) {
@@ -1637,6 +1637,7 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  transition: color 0.3s ease-out;
 }
 
 .historyCustomButtonReady .historyChatReplyTitle {
@@ -1648,6 +1649,7 @@ html {
   font-weight: 400;
   color: #555;
   line-height: 1.35;
+  transition: color 0.3s ease-out;
 }
 
 .historyCustomButtonReady .historyChatReplyDescription {

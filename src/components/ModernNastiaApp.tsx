@@ -2743,6 +2743,29 @@ const ModernNastiaApp: React.FC = () => {
     stopHistoryCustomRecording,
   ]);
 
+  // Автоскролл при изменении состояния кнопки своего варианта
+  useEffect(() => {
+    // Только если мы на вкладке "Узнай себя" и кнопка видима
+    if (activeTab !== 'discover' || !customOptionStatus) {
+      return;
+    }
+
+    console.log('[AutoScroll CUSTOM OPTION] Status changed to:', customOptionStatus);
+
+    // Используем тройной requestAnimationFrame для гарантированного ожидания рендера после изменения высоты кнопки
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Скроллим весь window до конца страницы (с учетом высоты tab bar)
+          window.scrollTo({
+            top: getScrollToBottomPosition(),
+            behavior: 'smooth'
+          });
+          console.log('[AutoScroll CUSTOM OPTION] ✅ Scrolled to BOTTOM after status change');
+        });
+      });
+    });
+  }, [customOptionStatus, activeTab, getScrollToBottomPosition]);
 
   const customButtonClassNames = [styles.historyCustomButton, styles.historyCustomButtonIdle];
   let customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconIdle}`;
@@ -4844,7 +4867,7 @@ const ModernNastiaApp: React.FC = () => {
                                   style={{
                                     transform: `scale(${1 + historyCustomRecordingLevel * 1.2})`,
                                     opacity: 0.3 + historyCustomRecordingLevel * 0.4,
-                                    transition: 'transform 0.05s ease-out, opacity 0.05s ease-out'
+                                    transition: 'transform 0.2s ease-out, opacity 0.2s ease-out'
                                   }}
                                 />
                                 <div
@@ -4852,14 +4875,14 @@ const ModernNastiaApp: React.FC = () => {
                                   style={{
                                     transform: `scale(${1 + historyCustomRecordingLevel * 1.8})`,
                                     opacity: 0.2 + historyCustomRecordingLevel * 0.3,
-                                    transition: 'transform 0.05s ease-out, opacity 0.05s ease-out'
+                                    transition: 'transform 0.25s ease-out, opacity 0.25s ease-out'
                                   }}
                                 />
                                 <div
                                   className={customIconWrapperClass}
                                   style={{
                                     transform: `scale(${1 + historyCustomRecordingLevel * 0.15})`,
-                                    transition: 'transform 0.05s ease-out'
+                                    transition: 'transform 0.2s ease-out'
                                   }}
                                 >
                                   {customButtonIcon}
