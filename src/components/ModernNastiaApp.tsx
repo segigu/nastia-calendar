@@ -4118,6 +4118,9 @@ const ModernNastiaApp: React.FC = () => {
                     const storyTitle = historyStoryMeta?.title ?? 'История';
 
                     const selectedChoice = segment.option;
+                    const arcNumber = segment.arcNumber ?? 1;
+                    // НЕ показываем сообщение Насти для Arc 1 (там еще не было выбора)
+                    const shouldShowReply = selectedChoice && arcNumber > 1;
 
                     return (
                       <React.Fragment key={segment.id}>
@@ -4134,7 +4137,7 @@ const ModernNastiaApp: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                        {selectedChoice && (
+                        {shouldShowReply && (
                           <div className={`${styles.historyChatBubble} ${styles.historyChatOutgoing} ${styles.nastiaReplyStatic} ${styles.visible}`}>
                             <div className={styles.historyChatSender}>Настя</div>
                             <div className={styles.historyChatMessageWrapper}>
