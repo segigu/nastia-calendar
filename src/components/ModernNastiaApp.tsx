@@ -1410,11 +1410,12 @@ const ModernNastiaApp: React.FC = () => {
 
   // Вспомогательная функция для вычисления позиции скролла с учетом tab bar
   const getScrollToBottomPosition = useCallback(() => {
-    // Высота градиента под tab bar = 120px (из GlassTabBar.module.css)
-    // Добавляем небольшой отступ 20px, чтобы последний элемент не прилипал к меню
-    const TAB_BAR_AREA_HEIGHT = 120;
-    const PADDING = 20;
-    return document.documentElement.scrollHeight - TAB_BAR_AREA_HEIGHT - PADDING;
+    // Реальная высота tab bar:
+    // margin-top: 24px + padding: 6px + min-height: 52px + padding: 6px = ~88px
+    // Добавляем небольшой отступ 12px для комфорта
+    const TAB_BAR_HEIGHT = 88;
+    const PADDING = 12;
+    return document.documentElement.scrollHeight - TAB_BAR_HEIGHT - PADDING;
   }, []);
 
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
