@@ -1453,6 +1453,32 @@ const ModernNastiaApp: React.FC = () => {
     };
   }, [historyStoryMenuOpen]);
 
+  // Глобальный перехватчик скроллов (для отладки)
+  useEffect(() => {
+    const originalScrollTo = window.scrollTo;
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    let scrollCount = 0;
+
+    window.scrollTo = function(...args: any[]) {
+      scrollCount++;
+      const stack = new Error().stack;
+      console.log(`[SCROLL #${scrollCount}] window.scrollTo called:`, args, '\nStack:', stack?.split('\n').slice(2, 5).join('\n'));
+      return originalScrollTo.apply(this, args as any);
+    };
+
+    Element.prototype.scrollIntoView = function(...args: any[]) {
+      scrollCount++;
+      const stack = new Error().stack;
+      console.log(`[SCROLL #${scrollCount}] scrollIntoView called on:`, this, '\nStack:', stack?.split('\n').slice(2, 5).join('\n'));
+      return originalScrollIntoView.apply(this, args as any);
+    };
+
+    return () => {
+      window.scrollTo = originalScrollTo;
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    };
+  }, []);
+
   // Автоскролл для планетарных сообщений в фазе generating и clearing
   useEffect(() => {
     console.log('[AutoScroll GEN/CLEAR] Effect fired, phase:', historyStoryPhase, 'messages:', planetChatMessages.length);
@@ -1495,6 +1521,12 @@ const ModernNastiaApp: React.FC = () => {
     const hasChoices = historyStoryOptions.length > 0;
     console.log('[AutoScroll READY] Arc:', currentArc, 'isArc1:', isArc1, 'hasChoices:', hasChoices);
 
+    // Если это Arc 1, но кнопок еще нет - не скроллим, ждем следующего рендера
+    if (isArc1 && !hasChoices) {
+      console.log('[AutoScroll READY] Skipping - Arc 1 but choices not loaded yet');
+      return;
+    }
+
     // Ждём, пока история и кнопки полностью отрендерятся
     const scrollTimeout = window.setTimeout(() => {
       requestAnimationFrame(() => {
@@ -1510,11 +1542,17 @@ const ModernNastiaApp: React.FC = () => {
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                 const targetTop = scrollTop + rect.top - 20; // 20px отступ сверху
 
-                console.log('[AutoScroll READY] ✅ Scrolling to MOON, targetTop:', targetTop);
+                console.log('[AutoScroll READY] ✅ Scrolling to MOON, targetTop:', targetTop, 'at', Date.now());
                 window.scrollTo({
                   top: targetTop,
                   behavior: 'smooth'
                 });
+
+                // Проверяем, что будет через 2 секунды
+                setTimeout(() => {
+                  const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                  console.log('[AutoScroll READY] After 2s: scrollTop =', currentScrollTop, 'expected ~', targetTop);
+                }, 2000);
               } else {
                 console.log('[AutoScroll READY] ✅ No Moon elements, scrolling to BOTTOM');
                 window.scrollTo({
