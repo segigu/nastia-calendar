@@ -1514,14 +1514,30 @@ html {
   pointer-events: none;
 }
 
-.historyChatRepliesHiding .historyChatReplyButton:nth-child(1) {
+.historyChatRepliesHiding .historyChatReplyItem:nth-child(1) {
   animation: fadeOut 0.35s ease forwards;
   animation-delay: 0s;
 }
 
-.historyChatRepliesHiding .historyChatReplyButton:nth-child(2) {
+.historyChatRepliesHiding .historyChatReplyItem:nth-child(2) {
   animation: fadeOut 0.35s ease forwards;
   animation-delay: 0.08s;
+}
+
+.historyChatRepliesHiding .historyChatReplyItem:nth-child(3) {
+  animation: fadeOut 0.35s ease forwards;
+  animation-delay: 0.16s;
+}
+
+.historyChatReplyItem {
+  width: 100%;
+  position: relative;
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+.historyChatReplyItem.visible {
+  animation: slideInButton 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .historyChatReplyButton {
@@ -1539,12 +1555,7 @@ html {
   width: 100%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   align-self: flex-start;
-  opacity: 0;
-  transform: translateY(15px);
-}
-
-.historyChatReplyButton.visible {
-  animation: slideInButton 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
 }
 
 .historyChatReplyButton:hover:not(:disabled) {
@@ -1562,6 +1573,156 @@ html {
   cursor: not-allowed;
 }
 
+.historyChatReplyButtonCustom {
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.historyChatReplyButtonRecording {
+  border-color: rgba(248, 113, 113, 0.7);
+  background: rgba(248, 113, 113, 0.08);
+  box-shadow: 0 6px 18px rgba(248, 113, 113, 0.14);
+}
+
+.historyChatReplyButtonRecording::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 50%, rgba(248, 113, 113, 0.18), transparent 70%);
+  animation: pulseGlow 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.historyChatReplyButtonProcessing {
+  border-color: rgba(96, 165, 250, 0.7);
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.historyChatReplyButtonError {
+  border-color: rgba(248, 113, 113, 0.7);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.historyCustomButtonLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.historyCustomButtonTexts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.historyCustomBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2933;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.12);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.historyCustomStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #1f2933;
+  background: rgba(15, 23, 42, 0.05);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.historyCustomIconButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.16);
+  color: #6b21a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.historyCustomIconButton:hover:not(:disabled) {
+  transform: scale(1.05);
+  background: rgba(139, 92, 246, 0.28);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.24);
+}
+
+.historyCustomIconButton:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.historyCustomIconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.historyCustomErrorText {
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
+.historyCustomRecordingHint {
+  font-size: 0.85rem;
+  color: #7c2d12;
+}
+
+.historyCustomSpinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #1f2937;
+}
+
+.historyCustomMicroHint {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.historyCustomTranscript {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.historyCustomSubtle {
+  color: #6b7280;
+}
+
+@keyframes pulseGlow {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
 .historyFinalSummaryBubble {
   display: flex;
   flex-direction: column;

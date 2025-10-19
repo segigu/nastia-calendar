@@ -6,7 +6,11 @@ import {
   ChevronDown,
   Trash2,
   Cloud,
-  CloudOff
+  CloudOff,
+  Mic,
+  CircleStop,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import { GlassTabBar, type TabId } from './GlassTabBar';
 import {
@@ -90,10 +94,12 @@ import {
 } from '../utils/insightContent';
 import {
   generateHistoryStoryChunk,
+  generateCustomHistoryOption,
   type HistoryStoryMeta,
   type HistoryStoryOption,
   clearPsychContractContext,
 } from '../utils/historyStory';
+import { transcribeAudioBlob } from '../utils/audioTranscription';
 import {
   generatePersonalizedPlanetMessages,
   type PersonalizedPlanetMessages,
@@ -457,6 +463,21 @@ interface HistoryStorySegment {
   timestamp: string; // ISO timestamp
 }
 
+type HistoryCustomOptionStatus =
+  | 'idle'
+  | 'recording'
+  | 'transcribing'
+  | 'generating'
+  | 'ready'
+  | 'error';
+
+interface HistoryCustomOptionState {
+  status: HistoryCustomOptionStatus;
+  option: HistoryStoryOption | null;
+  transcript?: string;
+  error?: string;
+}
+
 const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
   fertile_window: 'Фертильное окно',
   ovulation_day: 'День овуляции',
@@ -624,6 +645,12 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStoryMeta, setHistoryStoryMeta] = useState<HistoryStoryMeta | null>(null);
   const historyStoryMetaRef = useRef<HistoryStoryMeta | null>(null);
   const [historyStoryOptions, setHistoryStoryOptions] = useState<HistoryStoryOption[]>([]);
+  const [historyCustomOption, setHistoryCustomOption] = useState<HistoryCustomOptionState>({
+    status: 'idle',
+    option: null,
+    transcript: undefined,
+    error: undefined,
+  });
   const [historyStoryLoading, setHistoryStoryLoading] = useState(false);
   const [historyStoryError, setHistoryStoryError] = useState<string | null>(null);
   const [historyStoryMode, setHistoryStoryMode] = useState<'story' | 'cycles'>('story');
@@ -662,6 +689,10 @@ const ModernNastiaApp: React.FC = () => {
   const historyStoryMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const historyStoryTypingTimeoutRef = useRef<number | null>(null);
   const historyStoryFetchControllerRef = useRef<AbortController | null>(null);
+  const historyCustomOptionAbortRef = useRef<AbortController | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const historyMessagesRef = useRef<HTMLDivElement | null>(null);
   const historyScrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const historyScrollTimeoutRef = useRef<number | null>(null);
@@ -742,8 +773,31 @@ const ModernNastiaApp: React.FC = () => {
     historyStorySummaryRef.current = '';
     historyStoryMetaRef.current = null;
     moonScrollPerformedRef.current = false;
+    if (historyCustomOptionAbortRef.current) {
+      historyCustomOptionAbortRef.current.abort();
+      historyCustomOptionAbortRef.current = null;
+    }
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        // ignore
+      }
+      mediaRecorderRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    audioChunksRef.current = [];
     setHistoryStorySegments([]);
     setHistoryStoryOptions([]);
+    setHistoryCustomOption({
+      status: 'idle',
+      option: null,
+      transcript: undefined,
+      error: undefined,
+    });
     setHistoryStoryMeta(null);
     setHistoryStoryFinalSummary(null);
     setHistoryStoryError(null);
@@ -860,6 +914,8 @@ const ModernNastiaApp: React.FC = () => {
             arc: segment.arcNumber ?? arcSegments.length - recentSegments.length + index + 1,
             optionTitle: segment.option?.title,
             optionDescription: segment.option?.description,
+            optionTranscript: segment.option?.transcript,
+            optionKind: segment.option?.kind,
           })),
           currentChoice: choice,
           summary: historyStorySummaryRef.current || undefined,
@@ -980,6 +1036,8 @@ const ModernNastiaApp: React.FC = () => {
             arc: segment.arcNumber ?? arcSegments.length - recentSegments.length + index + 1,
             optionTitle: segment.option?.title,
             optionDescription: segment.option?.description,
+            optionTranscript: segment.option?.transcript,
+            optionKind: segment.option?.kind,
           })),
           currentChoice: choice,
           summary: historyStorySummaryRef.current || undefined,
@@ -1443,6 +1501,269 @@ const ModernNastiaApp: React.FC = () => {
 
     initiateHistoryStory();
   }, [fetchHistoryStoryChunk, fetchHistoryStoryFinale, historyStoryLoading, initiateHistoryStory]);
+
+  const cleanupCustomOptionResources = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (error) {
+          console.warn('[HistoryStory] Failed to stop recorder during cleanup', error);
+        }
+      }
+      mediaRecorderRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (error) {
+          console.warn('[HistoryStory] Failed to stop media track', error);
+        }
+      });
+      mediaStreamRef.current = null;
+    }
+  }, []);
+
+  const cancelHistoryCustomOptionProcessing = useCallback(() => {
+    if (historyCustomOptionAbortRef.current) {
+      historyCustomOptionAbortRef.current.abort();
+      historyCustomOptionAbortRef.current = null;
+    }
+  }, []);
+
+  const processRecordedCustomOption = useCallback(async () => {
+    const chunks = [...audioChunksRef.current];
+    audioChunksRef.current = [];
+
+    if (chunks.length === 0) {
+      setHistoryCustomOption(prev => ({
+        status: 'error',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: 'Кажется, запись получилась пустой. Попробуй ещё раз.',
+      }));
+      return;
+    }
+
+    cleanupCustomOptionResources();
+
+    const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+    const controller = new AbortController();
+    historyCustomOptionAbortRef.current = controller;
+
+    setHistoryCustomOption(prev => ({
+      status: 'transcribing',
+      option: prev.option && prev.status === 'ready' ? prev.option : null,
+      transcript: undefined,
+      error: undefined,
+    }));
+
+    try {
+      const transcript = await transcribeAudioBlob(audioBlob, {
+        openAIApiKey: effectiveOpenAIKey,
+        openAIProxyUrl: effectiveOpenAIProxyUrl,
+        language: 'ru',
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setHistoryCustomOption(prev => ({
+        status: 'generating',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript,
+        error: undefined,
+      }));
+
+      const arcSegments = historyStorySegmentsRef.current
+        .filter(segment => segment.kind === 'arc')
+        .map((segment, index) => ({
+          text: segment.text,
+          arc: segment.arcNumber ?? index + 1,
+          optionTitle: segment.option?.title,
+          optionDescription: segment.option?.description,
+        }));
+
+      const activeAuthor = historyStoryAuthor ?? STORY_AUTHORS[0];
+      const activeAuthorStyle = {
+        name: activeAuthor.name,
+        stylePrompt: activeAuthor.prompt,
+        genre: activeAuthor.genre,
+      };
+
+      const customOption = await generateCustomHistoryOption({
+        transcript,
+        segments: arcSegments,
+        summary: historyStorySummaryRef.current || undefined,
+        author: activeAuthorStyle,
+        signal: controller.signal,
+        claudeApiKey: effectiveClaudeKey,
+        claudeProxyUrl: effectiveClaudeProxyUrl,
+        openAIApiKey: effectiveOpenAIKey,
+        openAIProxyUrl: effectiveOpenAIProxyUrl,
+      });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setHistoryCustomOption({
+        status: 'ready',
+        option: customOption,
+        transcript,
+        error: undefined,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        console.warn('[HistoryStory] Custom option processing aborted');
+        return;
+      }
+      console.error('[HistoryStory] Failed to process custom option', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось обработать запись. Попробуй ещё раз.';
+      setHistoryCustomOption({
+        status: 'error',
+        option: null,
+        transcript: undefined,
+        error: message,
+      });
+    } finally {
+      if (historyCustomOptionAbortRef.current === controller) {
+        historyCustomOptionAbortRef.current = null;
+      }
+    }
+  }, [
+    cleanupCustomOptionResources,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+    effectiveOpenAIProxyUrl,
+    historyStoryAuthor,
+  ]);
+
+  const stopHistoryCustomRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      try {
+        recorder.stop();
+      } catch (error) {
+        console.error('[HistoryStory] Failed to stop recording', error);
+        cleanupCustomOptionResources();
+        setHistoryCustomOption(prev => ({
+          status: 'error',
+          option: prev.option && prev.status === 'ready' ? prev.option : null,
+          transcript: undefined,
+          error: 'Не получилось остановить запись. Попробуй снова.',
+        }));
+      }
+    }
+  }, [cleanupCustomOptionResources]);
+
+  const startHistoryCustomRecording = useCallback(async () => {
+    const activeRecorder = mediaRecorderRef.current;
+    if (activeRecorder && activeRecorder.state === 'recording') {
+      stopHistoryCustomRecording();
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setHistoryCustomOption(prev => ({
+        status: 'error',
+        option: prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: 'Браузер не поддерживает запись звука.',
+      }));
+      return;
+    }
+
+    cancelHistoryCustomOptionProcessing();
+    cleanupCustomOptionResources();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          noiseSuppression: true,
+          echoCancellation: true,
+        },
+      });
+
+      let recorder: MediaRecorder | null = null;
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidate)) {
+          try {
+            recorder = new MediaRecorder(stream, { mimeType: candidate });
+            break;
+          } catch {
+            recorder = null;
+          }
+        }
+      }
+
+      if (!recorder) {
+        recorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorderRef.current = recorder;
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      recorder.addEventListener('dataavailable', event => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      });
+
+      recorder.addEventListener('stop', () => {
+        cleanupCustomOptionResources();
+        void processRecordedCustomOption();
+      });
+
+      setHistoryCustomOption(prev => ({
+        status: 'recording',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: undefined,
+      }));
+
+      recorder.start();
+    } catch (error) {
+      console.error('[HistoryStory] Failed to start recording', error);
+      cleanupCustomOptionResources();
+      setHistoryCustomOption(prev => ({
+        status: 'error',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: error instanceof Error
+          ? error.message
+          : 'Не удалось получить доступ к микрофону. Проверь настройки и попробуй снова.',
+      }));
+    }
+  }, [
+    cancelHistoryCustomOptionProcessing,
+    cleanupCustomOptionResources,
+    processRecordedCustomOption,
+    stopHistoryCustomRecording,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      cancelHistoryCustomOptionProcessing();
+      cleanupCustomOptionResources();
+    };
+  }, [cancelHistoryCustomOptionProcessing, cleanupCustomOptionResources]);
   const readIdsRef = useRef(readIds);
   const notificationsRequestSeqRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -1475,6 +1796,23 @@ const ModernNastiaApp: React.FC = () => {
   useEffect(() => {
     updateHistoryStorySummary(historyStorySegments);
   }, [historyStorySegments, updateHistoryStorySummary]);
+
+  useEffect(() => {
+    if (historyStoryOptions.length === 0) {
+      return;
+    }
+    setHistoryCustomOption(prev => {
+      if (prev.status === 'recording' || prev.status === 'transcribing' || prev.status === 'generating') {
+        return prev;
+      }
+      return {
+        status: 'idle',
+        option: null,
+        transcript: undefined,
+        error: undefined,
+      };
+    });
+  }, [historyStoryOptions]);
 
   useEffect(() => {
     if (!historyStoryMenuOpen) {
@@ -2256,7 +2594,7 @@ const ModernNastiaApp: React.FC = () => {
     const isArc1 = currentArc === 1;
 
     // Начинаем показывать кнопки по одной
-    const totalButtons = historyStoryOptions.length;
+    const totalButtons = historyStoryOptions.length + 1;
     const delayBetweenButtons = 500; // Задержка между кнопками
 
     for (let i = 0; i < totalButtons; i++) {
@@ -2276,6 +2614,122 @@ const ModernNastiaApp: React.FC = () => {
       clearButtonAnimationTimers();
     };
   }, [historyStoryOptions, historyStoryMode, historyStoryTyping, historyButtonsHiding, historyStorySegments, scrollToBottom, clearButtonAnimationTimers]);
+
+  const customOptionStatus = historyCustomOption.status;
+  const customOptionReady = historyCustomOption.option;
+  const isCustomOptionProcessing = customOptionStatus === 'transcribing' || customOptionStatus === 'generating';
+  const showCustomOption = historyStoryOptions.length > 0;
+  const customTranscriptPreview = useMemo(() => {
+    const transcriptText = historyCustomOption.transcript?.trim();
+    if (!transcriptText) {
+      return null;
+    }
+    if (transcriptText.length <= 120) {
+      return transcriptText;
+    }
+    return `${transcriptText.slice(0, 117).trimEnd()}…`;
+  }, [historyCustomOption.transcript]);
+
+  const handleCustomOptionClick = useCallback(() => {
+    if (customOptionStatus === 'recording') {
+      stopHistoryCustomRecording();
+      return;
+    }
+
+    if (customOptionStatus === 'ready' && customOptionReady && !historyStoryLoading) {
+      handleHistoryOptionSelect(customOptionReady);
+      return;
+    }
+
+    if (customOptionStatus === 'transcribing' || customOptionStatus === 'generating') {
+      return;
+    }
+
+    void startHistoryCustomRecording();
+  }, [
+    customOptionReady,
+    customOptionStatus,
+    handleHistoryOptionSelect,
+    historyStoryLoading,
+    startHistoryCustomRecording,
+    stopHistoryCustomRecording,
+  ]);
+
+  const handleCustomOptionRerecord = useCallback(
+    (event?: React.MouseEvent | React.KeyboardEvent) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      void startHistoryCustomRecording();
+    },
+    [startHistoryCustomRecording],
+  );
+
+  const customBadgeLabel = customOptionStatus === 'ready' ? 'Твой вариант' : 'Голосом';
+  let customButtonClassName = `${styles.historyChatReplyButton} ${styles.historyChatReplyButtonCustom}`;
+  let customButtonTitle = 'Свой вариант';
+  let customButtonDescription = 'Продиктуй, как бы ты продолжила историю — я превращу это в карточку.';
+  let customButtonHint: string | null = 'Нажми, чтобы начать запись.';
+  let customButtonIcon: React.ReactNode = <Mic size={20} />;
+  let customButtonAriaLabel = 'Записать свой вариант голосом';
+  let customButtonDisabled = (historyStoryLoading && customOptionStatus !== 'recording') || isCustomOptionProcessing;
+
+  switch (customOptionStatus) {
+    case 'idle':
+      customButtonHint = 'Запись начнётся сразу после нажатия.';
+      break;
+    case 'recording':
+      customButtonTitle = 'Запись идёт';
+      customButtonDescription = 'Говори — и нажми ещё раз, когда закончишь.';
+      customButtonClassName += ` ${styles.historyChatReplyButtonRecording}`;
+      customButtonIcon = <CircleStop size={20} />;
+      customButtonAriaLabel = 'Остановить запись';
+      customButtonDisabled = false;
+      customButtonHint = 'Можно остановить запись повторным нажатием.';
+      break;
+    case 'transcribing':
+      customButtonTitle = 'Расшифровываю запись';
+      customButtonDescription = 'Перевожу голос в текст...';
+      customButtonClassName += ` ${styles.historyChatReplyButtonProcessing}`;
+      customButtonIcon = <Loader2 size={20} className={styles.spinning} />;
+      customButtonAriaLabel = 'Расшифровываем запись';
+      customButtonDisabled = true;
+      customButtonHint = null;
+      break;
+    case 'generating':
+      customButtonTitle = 'Придумываю формулировку';
+      customButtonDescription = 'Собираю заголовок и описание из твоих слов.';
+      customButtonClassName += ` ${styles.historyChatReplyButtonProcessing}`;
+      customButtonIcon = <Loader2 size={20} className={styles.spinning} />;
+      customButtonAriaLabel = 'Готовим карточку из записи';
+      customButtonDisabled = true;
+      customButtonHint = null;
+      break;
+    case 'error':
+      customButtonTitle = 'Не удалось распознать';
+      customButtonDescription = historyCustomOption.error ?? 'Попробуем записать снова?';
+      customButtonClassName += ` ${styles.historyChatReplyButtonError}`;
+      customButtonIcon = <RotateCcw size={18} />;
+      customButtonAriaLabel = 'Попробовать записать ещё раз';
+      customButtonDisabled = false;
+      customButtonHint = 'Нажми, чтобы перезаписать.';
+      break;
+    case 'ready':
+      customButtonTitle = customOptionReady?.title ?? 'Свой вариант';
+      customButtonDescription =
+        customOptionReady?.description ??
+        historyCustomOption.transcript ??
+        'Проверь, всё ли звучит, как тебе хочется.';
+      customButtonClassName += ` ${styles.historyChatReplyButtonCustom}`;
+      customButtonIcon = null;
+      customButtonAriaLabel = 'Выбрать свой вариант';
+      customButtonDisabled = historyStoryLoading;
+      customButtonHint = 'Нажми, чтобы продолжить историю с этим вариантом.';
+      break;
+    default:
+      break;
+  }
 
   const fallbackPeriodContent = useMemo(
     () => getFallbackPeriodContent(PRIMARY_USER_NAME),
@@ -3082,11 +3536,7 @@ const ModernNastiaApp: React.FC = () => {
           setRemoteOpenAIKey(config.openAI.apiKey);
           console.log('[Config] ✅ OpenAI API key loaded from remote config');
         }
-        const openAIProxyUrl = config.openAIProxy?.url ?? null;
-        setRemoteOpenAIProxyUrl(openAIProxyUrl);
-        if (openAIProxyUrl) {
-          console.log('[Config] ✅ OpenAI proxy URL loaded from remote config');
-        }
+        setRemoteOpenAIProxyUrl(null);
       })
       .catch(error => {
         if (!cancelled) {
@@ -4247,19 +4697,71 @@ const ModernNastiaApp: React.FC = () => {
                   <div className={`${styles.historyChatReplies} ${historyButtonsHiding ? styles.historyChatRepliesHiding : ''}`}>
                     {historyStoryOptions.map((option, index) => {
                       const accentClass = index === 0 ? styles.historyChatReplyPrimary : styles.historyChatReplyAlt;
+                      const isVisible = index < visibleButtonsCount;
                       return (
-                        <button
+                        <div
                           key={option.id}
-                          type="button"
-                          className={`${styles.historyChatReplyButton} ${accentClass} ${index < visibleButtonsCount ? styles.visible : ''}`}
-                          onClick={() => handleHistoryOptionSelect(option)}
-                          disabled={historyStoryLoading}
+                          className={`${styles.historyChatReplyItem} ${isVisible ? styles.visible : ''}`}
                         >
-                          <span className={styles.historyChatReplyTitle}>{option.title}</span>
-                          <span className={styles.historyChatReplyDescription}>{option.description}</span>
-                        </button>
+                          <button
+                            type="button"
+                            className={`${styles.historyChatReplyButton} ${accentClass}`}
+                            onClick={() => handleHistoryOptionSelect(option)}
+                            disabled={historyStoryLoading}
+                          >
+                            <span className={styles.historyChatReplyTitle}>{option.title}</span>
+                            <span className={styles.historyChatReplyDescription}>{option.description}</span>
+                          </button>
+                        </div>
                       );
                     })}
+                    {showCustomOption && (
+                      <div
+                        key="custom-history-option"
+                        className={`${styles.historyChatReplyItem} ${visibleButtonsCount > historyStoryOptions.length ? styles.visible : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className={customButtonClassName}
+                          onClick={handleCustomOptionClick}
+                          disabled={customButtonDisabled}
+                          aria-label={customButtonAriaLabel}
+                        >
+                          <div className={styles.historyCustomButtonLayout}>
+                            <div className={styles.historyCustomButtonTexts}>
+                              <span className={styles.historyCustomBadge}>{customBadgeLabel}</span>
+                              <span className={styles.historyChatReplyTitle}>{customButtonTitle}</span>
+                              <span className={styles.historyChatReplyDescription}>{customButtonDescription}</span>
+                              {customButtonHint && (
+                                <span className={styles.historyCustomMicroHint}>{customButtonHint}</span>
+                              )}
+                              {customOptionStatus === 'ready' && customTranscriptPreview && (
+                                <span className={styles.historyCustomTranscript}>
+                                  Распознано:&nbsp;«{customTranscriptPreview}»
+                                </span>
+                              )}
+                            </div>
+                            {customButtonIcon && (
+                              <div className={styles.historyCustomSpinner}>
+                                {customButtonIcon}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                        {customOptionStatus === 'ready' && (
+                          <button
+                            type="button"
+                            className={styles.historyCustomIconButton}
+                            onClick={event => handleCustomOptionRerecord(event)}
+                            disabled={historyStoryLoading || isCustomOptionProcessing}
+                            title="Перезаписать голосом"
+                            aria-label="Перезаписать голосом"
+                          >
+                            <RotateCcw size={18} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div ref={historyScrollAnchorRef} className={styles.historyScrollAnchor} aria-hidden />
