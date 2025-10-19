@@ -2157,6 +2157,10 @@ const ModernNastiaApp: React.FC = () => {
 
     clearButtonAnimationTimers();
 
+    // Определяем текущий Arc
+    const currentArc = historyStorySegments.length > 0 ? historyStorySegments[historyStorySegments.length - 1].arcNumber : 1;
+    const isArc1 = currentArc === 1;
+
     // Начинаем показывать кнопки по одной
     const totalButtons = historyStoryOptions.length;
     const delayBetweenButtons = 500; // Задержка между кнопками
@@ -2164,7 +2168,11 @@ const ModernNastiaApp: React.FC = () => {
     for (let i = 0; i < totalButtons; i++) {
       const timeoutId = window.setTimeout(() => {
         setVisibleButtonsCount(i + 1);
-        scrollToBottom({ delay: 200 });
+        // Arc 1: НЕ скроллим вниз, потому что есть специальный скролл к Луне
+        // Arc 2+: скроллим вниз к кнопкам
+        if (!isArc1) {
+          scrollToBottom({ delay: 200 });
+        }
       }, delayBetweenButtons * (i + 1));
 
       buttonAnimationTimeoutsRef.current.push(timeoutId);
@@ -2173,7 +2181,7 @@ const ModernNastiaApp: React.FC = () => {
     return () => {
       clearButtonAnimationTimers();
     };
-  }, [historyStoryOptions, historyStoryMode, historyStoryTyping, historyButtonsHiding, scrollToBottom, clearButtonAnimationTimers]);
+  }, [historyStoryOptions, historyStoryMode, historyStoryTyping, historyButtonsHiding, historyStorySegments, scrollToBottom, clearButtonAnimationTimers]);
 
   const fallbackPeriodContent = useMemo(
     () => getFallbackPeriodContent(PRIMARY_USER_NAME),
