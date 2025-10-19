@@ -637,6 +637,7 @@ const ModernNastiaApp: React.FC = () => {
   // Новые состояния для чат-интерфейса генерации
   const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string; isSystem?: boolean }>>([]);
   const [currentTypingPlanet, setCurrentTypingPlanet] = useState<string | null>(null);
+  const currentTypingPlanetRef = useRef<string | null>(null); // Ref для синхронного доступа
   const planetMessagesTimeoutRef = useRef<number[]>([]);
   const [planetMessagesClearing, setPlanetMessagesClearing] = useState(false);
   const planetMessagesGenerationStartedRef = useRef(false);
@@ -694,6 +695,32 @@ const ModernNastiaApp: React.FC = () => {
     // Очищаем все таймеры планет
     planetMessagesTimeoutRef.current.forEach(timer => window.clearTimeout(timer));
     planetMessagesTimeoutRef.current = [];
+  }, []);
+
+  // Функция ожидания завершения печати планеты
+  const waitForTypingComplete = useCallback((callback: () => void, maxWaitMs = 5000) => {
+    const startTime = Date.now();
+    const checkInterval = 100; // Проверяем каждые 100ms
+
+    const check = () => {
+      const elapsed = Date.now() - startTime;
+
+      // Если планета закончила печатать или превышено максимальное время ожидания
+      if (currentTypingPlanetRef.current === null || elapsed >= maxWaitMs) {
+        if (elapsed >= maxWaitMs && currentTypingPlanetRef.current !== null) {
+          console.warn('[WaitForTyping] Timeout waiting for planet typing to complete');
+        } else {
+          console.log('[WaitForTyping] Planet typing complete, proceeding');
+        }
+        callback();
+      } else {
+        // Планета еще печатает, проверяем снова через интервал
+        console.log('[WaitForTyping] Planet still typing:', currentTypingPlanetRef.current);
+        setTimeout(check, checkInterval);
+      }
+    };
+
+    check();
   }, []);
 
   const resetHistoryStoryState = useCallback(() => {
@@ -861,9 +888,15 @@ const ModernNastiaApp: React.FC = () => {
           historyStoryMetaRef.current = response.meta;
         }
 
-        // Останавливаем анимацию генерации и переходим в режим очистки диалога планет
+        // Останавливаем анимацию генерации
         stopGenerationAnimation();
-        setHistoryStoryPhase('clearing');
+
+        // Ждем, пока планета закончит печатать, перед переходом в 'clearing'
+        // Это предотвращает преждевременное переключение на Луну
+        waitForTypingComplete(() => {
+          console.log('[HistoryStory] Planet typing complete, transitioning to clearing phase');
+          setHistoryStoryPhase('clearing');
+        });
 
         const newSegment: HistoryStorySegment = {
           id: `segment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -908,6 +941,7 @@ const ModernNastiaApp: React.FC = () => {
       effectiveOpenAIProxyUrl,
       startTypingHistorySegment,
       stopGenerationAnimation,
+      waitForTypingComplete,
     ],
   );
 
@@ -1430,6 +1464,10 @@ const ModernNastiaApp: React.FC = () => {
   }, [historyStorySegments]);
 
   useEffect(() => {
+    currentTypingPlanetRef.current = currentTypingPlanet;
+  }, [currentTypingPlanet]);
+
+  useEffect(() => {
     updateHistoryStorySummary(historyStorySegments);
   }, [historyStorySegments, updateHistoryStorySummary]);
 
@@ -1540,7 +1578,7 @@ const ModernNastiaApp: React.FC = () => {
                 const lastMoonEl = moonElements[moonElements.length - 1] as HTMLElement;
                 const rect = lastMoonEl.getBoundingClientRect();
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                const targetTop = scrollTop + rect.top - 20; // 20px отступ сверху
+                const targetTop = scrollTop + rect.top - 120; // 120px отступ сверху для видимости под заголовком
 
                 console.log('[AutoScroll READY] ✅ Scrolling to MOON, targetTop:', targetTop, 'at', Date.now());
                 window.scrollTo({
