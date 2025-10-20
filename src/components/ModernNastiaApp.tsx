@@ -667,6 +667,7 @@ const ModernNastiaApp: React.FC = () => {
   const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
   const [historyStoryFinalSummary, setHistoryStoryFinalSummary] = useState<{ human: string; astrological: string } | null>(null);
   const [finaleInterpretationMode, setFinaleInterpretationMode] = useState<'human' | 'astrological'>('human');
+  const [highlightedMessageIndex, setHighlightedMessageIndex] = useState<number | null>(null);
   const historyStoryPendingOptionsRef = useRef<HistoryStoryOption[] | null>(null);
   const [introMessagesVisible, setIntroMessagesVisible] = useState<number>(0); // 0-4 для показа интро-сообщений
   const [introTyping, setIntroTyping] = useState<boolean>(false);
@@ -2033,6 +2034,19 @@ const ModernNastiaApp: React.FC = () => {
                   top: targetTop,
                   behavior: 'smooth'
                 });
+
+                // Запускаем анимацию подсветки после завершения скролла (500ms - длительность smooth scroll)
+                setTimeout(() => {
+                  const moonIndex = moonElements.length - 1;
+                  console.log('[Highlight] Activating highlight for moon message index:', moonIndex);
+                  setHighlightedMessageIndex(moonIndex);
+
+                  // Убираем подсветку через 2.5 секунды (длительность анимации)
+                  setTimeout(() => {
+                    console.log('[Highlight] Removing highlight');
+                    setHighlightedMessageIndex(null);
+                  }, 2500);
+                }, 500);
 
                 // Проверяем, что будет через 2 секунды
                 setTimeout(() => {
@@ -4576,8 +4590,13 @@ const ModernNastiaApp: React.FC = () => {
                   ref={historyMessagesRef}
                 >
                   {/* Планетарные сообщения и контракт - показываем всегда кроме idle */}
-                  {historyStoryPhase !== 'idle' && planetChatMessages.map((msg) => (
-                    msg.isSystem ? (
+                  {historyStoryPhase !== 'idle' && planetChatMessages.map((msg, msgIndex) => {
+                    // Считаем индекс для сообщений Луны (для подсветки)
+                    const moonMessages = planetChatMessages.filter(m => m.planet === 'Луна' && !m.isSystem);
+                    const moonIndex = moonMessages.findIndex(m => m.id === msg.id);
+                    const shouldHighlight = msg.planet === 'Луна' && !msg.isSystem && moonIndex === highlightedMessageIndex;
+
+                    return msg.isSystem ? (
                       // Системное сообщение о подключении
                       <div
                         key={msg.id}
@@ -4589,7 +4608,7 @@ const ModernNastiaApp: React.FC = () => {
                       // Обычное сообщение
                       <div
                         key={msg.id}
-                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible}`}
+                        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${msg.planet === 'История' ? styles.historyMessage : styles.planetMessage} ${styles.visible} ${shouldHighlight ? styles.historyMessageHighlight : ''}`}
                         data-author={msg.planet === 'Луна' ? 'Луна' : undefined}
                       >
                         <div className={msg.planet === 'История' ? styles.historyChatStoryTitle : styles.historyChatSender}>
@@ -4598,8 +4617,8 @@ const ModernNastiaApp: React.FC = () => {
                         <div className={styles.historyChatContent}>{msg.message}</div>
                         <div className={styles.historyChatTime}>{msg.time}</div>
                       </div>
-                    )
-                  ))}
+                    );
+                  })}
 
                   {/* Индикатор печати для планет и Луны (НЕ для "История") */}
                   {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing') && currentTypingPlanet && currentTypingPlanet !== 'История' && (
