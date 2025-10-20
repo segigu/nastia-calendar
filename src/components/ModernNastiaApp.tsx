@@ -427,19 +427,6 @@ const HISTORY_START_DESCRIPTIONS = [
   'Пройди историю с точками выбора, а я в конце объясню, где ты вела себя как обычно, а где пыталась выглядеть правильно',
 ];
 
-// Тексты для кнопки отмены генерации истории
-const CANCEL_GENERATION_TEXTS = [
-  'Не готова',
-  'Не хочу',
-  'Передумала',
-  'В другой раз',
-  'Не сейчас',
-  'Отмена',
-  'Хватит',
-  'Не надо',
-  'Позже',
-  'Остановить',
-];
 
 const DEFAULT_SERGEY_BANNER_COPY: SergeyBannerCopy = {
   title: 'А что там у Сережи?',
@@ -661,7 +648,6 @@ const ModernNastiaApp: React.FC = () => {
   const [historyStartPrompt, setHistoryStartPrompt] = useState('');
   const [historyStartButton, setHistoryStartButton] = useState('');
   const [historyStartDescription, setHistoryStartDescription] = useState('');
-  const [historyCancelButtonText, setHistoryCancelButtonText] = useState('');
 
   // Новые состояния для чат-интерфейса генерации
   const [planetChatMessages, setPlanetChatMessages] = useState<Array<{ planet: string; message: string; id: string; time: string; isSystem?: boolean }>>([]);
@@ -1447,10 +1433,6 @@ const ModernNastiaApp: React.FC = () => {
 
     // Сразу запускаем анимацию - она будет ждать загрузки персонализированных сообщений
     startGenerationAnimation();
-
-    // Выбираем случайный текст для кнопки отмены
-    const cancelText = CANCEL_GENERATION_TEXTS[Math.floor(Math.random() * CANCEL_GENERATION_TEXTS.length)];
-    setHistoryCancelButtonText(cancelText);
 
     const persona = STORY_AUTHORS[Math.floor(Math.random() * STORY_AUTHORS.length)];
     setHistoryStoryAuthor(persona);
@@ -4568,27 +4550,17 @@ const ModernNastiaApp: React.FC = () => {
                 {/* Экран генерации и готовности - единый чат-интерфейс */}
                 {(historyStoryPhase === 'generating' || historyStoryPhase === 'clearing' || historyStoryPhase === 'ready') && (
                   <>
-                    {/* Заголовок с кнопкой отмены/завершения */}
+                    {/* Заголовок с кнопкой закрытия */}
                     <div className={styles.historyStoryHeader}>
                       <h2 className={styles.historyStoryTitle}>История</h2>
-                      {historyStoryPhase === 'generating' && historyCancelButtonText && (
-                        <button
-                          type="button"
-                          className={styles.historyEndButton}
-                          onClick={handleCancelGeneration}
-                        >
-                          {historyCancelButtonText}
-                        </button>
-                      )}
-                      {historyStoryPhase === 'ready' && (
-                        <button
-                          type="button"
-                          className={styles.historyEndButton}
-                          onClick={resetHistoryStoryState}
-                        >
-                          Закончить историю
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className={styles.historyCloseButton}
+                        onClick={historyStoryPhase === 'generating' ? handleCancelGeneration : resetHistoryStoryState}
+                        aria-label="Закрыть"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </>
                 )}

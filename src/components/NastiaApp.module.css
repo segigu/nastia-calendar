@@ -137,7 +137,7 @@ html {
 
 .calendarPanel {
   width: calc(100% + 2rem);
-  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
+  background: #fdf2f8;
   border-radius: 0;
   box-shadow: none;
   padding: 1.75rem 0 1.5rem;
@@ -671,7 +671,7 @@ html {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.75rem 0;
-  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
+  background: #fdf2f8;
   border-bottom: none;
   margin: 0 0 1rem 0;
   position: sticky;
@@ -686,26 +686,31 @@ html {
   margin: 0;
 }
 
-.historyEndButton {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #8b5cf6;
+.historyCloseButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #1f1230;
   background: transparent;
-  border: 1px solid #8b5cf6;
-  border-radius: 12px;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
-.historyEndButton:hover {
-  background: #8b5cf6;
-  color: white;
-  transform: scale(1.02);
+.historyCloseButton:hover {
+  background: rgba(31, 18, 48, 0.1);
+  transform: scale(1.1);
 }
 
-.historyEndButton:active {
-  transform: scale(0.98);
+.historyCloseButton:active {
+  transform: scale(0.95);
 }
 
 /* Начальный экран */
@@ -1376,7 +1381,7 @@ html {
 }
 
 .historyChatMetaBlock {
-  background: linear-gradient(135deg, #f3e8ff 0%, #fdf2f8 100%);
+  background: #fdf2f8;
   border-left: 3px solid var(--nastia-purple);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;

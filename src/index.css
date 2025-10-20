@@ -11,7 +11,7 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #fdf2f8 0%, #f3e8ff 100%);
+  background: #fdf2f8;
   min-height: 100vh;
 }
 
