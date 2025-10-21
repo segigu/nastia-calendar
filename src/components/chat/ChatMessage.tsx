@@ -44,6 +44,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div
         className={bubbleClasses}
         data-author={isMoon ? 'Луна' : undefined}
+        data-message-type={message.type}
       >
         <div className={styles.historyChatSender}>{message.author}</div>
         <div className={styles.historyChatContent}>{message.content}</div>
@@ -57,7 +58,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     const displayTitle = message.type === 'finale' ? 'Развязка' : storyTitle;
 
     return (
-      <div className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}>
+      <div
+        className={`${styles.historyChatBubble} ${styles.historyChatIncoming} ${styles.visible}`}
+        data-message-type={message.type}
+      >
         <div className={styles.historyChatStoryTitle}>{displayTitle}</div>
         <div className={styles.historyChatMessageWrapper}>
           <div className={styles.historyChatTextBlock}>

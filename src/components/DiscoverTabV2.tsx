@@ -408,6 +408,47 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
           setTimeout(() => {
             chatManagerRef.current?.setChoices(result.options || []);
             setIsGenerating(false);
+
+            // Для ПЕРВОГО сегмента истории делаем красивый скролл
+            // 1. Сначала скроллим вниз (показать всё)
+            // 2. Потом плавно откатываем к началу сообщения Луны
+            setTimeout(() => {
+              console.log('[DiscoverV2] Performing reveal scroll for first story segment');
+
+              // Шаг 1: Скролл вниз до конца (показываем всё)
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    window.scrollTo({
+                      top: document.documentElement.scrollHeight,
+                      behavior: 'smooth',
+                    });
+
+                    // Шаг 2: Через 800ms откатываем к началу сообщения Луны
+                    setTimeout(() => {
+                      // Ищем сообщение Луны (type="moon")
+                      const moonMessage = document.querySelector('[data-message-type="moon"]');
+                      if (moonMessage) {
+                        const rect = moonMessage.getBoundingClientRect();
+                        const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+                        const moonTop = rect.top + currentScroll;
+
+                        // Скроллим так, чтобы начало сообщения было под шапкой
+                        // Шапка "История (NEW v2 🧪)" примерно 60px
+                        const headerHeight = 60;
+                        const targetScroll = moonTop - headerHeight;
+
+                        console.log('[DiscoverV2] Scrolling back to moon message at', targetScroll);
+                        window.scrollTo({
+                          top: targetScroll,
+                          behavior: 'smooth',
+                        });
+                      }
+                    }, 800);
+                  });
+                });
+              });
+            }, 100);
           }, 500);
         }, 1000);
       }, 1500);
