@@ -106,6 +106,12 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   const personalizedMessagesRef = useRef(personalizedPlanetMessages);
   const isLoadingRef = useRef(isLoadingPersonalizedMessages);
 
+  // Ref для результата AI генерации (чтобы не прерывать диалог планет)
+  const aiResultRef = useRef<any>(null);
+
+  // Флаг завершения диалога планет
+  const dialogueCompleteRef = useRef<boolean>(false);
+
   // История сегментов для передачи в AI
   interface StorySegment {
     text: string;
@@ -218,6 +224,9 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     const startDialogue = (dialogue: Array<{ planet: string; message: string }>) => {
       console.log('[DiscoverV2] Starting planet dialogue with', dialogue.length, 'messages');
 
+      // Сбрасываем флаг завершения диалога
+      dialogueCompleteRef.current = false;
+
       // Задержка после последнего подключения планет (Нептун: 4800ms) + пауза 600ms
       const startDelay = 5400;
       let messageIndex = 0;
@@ -226,6 +235,14 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
       const generateMessage = (delay: number) => {
         if (messageIndex >= dialogue.length) {
           console.log('[DiscoverV2] ✅ All personalized messages shown');
+          // Устанавливаем флаг завершения диалога
+          dialogueCompleteRef.current = true;
+          // Если AI уже готова - показываем результат
+          if (aiResultRef.current) {
+            console.log('[DiscoverV2] Dialogue complete, AI result ready, showing now');
+            showAIResult(aiResultRef.current);
+            aiResultRef.current = null;
+          }
           return;
         }
 
@@ -262,8 +279,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
         timeoutsRef.current.push(t2);
       };
 
-      // Запускаем первое сообщение через начальную задержку
-      generateMessage(startDelay - dialogue.length * 100); // Небольшая компенсация для старта
+      // Запускаем первое сообщение через начальную задержку (ПОСЛЕ подключения всех планет)
+      generateMessage(startDelay);
     };
 
     // Проверяем, загружены ли персонализированные сообщения
@@ -299,6 +316,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
           timeoutsRef.current.push(t);
         } else {
           console.log('[DiscoverV2] Timeout waiting for personalized messages, skipping dialogue');
+          // Устанавливаем флаг, что диалога не будет
+          dialogueCompleteRef.current = true;
         }
       };
 
@@ -308,10 +327,65 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     } else {
       // Не загружаются и не загружены - пропускаем диалог
       console.log('[DiscoverV2] No personalized messages available, skipping dialogue');
+      // Устанавливаем флаг, что диалога не будет
+      dialogueCompleteRef.current = true;
     }
 
-    // 4. Запускаем AI генерацию ПАРАЛЛЕЛЬНО (не ждём диалога!)
+    // 4. Запускаем AI генерацию ПАРАЛЛЕЛЬНО (но НЕ прерываем диалог!)
     console.log('[DiscoverV2] Starting AI generation in background...');
+
+    // Функция для показа результата AI (вызывается после завершения диалога)
+    const showAIResult = (result: any) => {
+      console.log('[DiscoverV2] Showing AI result');
+
+      chatManagerRef.current?.setTyping(null);
+
+      // Сохраняем метаданные
+      if (result.meta) {
+        setStoryMeta(result.meta);
+        setStoryContract(result.meta.contract);
+      }
+
+      const moonSummary = result.meta?.moonSummary || 'Сейчас расскажу вам историю...';
+      const arc = result.node?.scene || 'История начинается...';
+
+      // Переходим к фазе moon и показываем сообщение от Луны
+      chatManagerRef.current?.setPhase('moon');
+      chatManagerRef.current?.setTyping('Луна');
+
+      setTimeout(() => {
+        chatManagerRef.current?.setTyping(null);
+        chatManagerRef.current?.addMessage({
+          type: 'moon',
+          author: 'Луна',
+          content: moonSummary,
+          time: getCurrentTime(),
+          id: generateId(),
+        });
+
+        // Переходим к истории
+        setTimeout(() => {
+          chatManagerRef.current?.setPhase('story');
+          chatManagerRef.current?.addMessage({
+            type: 'story',
+            author: 'История',
+            content: arc,
+            time: getCurrentTime(),
+            id: generateId(),
+          });
+
+          storySegmentsRef.current.push({
+            text: arc,
+            arc: 1,
+          });
+
+          setTimeout(() => {
+            chatManagerRef.current?.setChoices(result.options || []);
+            setIsGenerating(false);
+          }, 500);
+        }, 1000);
+      }, 1500);
+    };
 
     (async () => {
       try {
@@ -337,57 +411,16 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
         console.log('[DiscoverV2] AI generation completed!');
 
-        // Очищаем все таймеры диалога (если AI быстрее)
-        timeoutsRef.current.forEach(t => clearTimeout(t));
-        timeoutsRef.current = [];
-
-        chatManagerRef.current?.setTyping(null);
-
-        // Сохраняем метаданные
-        if (result.meta) {
-          setStoryMeta(result.meta);
-          setStoryContract(result.meta.contract);
+        // НЕ прерываем диалог планет! Проверяем, закончился ли он
+        if (dialogueCompleteRef.current) {
+          // Диалог уже закончился (или не было диалога) - показываем сразу
+          console.log('[DiscoverV2] Dialogue already complete, showing AI result immediately');
+          showAIResult(result);
+        } else {
+          // Диалог еще идет - сохраняем результат, он покажется когда диалог закончится
+          console.log('[DiscoverV2] Dialogue still running, saving AI result for later');
+          aiResultRef.current = result;
         }
-
-        const moonSummary = result.meta?.moonSummary || 'Сейчас расскажу вам историю...';
-        const arc = result.node?.scene || 'История начинается...';
-
-        // Переходим к фазе moon и показываем сообщение от Луны
-        chatManagerRef.current?.setPhase('moon');
-        chatManagerRef.current?.setTyping('Луна');
-
-        setTimeout(() => {
-          chatManagerRef.current?.setTyping(null);
-          chatManagerRef.current?.addMessage({
-            type: 'moon',
-            author: 'Луна',
-            content: moonSummary,
-            time: getCurrentTime(),
-            id: generateId(),
-          });
-
-          // Переходим к истории
-          setTimeout(() => {
-            chatManagerRef.current?.setPhase('story');
-            chatManagerRef.current?.addMessage({
-              type: 'story',
-              author: 'История',
-              content: arc,
-              time: getCurrentTime(),
-              id: generateId(),
-            });
-
-            storySegmentsRef.current.push({
-              text: arc,
-              arc: 1,
-            });
-
-            setTimeout(() => {
-              chatManagerRef.current?.setChoices(result.options || []);
-              setIsGenerating(false);
-            }, 500);
-          }, 1000);
-        }, 1500);
 
       } catch (err) {
         console.error('[DiscoverV2] Error generating story:', err);
@@ -565,6 +598,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setCurrentArc(1);
     setStoryContract(null);
     storySegmentsRef.current = [];
+
+    // Очистка refs для синхронизации AI и диалога
+    aiResultRef.current = null;
+    dialogueCompleteRef.current = false;
   }, []);
 
   // Обновляем refs при изменении props (для актуальности в callback'ах)

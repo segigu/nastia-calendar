@@ -2341,15 +2341,9 @@ const ModernNastiaApp: React.FC = () => {
       return;
     }
 
-    // Если уже есть загруженные сообщения (не старше 1 часа), не загружаем заново
-    if (personalizedPlanetMessages) {
-      const age = Date.now() - personalizedPlanetMessages.timestamp;
-      const oneHour = 60 * 60 * 1000;
-      if (age < oneHour) {
-        console.log('[PersonalizedMessages] Using cached messages');
-        return;
-      }
-    }
+    // ВСЕГДА генерируем новые сообщения при открытии вкладки (не кэшируем)
+    // Очищаем предыдущие сообщения
+    setPersonalizedPlanetMessages(null);
 
     // Если уже идет загрузка, не запускаем новую (используем ref для проверки)
     if (isLoadingPersonalizedMessagesRef.current) {
@@ -2400,7 +2394,8 @@ const ModernNastiaApp: React.FC = () => {
       abortController.abort();
       personalizedMessagesAbortControllerRef.current = null;
     };
-  }, [activeTab, hasAiCredentials, effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey, effectiveOpenAIProxyUrl, personalizedPlanetMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, hasAiCredentials, effectiveClaudeKey, effectiveClaudeProxyUrl, effectiveOpenAIKey, effectiveOpenAIProxyUrl]);
 
   // Анимация элементов вкладки "Узнай себя"
   useEffect(() => {
