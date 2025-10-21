@@ -1917,7 +1917,8 @@ html {
   max-width: 100% !important;
   width: 100% !important;
   padding: 0 !important;
-  margin-top: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 120px;
   opacity: 0;
   transform: translateY(20px) scale(0.95);
   animation: messageFadeSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
@@ -1932,9 +1933,9 @@ html {
 }
 
 .historyFinalSummaryLabel {
-  font-size: 1rem;
+  font-size: 1.25rem;
   color: var(--nastia-purple);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -1975,6 +1976,7 @@ html {
   line-height: 1.6;
   color: #1f1230;
   white-space: normal;
+  padding: 0.5rem 1.5rem;
 }
 
 .historyChatReplyPrimary {
