@@ -24,6 +24,12 @@ npm test -- --testPathPattern=<component-name>
 npm test -- --watch  # Watch mode for test development
 ```
 
+### Quick Workflow (КПД)
+```bash
+# КПД = Коммит, Пуш, Деплой - быстрая команда для публикации изменений
+git add . && git commit -m "your message" && git push && npm run deploy
+```
+
 ## Architecture Overview
 
 ### Entry Points

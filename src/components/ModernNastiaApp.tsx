@@ -14,6 +14,7 @@ import {
   Square,
 } from 'lucide-react';
 import { GlassTabBar, type TabId } from './GlassTabBar';
+import { DiscoverTabV2 } from './DiscoverTabV2';
 import {
   CycleData,
   type HoroscopeMemoryEntry,
@@ -483,6 +484,15 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
 };
 
 const ModernNastiaApp: React.FC = () => {
+  // 🚧 Флаг для постепенной миграции на ChatManager
+  const USE_NEW_CHAT_MANAGER = false; // TODO: включить после переноса всей логики
+
+  // 🧪 Beta: новая версия "Узнай себя" с ChatManager (активируется через ?newDiscover=true)
+  const [useNewDiscover] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('newDiscover');
+  });
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
@@ -4538,6 +4548,20 @@ const ModernNastiaApp: React.FC = () => {
 
         {/* Вкладка: Узнай себя (интерактивная история) */}
         {activeTab === 'discover' && (
+          useNewDiscover ? (
+            // 🧪 НОВАЯ ВЕРСИЯ с ChatManager
+            <DiscoverTabV2
+              hasAiCredentials={hasAiCredentials}
+              effectiveClaudeKey={effectiveClaudeKey}
+              effectiveClaudeProxyUrl={effectiveClaudeProxyUrl}
+              effectiveOpenAIKey={effectiveOpenAIKey}
+              effectiveOpenAIProxyUrl={effectiveOpenAIProxyUrl}
+              personalizedPlanetMessages={personalizedPlanetMessages}
+              isLoadingPersonalizedMessages={isLoadingPersonalizedMessages}
+              onNewStoryMessage={() => setHasNewStoryMessage(true)}
+            />
+          ) : (
+            // СТАРАЯ ВЕРСИЯ (legacy)
           <div className={styles.historyChatContainer}>
                 {/* Начальный экран (idle) */}
                 {historyStoryPhase === 'idle' && (
@@ -4907,6 +4931,7 @@ const ModernNastiaApp: React.FC = () => {
                 )}
                 <div ref={historyScrollAnchorRef} className={styles.historyScrollAnchor} aria-hidden />
           </div>
+          ) // Закрываем СТАРУЮ ВЕРСИЮ
         )}
 
         {/* Вкладка: Циклы */}

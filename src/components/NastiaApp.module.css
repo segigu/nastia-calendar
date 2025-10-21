@@ -1218,7 +1218,7 @@ html {
   flex-direction: column;
   gap: 0.9rem;
   min-height: 6.5rem;
-  padding-bottom: 0.5rem; /* Небольшой отступ; основной отступ от tab bar учитывается в JS через getScrollToBottomPosition() */
+  padding-bottom: 3.75rem; /* 60px = tab bar height + small gap */
 }
 
 

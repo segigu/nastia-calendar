@@ -21,6 +21,7 @@ export type ChatAuthor =
   | 'Плутон'
   | 'Луна'
   | 'История'
+  | 'Настя'
   | 'system';
 
 /**
@@ -31,6 +32,7 @@ export type ChatMessageType =
   | 'moon'        // Сообщение от Луны (введение к истории)
   | 'story'       // Сообщение истории
   | 'finale'      // Финальное сообщение истории
+  | 'user'        // Сообщение от пользователя (Настя)
   | 'choices'     // Варианты выбора (кнопки)
   | 'system';     // Системное сообщение
 
@@ -74,6 +76,15 @@ export interface StoryMessage extends BaseChatMessage {
 }
 
 /**
+ * Сообщение от пользователя (Настя)
+ */
+export interface UserMessage extends BaseChatMessage {
+  type: 'user';
+  author: 'Настя';
+  content: string;
+}
+
+/**
  * Варианты выбора (кнопки)
  */
 export interface ChoicesMessage extends BaseChatMessage {
@@ -100,6 +111,7 @@ export type ChatMessage =
   | PlanetMessage
   | MoonMessage
   | StoryMessage
+  | UserMessage
   | ChoicesMessage
   | SystemMessage;
 
