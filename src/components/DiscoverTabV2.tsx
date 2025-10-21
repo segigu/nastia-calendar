@@ -9,10 +9,33 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChatManager, type ChatManagerHandle } from './chat/ChatManager';
-import type { ChatPhase } from '../types/chat';
 import type { HistoryStoryOption } from '../utils/historyStory';
 import { generateHistoryStoryChunk, type HistoryStoryMeta } from '../utils/historyStory';
 import styles from './NastiaApp.module.css';
+
+// Константы для рандомных промптов
+const HISTORY_START_PROMPTS = [
+  'Давай проверим, насколько ты правдива с собой сегодня',
+  'Готова разобрать себя на части? Звёзды уже наточили скальпель',
+  'Что если астрология знает о тебе больше, чем ты думаешь?',
+  'Твоя карта готова рассказать правду — ты?',
+  'Проверь себя на честность, пока никто не видит',
+];
+
+const HISTORY_START_BUTTONS = [
+  'Начать историю',
+  'Проверить себя',
+  'Узнать правду',
+  'Погнали',
+  'Давай',
+  'Поехали',
+];
+
+const HISTORY_START_DESCRIPTIONS = [
+  'Я создам для тебя персональную историю, в которой ты будешь делать выборы. А потом разберу каждое твоё решение по косточкам',
+  'Тебя ждёт интерактивная история с выборами. В конце я проанализирую твои решения и скажу, где ты была честна с собой',
+  'Пройдёшь через историю с развилками. Я буду следить за твоими выборами, а потом расскажу, что они говорят о тебе',
+];
 
 interface PersonalizedPlanetMessages {
   dialogue: Array<{ planet: string; message: string }>;
@@ -56,6 +79,20 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   const [storyMeta, setStoryMeta] = useState<HistoryStoryMeta | null>(null);
   const [currentArc, setCurrentArc] = useState(1);
   const [storyContract, setStoryContract] = useState<string | null>(null);
+
+  // Рандомные тексты для idle экрана (генерируются один раз)
+  const [startPrompt] = useState(() =>
+    HISTORY_START_PROMPTS[Math.floor(Math.random() * HISTORY_START_PROMPTS.length)]
+  );
+  const [startButton] = useState(() =>
+    HISTORY_START_BUTTONS[Math.floor(Math.random() * HISTORY_START_BUTTONS.length)]
+  );
+  const [startDescription] = useState(() =>
+    HISTORY_START_DESCRIPTIONS[Math.floor(Math.random() * HISTORY_START_DESCRIPTIONS.length)]
+  );
+
+  // Анимация появления элементов idle экрана
+  const [visibleElements, setVisibleElements] = useState<string[]>([]);
 
   // Refs для таймеров
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
@@ -151,35 +188,32 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     });
 
     // 3. Диалог планет (показывается ПОКА грузится AI)
-    // Используем персонализированные сообщения если есть, иначе fallback
-    const dialogue = personalizedPlanetMessages?.dialogue || [
-      { planet: 'Меркурий', message: 'Я думаю, ей нужна история о выборе.' },
-      { planet: 'Венера', message: 'Согласна! Что-то про отношения и ценности.' },
-      { planet: 'Марс', message: 'Или про действие! Надо вызов бросить.' },
-      { planet: 'Луна', message: 'Хорошо, я вижу тему. Давайте про внутренний конфликт.' },
-    ];
+    // Используем ТОЛЬКО персонализированные сообщения (без fallback!)
+    if (personalizedPlanetMessages?.dialogue && personalizedPlanetMessages.dialogue.length > 0) {
+      const dialogue = personalizedPlanetMessages.dialogue;
+      let dialogueDelay = 2800;
 
-    let dialogueDelay = 2800;
-    dialogue.forEach(({ planet, message }) => {
-      const t1 = setTimeout(() => {
-        chatManagerRef.current?.setTyping(planet as any);
-      }, dialogueDelay);
-      timeoutsRef.current.push(t1);
+      dialogue.forEach(({ planet, message }) => {
+        const t1 = setTimeout(() => {
+          chatManagerRef.current?.setTyping(planet as any);
+        }, dialogueDelay);
+        timeoutsRef.current.push(t1);
 
-      const t2 = setTimeout(() => {
-        chatManagerRef.current?.setTyping(null);
-        chatManagerRef.current?.addMessage({
-          type: 'planet',
-          author: planet as any,
-          content: message,
-          time: getCurrentTime(),
-          id: generateId(),
-        });
-      }, dialogueDelay + 1200);
-      timeoutsRef.current.push(t2);
+        const t2 = setTimeout(() => {
+          chatManagerRef.current?.setTyping(null);
+          chatManagerRef.current?.addMessage({
+            type: 'planet',
+            author: planet as any,
+            content: message,
+            time: getCurrentTime(),
+            id: generateId(),
+          });
+        }, dialogueDelay + 1200);
+        timeoutsRef.current.push(t2);
 
-      dialogueDelay += 2000; // Следующее сообщение через 2 секунды
-    });
+        dialogueDelay += 2000; // Следующее сообщение через 2 секунды
+      });
+    }
 
     // 4. Запускаем AI генерацию ПАРАЛЛЕЛЬНО (не ждём диалога!)
     console.log('[DiscoverV2] Starting AI generation in background...');
@@ -438,6 +472,27 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     storySegmentsRef.current = [];
   }, []);
 
+  // Анимация появления элементов idle экрана
+  useEffect(() => {
+    if (isStarted) {
+      setVisibleElements([]);
+      return;
+    }
+
+    // Сбрасываем и запускаем анимацию
+    setVisibleElements([]);
+    const elementsToAnimate = ['icon', 'prompt', 'description', 'button'];
+    const timers = elementsToAnimate.map((elementId, index) =>
+      window.setTimeout(() => {
+        setVisibleElements(prev => prev.includes(elementId) ? prev : [...prev, elementId]);
+      }, 100 * index + 50)
+    );
+
+    return () => {
+      timers.forEach(t => window.clearTimeout(t));
+    };
+  }, [isStarted]);
+
   // Cleanup при unmount
   useEffect(() => {
     return () => {
@@ -454,24 +509,24 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
       {/* Idle screen - кнопка запуска */}
       {!isStarted && (
         <div className={styles.historyStartScreen}>
-          <div className={styles.historyStartIconContainer}>
-            <div className={styles.historyStartIcon}>🔮</div>
+          <div className={`${styles.historyStartIconContainer} ${styles.calendarElementAnimated} ${visibleElements.includes('icon') ? styles.calendarElementVisible : ''}`}>
+            <div className={styles.historyStartIcon}>✨</div>
           </div>
           <div>
-            <div className={styles.historyStartPrompt}>
-              Узнай себя через историю
+            <div className={`${styles.historyStartPrompt} ${styles.calendarElementAnimated} ${visibleElements.includes('prompt') ? styles.calendarElementVisible : ''}`}>
+              {startPrompt}
             </div>
-            <div className={styles.historyStartDescription}>
-              Планеты создадут для тебя интерактивную историю, основанную на твоей натальной карте
+            <div className={`${styles.historyStartDescription} ${styles.calendarElementAnimated} ${visibleElements.includes('description') ? styles.calendarElementVisible : ''}`}>
+              {startDescription}
             </div>
           </div>
           <button
             type="button"
-            className={styles.historyStartButton}
+            className={`${styles.historyStartButton} ${styles.calendarElementAnimated} ${visibleElements.includes('button') ? styles.calendarElementVisible : ''}`}
             onClick={startPlanetDialogue}
             disabled={!hasAiCredentials}
           >
-            {hasAiCredentials ? 'Начать путешествие' : 'Настройте API ключи'}
+            {hasAiCredentials ? startButton : 'Настройте API ключи'}
           </button>
         </div>
       )}
