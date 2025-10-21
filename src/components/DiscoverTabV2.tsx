@@ -426,7 +426,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
                     // Шаг 2: Ждём появления ВСЕХ кнопок перед откатом
                     const waitForButtons = () => {
                       // Проверяем наличие кнопок выбора в DOM
-                      const choiceButtons = document.querySelectorAll('.historyStoryOptionButton');
+                      // CSS modules генерирует хэшированные классы, поэтому ищем по частичному совпадению
+                      const choiceButtons = document.querySelectorAll('[class*="historyChatReplyButton"]');
 
                       if (choiceButtons.length > 0) {
                         console.log('[DiscoverV2] ✅ All choice buttons rendered (', choiceButtons.length, '), scrolling back to moon');
