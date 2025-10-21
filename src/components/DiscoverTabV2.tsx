@@ -838,8 +838,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
     try {
       const transcript = await transcribeAudioBlob(audioBlob, {
-        openAIApiKey: effectiveOpenAIKey,
-        openAIProxyUrl: effectiveOpenAIProxyUrl,
+        openAIApiKey: effectiveOpenAIKey || undefined,
+        openAIProxyUrl: effectiveOpenAIProxyUrl || undefined,
         language: 'ru',
         signal: controller.signal,
       });
@@ -874,10 +874,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
         summary: undefined,
         author: activeAuthorStyle,
         signal: controller.signal,
-        claudeApiKey: effectiveClaudeKey,
-        claudeProxyUrl: effectiveClaudeProxyUrl,
-        openAIApiKey: effectiveOpenAIKey,
-        openAIProxyUrl: effectiveOpenAIProxyUrl,
+        claudeApiKey: effectiveClaudeKey || undefined,
+        claudeProxyUrl: effectiveClaudeProxyUrl || undefined,
+        openAIApiKey: effectiveOpenAIKey || undefined,
+        openAIProxyUrl: effectiveOpenAIProxyUrl || undefined,
       });
 
       if (controller.signal.aborted) {
