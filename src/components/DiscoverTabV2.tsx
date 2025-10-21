@@ -10,7 +10,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChatManager, type ChatManagerHandle } from './chat/ChatManager';
 import type { HistoryStoryOption } from '../utils/historyStory';
-import { generateHistoryStoryChunk, type HistoryStoryMeta } from '../utils/historyStory';
+import {
+  generateHistoryStoryChunk,
+  generateCustomHistoryOption,
+  type HistoryStoryMeta
+} from '../utils/historyStory';
+import { transcribeAudioBlob } from '../utils/audioTranscription';
 import {
   calculateTypingDuration,
   calculatePauseBefore,
@@ -89,6 +94,19 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   const [finaleInterpretations, setFinaleInterpretations] = useState<{ human: string; astrological: string } | null>(null);
   const [finaleInterpretationMode, setFinaleInterpretationMode] = useState<'human' | 'astrological'>('human');
 
+  // Custom voice option state
+  type CustomOptionStatus = 'idle' | 'recording' | 'transcribing' | 'generating' | 'ready' | 'error';
+  const [customOption, setCustomOption] = useState<{
+    status: CustomOptionStatus;
+    option: HistoryStoryOption | null;
+    transcript?: string;
+    error?: string;
+  }>({
+    status: 'idle',
+    option: null,
+  });
+  const [customRecordingLevel, setCustomRecordingLevel] = useState(0);
+
   // Рандомные тексты для idle экрана (генерируются один раз)
   const [startPrompt] = useState(() =>
     HISTORY_START_PROMPTS[Math.floor(Math.random() * HISTORY_START_PROMPTS.length)]
@@ -127,6 +145,16 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     optionDescription?: string;
   }
   const storySegmentsRef = useRef<StorySegment[]>([]);
+
+  // Refs для голосового ввода
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioAnalyserRef = useRef<AnalyserNode | null>(null);
+  const analyserDataRef = useRef<Uint8Array | null>(null);
+  const recordingAnimationFrameRef = useRef<number | null>(null);
+  const customOptionAbortControllerRef = useRef<AbortController | null>(null);
 
   // ============================================================================
   // AUTOSCROLL
@@ -411,7 +439,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
           setTimeout(() => {
             const options = result.options || [];
-            chatManagerRef.current?.setChoices(options);
+            chatManagerRef.current?.setChoices(options, customOption.option, customOption.status, customRecordingLevel);
             setIsGenerating(false);
 
             // Для ПЕРВОГО сегмента истории делаем красивый скролл
@@ -529,7 +557,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setIsGenerating(true);
 
     // Скрываем кнопки и добавляем user message
-    chatManagerRef.current?.setChoices([]);
+    chatManagerRef.current?.setChoices([], undefined, 'idle', 0);
 
     setTimeout(async () => {
       // Добавляем выбор пользователя как сообщение
@@ -661,7 +689,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             // Показываем новые кнопки выбора
             setTimeout(() => {
               const options = result.options || [];
-              chatManagerRef.current?.setChoices(options);
+              chatManagerRef.current?.setChoices(options, customOption.option, customOption.status, customRecordingLevel);
               setIsGenerating(false);
 
               // Для сегментов 2-6 делаем reveal scroll к началу текущего story-сообщения
@@ -731,14 +759,369 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     effectiveOpenAIProxyUrl,
   ]);
 
-  const handleCustomOptionClick = useCallback(() => {
-    console.log('[DiscoverV2] Custom voice option clicked');
-    alert('Голосовой ввод пока не реализован');
+  // ============================================================================
+  // VOICE RECORDING FUNCTIONS
+  // ============================================================================
+
+  const cleanupCustomOptionResources = useCallback(() => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (error) {
+          console.warn('[DiscoverV2] Failed to stop recorder during cleanup', error);
+        }
+      }
+      mediaRecorderRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (error) {
+          console.warn('[DiscoverV2] Failed to stop media track', error);
+        }
+      });
+      mediaStreamRef.current = null;
+    }
+    if (recordingAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(recordingAnimationFrameRef.current);
+      recordingAnimationFrameRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch (error) {
+        console.warn('[DiscoverV2] Failed to close audio context', error);
+      }
+      audioContextRef.current = null;
+    }
+    audioAnalyserRef.current = null;
+    analyserDataRef.current = null;
   }, []);
+
+  const cancelCustomOptionProcessing = useCallback(() => {
+    if (customOptionAbortControllerRef.current) {
+      customOptionAbortControllerRef.current.abort();
+      customOptionAbortControllerRef.current = null;
+    }
+  }, []);
+
+  const processRecordedCustomOption = useCallback(async () => {
+    const chunks = [...audioChunksRef.current];
+    audioChunksRef.current = [];
+
+    if (chunks.length === 0) {
+      setCustomOption(prev => ({
+        status: 'error',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: 'Кажется, запись получилась пустой. Попробуй ещё раз.',
+      }));
+      return;
+    }
+
+    cleanupCustomOptionResources();
+
+    const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+    const controller = new AbortController();
+    customOptionAbortControllerRef.current = controller;
+
+    setCustomOption(prev => ({
+      status: 'transcribing',
+      option: prev.option && prev.status === 'ready' ? prev.option : null,
+      transcript: undefined,
+      error: undefined,
+    }));
+
+    try {
+      const transcript = await transcribeAudioBlob(audioBlob, {
+        openAIApiKey: effectiveOpenAIKey,
+        openAIProxyUrl: effectiveOpenAIProxyUrl,
+        language: 'ru',
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setCustomOption(prev => ({
+        status: 'generating',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript,
+        error: undefined,
+      }));
+
+      const arcSegments = storySegmentsRef.current.map((segment, index) => ({
+        text: segment.text,
+        arc: segment.arc ?? index + 1,
+        optionTitle: segment.optionTitle,
+        optionDescription: segment.optionDescription,
+      }));
+
+      const activeAuthorStyle = {
+        name: storyMeta?.author || 'История',
+        stylePrompt: 'Пиши простым, современным языком. Используй короткие предложения. Избегай штампов.',
+        genre: storyMeta?.genre || 'психологическая драма',
+      };
+
+      const customOptionResult = await generateCustomHistoryOption({
+        transcript,
+        segments: arcSegments,
+        summary: undefined,
+        author: activeAuthorStyle,
+        signal: controller.signal,
+        claudeApiKey: effectiveClaudeKey,
+        claudeProxyUrl: effectiveClaudeProxyUrl,
+        openAIApiKey: effectiveOpenAIKey,
+        openAIProxyUrl: effectiveOpenAIProxyUrl,
+      });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setCustomOption({
+        status: 'ready',
+        option: customOptionResult,
+        transcript,
+        error: undefined,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        console.warn('[DiscoverV2] Custom option processing aborted');
+        return;
+      }
+      console.error('[DiscoverV2] Failed to process custom option', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось обработать запись. Попробуй ещё раз.';
+      setCustomOption({
+        status: 'error',
+        option: null,
+        transcript: undefined,
+        error: message,
+      });
+    } finally {
+      if (customOptionAbortControllerRef.current === controller) {
+        customOptionAbortControllerRef.current = null;
+      }
+    }
+  }, [
+    cleanupCustomOptionResources,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+    effectiveOpenAIProxyUrl,
+    storyMeta,
+  ]);
+
+  const stopCustomRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      try {
+        recorder.stop();
+      } catch (error) {
+        console.error('[DiscoverV2] Failed to stop recording', error);
+        cleanupCustomOptionResources();
+        setCustomOption(prev => ({
+          status: 'error',
+          option: prev.option && prev.status === 'ready' ? prev.option : null,
+          transcript: undefined,
+          error: 'Не получилось остановить запись. Попробуй снова.',
+        }));
+      }
+    }
+  }, [cleanupCustomOptionResources]);
+
+  const startRecordingLevelMonitor = useCallback(async (stream: MediaStream) => {
+    try {
+      const AudioContextClass: typeof AudioContext | undefined = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) {
+        return;
+      }
+
+      const audioContext = new AudioContextClass();
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+        } catch (error) {
+          console.warn('[DiscoverV2] Failed to resume audio context', error);
+        }
+      }
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.3;
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      audioContextRef.current = audioContext;
+      audioAnalyserRef.current = analyser;
+      analyserDataRef.current = dataArray;
+
+      const updateLevel = () => {
+        if (!audioAnalyserRef.current || !analyserDataRef.current) {
+          return;
+        }
+
+        audioAnalyserRef.current.getByteTimeDomainData(analyserDataRef.current);
+        let sumSquares = 0;
+        for (let index = 0; index < analyserDataRef.current.length; index += 1) {
+          const deviation = analyserDataRef.current[index] - 128;
+          sumSquares += deviation * deviation;
+        }
+        const rms = Math.sqrt(sumSquares / analyserDataRef.current.length) / 128;
+        const normalized = Math.min(1, rms * 2.4);
+
+        setCustomRecordingLevel(prev => prev * 0.55 + normalized * 0.45);
+
+        recordingAnimationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+
+      recordingAnimationFrameRef.current = requestAnimationFrame(updateLevel);
+    } catch (error) {
+      console.warn('[DiscoverV2] Failed to initialize audio analyser', error);
+    }
+  }, []);
+
+  const startCustomRecording = useCallback(async () => {
+    const activeRecorder = mediaRecorderRef.current;
+    if (activeRecorder && activeRecorder.state === 'recording') {
+      stopCustomRecording();
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCustomOption(prev => ({
+        status: 'error',
+        option: prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: 'Браузер не поддерживает запись звука.',
+      }));
+      return;
+    }
+
+    cancelCustomOptionProcessing();
+    cleanupCustomOptionResources();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          noiseSuppression: true,
+          echoCancellation: true,
+        },
+      });
+
+      let recorder: MediaRecorder | null = null;
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidate)) {
+          try {
+            recorder = new MediaRecorder(stream, { mimeType: candidate });
+            break;
+          } catch {
+            recorder = null;
+          }
+        }
+      }
+
+      if (!recorder) {
+        recorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorderRef.current = recorder;
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      recorder.addEventListener('dataavailable', event => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      });
+
+      recorder.addEventListener('stop', () => {
+        cleanupCustomOptionResources();
+        void processRecordedCustomOption();
+      });
+
+      setCustomOption(prev => ({
+        status: 'recording',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: undefined,
+      }));
+
+      void startRecordingLevelMonitor(stream);
+
+      recorder.start();
+    } catch (error) {
+      console.error('[DiscoverV2] Failed to start recording', error);
+      cleanupCustomOptionResources();
+      setCustomOption(prev => ({
+        status: 'error',
+        option: prev.option && prev.status === 'ready' ? prev.option : null,
+        transcript: undefined,
+        error: error instanceof Error
+          ? error.message
+          : 'Не удалось получить доступ к микрофону. Проверь настройки и попробуй снова.',
+      }));
+    }
+  }, [
+    cancelCustomOptionProcessing,
+    cleanupCustomOptionResources,
+    processRecordedCustomOption,
+    stopCustomRecording,
+    startRecordingLevelMonitor,
+  ]);
+
+  const handleCustomOptionClick = useCallback(() => {
+    if (customOption.status === 'recording') {
+      stopCustomRecording();
+      return;
+    }
+
+    if (customOption.status === 'ready' && customOption.option) {
+      // User selected the custom option
+      handleChoiceSelect(customOption.option);
+      // Reset custom option after selection
+      setCustomOption({ status: 'idle', option: null });
+      return;
+    }
+
+    // Start recording
+    void startCustomRecording();
+  }, [customOption.status, customOption.option, stopCustomRecording, startCustomRecording, handleChoiceSelect]);
 
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
     setFinaleInterpretationMode(mode);
   }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cancelCustomOptionProcessing();
+      cleanupCustomOptionResources();
+    };
+  }, [cancelCustomOptionProcessing, cleanupCustomOptionResources]);
+
+  // Reset recording level when not recording
+  useEffect(() => {
+    if (customOption.status !== 'recording') {
+      setCustomRecordingLevel(0);
+    }
+  }, [customOption.status]);
 
   // ============================================================================
   // RESET
@@ -749,6 +1132,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     timeoutsRef.current.forEach(t => clearTimeout(t));
     timeoutsRef.current = [];
 
+    // Очистка голосового ввода
+    cancelCustomOptionProcessing();
+    cleanupCustomOptionResources();
+
     chatManagerRef.current?.clearMessages();
     setIsStarted(false);
     setIsGenerating(false);
@@ -758,13 +1145,15 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setStoryContract(null);
     setFinaleInterpretations(null);
     setFinaleInterpretationMode('human');
+    setCustomOption({ status: 'idle', option: null });
+    setCustomRecordingLevel(0);
     storySegmentsRef.current = [];
 
     // Очистка refs для синхронизации AI и диалога
     aiResultRef.current = null;
     stopDialogueAfterCurrentRef.current = false;
     dialogueStartedRef.current = false;
-  }, []);
+  }, [cancelCustomOptionProcessing, cleanupCustomOptionResources]);
 
   // Обновляем refs при изменении props (для актуальности в callback'ах)
   useEffect(() => {
