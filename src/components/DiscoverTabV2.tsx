@@ -629,8 +629,55 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
             // Показываем новые кнопки выбора
             setTimeout(() => {
-              chatManagerRef.current?.setChoices(result.options || []);
+              const options = result.options || [];
+              chatManagerRef.current?.setChoices(options);
               setIsGenerating(false);
+
+              // Для сегментов 2-6 делаем reveal scroll к началу текущего story-сообщения
+              const expectedButtonCount = options.length + 1; // +1 для кастомной кнопки
+              const animationDuration = expectedButtonCount * 500; // 500ms на кнопку
+
+              console.log('[DiscoverV2] Arc', nextArc, '- will wait for', expectedButtonCount, 'buttons (', animationDuration, 'ms)');
+
+              // Ждём окончания анимации появления ВСЕХ кнопок
+              setTimeout(() => {
+                console.log('[DiscoverV2] Button animation complete, performing reveal scroll for arc', nextArc);
+
+                // Шаг 1: Скролл вниз до конца
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      window.scrollTo({
+                        top: document.documentElement.scrollHeight,
+                        behavior: 'smooth',
+                      });
+                      console.log('[DiscoverV2] Scrolled down to show everything');
+
+                      // Шаг 2: Через 800ms откатываем к началу ТЕКУЩЕГО story-сообщения
+                      setTimeout(() => {
+                        // Ищем последнее story-сообщение (текущий сегмент истории)
+                        const allStoryMessages = document.querySelectorAll('[data-message-type="story"]');
+                        const currentStoryMessage = allStoryMessages[allStoryMessages.length - 1];
+
+                        if (currentStoryMessage) {
+                          const rect = currentStoryMessage.getBoundingClientRect();
+                          const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+                          const storyTop = rect.top + currentScroll;
+
+                          const headerHeight = 60;
+                          const targetScroll = storyTop - headerHeight;
+
+                          console.log('[DiscoverV2] Scrolling back to story segment', nextArc, 'at', targetScroll);
+                          window.scrollTo({
+                            top: targetScroll,
+                            behavior: 'smooth',
+                          });
+                        }
+                      }, 800); // Пауза чтобы пользователь увидел всё
+                    });
+                  });
+                });
+              }, animationDuration + 200); // +200ms запас после анимации
             }, 500);
           }
 
