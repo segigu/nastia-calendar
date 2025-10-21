@@ -1276,10 +1276,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
           {/* Заголовок с кнопкой закрытия */}
           <div className={styles.historyStoryHeader}>
             <h2 className={styles.historyStoryTitle}>
-              История {' '}
-              <span style={{ fontSize: '14px', opacity: 0.6 }}>
-                (NEW v2 🧪)
-              </span>
+              История
             </h2>
             <button
               type="button"
