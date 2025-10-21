@@ -439,7 +439,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
           setTimeout(() => {
             const options = result.options || [];
-            chatManagerRef.current?.setChoices(options, customOption.option, customOption.status, customRecordingLevel);
+            chatManagerRef.current?.setChoices(options, customOption.option || undefined, customOption.status, customRecordingLevel);
             setIsGenerating(false);
 
             // Для ПЕРВОГО сегмента истории делаем красивый скролл
@@ -689,7 +689,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             // Показываем новые кнопки выбора
             setTimeout(() => {
               const options = result.options || [];
-              chatManagerRef.current?.setChoices(options, customOption.option, customOption.status, customRecordingLevel);
+              chatManagerRef.current?.setChoices(options, customOption.option || undefined, customOption.status, customRecordingLevel);
               setIsGenerating(false);
 
               // Для сегментов 2-6 делаем reveal scroll к началу текущего story-сообщения
