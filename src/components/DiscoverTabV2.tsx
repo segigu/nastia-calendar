@@ -97,6 +97,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   // Refs для таймеров
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
+  // Refs для актуальных значений props (для использования в callback'ах)
+  const personalizedMessagesRef = useRef(personalizedPlanetMessages);
+  const isLoadingRef = useRef(isLoadingPersonalizedMessages);
+
   // История сегментов для передачи в AI
   interface StorySegment {
     text: string;
@@ -194,8 +198,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
     // 3. Диалог планет (показывается ПОКА грузится AI)
     // Используем ТОЛЬКО персонализированные сообщения (без fallback!)
-    if (personalizedPlanetMessages?.dialogue && personalizedPlanetMessages.dialogue.length > 0) {
-      const dialogue = personalizedPlanetMessages.dialogue;
+
+    // Функция для запуска диалога
+    const startDialogue = (dialogue: Array<{ planet: string; message: string }>) => {
+      console.log('[DiscoverV2] Starting planet dialogue with', dialogue.length, 'messages');
       let dialogueDelay = 2800;
 
       dialogue.forEach(({ planet, message }) => {
@@ -218,6 +224,50 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
         dialogueDelay += 2000; // Следующее сообщение через 2 секунды
       });
+    };
+
+    // Проверяем, загружены ли персонализированные сообщения
+    const currentMessages = personalizedMessagesRef.current;
+    const currentLoading = isLoadingRef.current;
+
+    if (currentMessages?.dialogue && currentMessages.dialogue.length > 0) {
+      // Уже загружены - используем сразу
+      console.log('[DiscoverV2] Using cached personalized messages');
+      startDialogue(currentMessages.dialogue);
+    } else if (currentLoading) {
+      // Загружаются - ждём с polling
+      console.log('[DiscoverV2] Waiting for personalized messages to load...');
+      let checkCount = 0;
+      const maxChecks = 50; // 10 секунд максимум (50 * 200ms)
+      const checkInterval = 200; // проверяем каждые 200ms
+
+      const checkMessages = () => {
+        checkCount++;
+
+        // Проверяем актуальное значение через ref
+        const messages = personalizedMessagesRef.current;
+
+        if (messages?.dialogue && messages.dialogue.length > 0) {
+          console.log('[DiscoverV2] Personalized messages loaded during polling (check #' + checkCount + ')');
+          startDialogue(messages.dialogue);
+          return;
+        }
+
+        // Если не превысили лимит - проверяем ещё раз
+        if (checkCount < maxChecks) {
+          const t = setTimeout(checkMessages, checkInterval);
+          timeoutsRef.current.push(t);
+        } else {
+          console.log('[DiscoverV2] Timeout waiting for personalized messages, skipping dialogue');
+        }
+      };
+
+      // Начинаем проверку через 200ms
+      const t = setTimeout(checkMessages, checkInterval);
+      timeoutsRef.current.push(t);
+    } else {
+      // Не загружаются и не загружены - пропускаем диалог
+      console.log('[DiscoverV2] No personalized messages available, skipping dialogue');
     }
 
     // 4. Запускаем AI генерацию ПАРАЛЛЕЛЬНО (не ждём диалога!)
@@ -476,6 +526,12 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setStoryContract(null);
     storySegmentsRef.current = [];
   }, []);
+
+  // Обновляем refs при изменении props (для актуальности в callback'ах)
+  useEffect(() => {
+    personalizedMessagesRef.current = personalizedPlanetMessages;
+    isLoadingRef.current = isLoadingPersonalizedMessages;
+  }, [personalizedPlanetMessages, isLoadingPersonalizedMessages]);
 
   // Анимация появления элементов idle экрана
   useEffect(() => {
