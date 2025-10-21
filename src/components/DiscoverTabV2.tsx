@@ -156,6 +156,9 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   const recordingAnimationFrameRef = useRef<number | null>(null);
   const customOptionAbortControllerRef = useRef<AbortController | null>(null);
 
+  // Ref для текущих choices (чтобы можно было обновить только customOption)
+  const currentChoicesRef = useRef<HistoryStoryOption[]>([]);
+
   // ============================================================================
   // AUTOSCROLL
   // ============================================================================
@@ -439,6 +442,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
           setTimeout(() => {
             const options = result.options || [];
+            currentChoicesRef.current = options;
             chatManagerRef.current?.setChoices(options, customOption.option || undefined, customOption.status, customRecordingLevel);
             setIsGenerating(false);
 
@@ -557,6 +561,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setIsGenerating(true);
 
     // Скрываем кнопки и добавляем user message
+    currentChoicesRef.current = [];
     chatManagerRef.current?.setChoices([], undefined, 'idle', 0);
 
     setTimeout(async () => {
@@ -689,6 +694,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             // Показываем новые кнопки выбора
             setTimeout(() => {
               const options = result.options || [];
+              currentChoicesRef.current = options;
               chatManagerRef.current?.setChoices(options, customOption.option || undefined, customOption.status, customRecordingLevel);
               setIsGenerating(false);
 
@@ -1123,6 +1129,23 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     }
   }, [customOption.status]);
 
+  // Sync customOption changes to ChatManager
+  useEffect(() => {
+    const handle = chatManagerRef.current;
+    if (!handle) return;
+
+    // Only update if we're in story phase with choices
+    if (handle.getPhase() === 'story' && currentChoicesRef.current.length > 0) {
+      // Re-send current choices with updated customOption
+      handle.setChoices(
+        currentChoicesRef.current,
+        customOption.option || undefined,
+        customOption.status,
+        customRecordingLevel
+      );
+    }
+  }, [customOption.status, customOption.option, customRecordingLevel]);
+
   // ============================================================================
   // RESET
   // ============================================================================
@@ -1148,6 +1171,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setCustomOption({ status: 'idle', option: null });
     setCustomRecordingLevel(0);
     storySegmentsRef.current = [];
+    currentChoicesRef.current = [];
 
     // Очистка refs для синхронизации AI и диалога
     aiResultRef.current = null;
