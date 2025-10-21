@@ -112,6 +112,9 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   // Флаг для остановки диалога после текущего сообщения
   const stopDialogueAfterCurrentRef = useRef<boolean>(false);
 
+  // Флаг: был ли диалог запущен
+  const dialogueStartedRef = useRef<boolean>(false);
+
   // История сегментов для передачи в AI
   interface StorySegment {
     text: string;
@@ -224,8 +227,17 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     const startDialogue = (dialogue: Array<{ planet: string; message: string }>) => {
       console.log('[DiscoverV2] Starting planet dialogue with', dialogue.length, 'messages');
 
-      // Сбрасываем флаг остановки
-      stopDialogueAfterCurrentRef.current = false;
+      // Устанавливаем флаг, что диалог запущен
+      dialogueStartedRef.current = true;
+
+      // Если AI УЖЕ готова - устанавливаем флаг остановки сразу
+      if (aiResultRef.current) {
+        stopDialogueAfterCurrentRef.current = true;
+        console.log('[DiscoverV2] AI already ready, dialogue will stop after first message');
+      } else {
+        // Сбрасываем флаг остановки
+        stopDialogueAfterCurrentRef.current = false;
+      }
 
       // Задержка после последнего подключения планет (Нептун: 4800ms) + пауза 600ms
       const startDelay = 5400;
@@ -310,31 +322,31 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
       console.log('[DiscoverV2] Using cached personalized messages');
       startDialogue(currentMessages.dialogue);
     } else if (currentLoading) {
-      // Загружаются - ждём с polling
+      // Загружаются - ждём с polling (БЕЗ таймаута, пока AI не готова)
       console.log('[DiscoverV2] Waiting for personalized messages to load...');
-      let checkCount = 0;
-      const maxChecks = 50; // 10 секунд максимум (50 * 200ms)
       const checkInterval = 200; // проверяем каждые 200ms
 
       const checkMessages = () => {
-        checkCount++;
-
         // Проверяем актуальное значение через ref
         const messages = personalizedMessagesRef.current;
 
         if (messages?.dialogue && messages.dialogue.length > 0) {
-          console.log('[DiscoverV2] Personalized messages loaded during polling (check #' + checkCount + ')');
+          console.log('[DiscoverV2] ✅ Personalized messages loaded, starting dialogue');
           startDialogue(messages.dialogue);
           return;
         }
 
-        // Если не превысили лимит - проверяем ещё раз
-        if (checkCount < maxChecks) {
-          const t = setTimeout(checkMessages, checkInterval);
-          timeoutsRef.current.push(t);
-        } else {
-          console.log('[DiscoverV2] Timeout waiting for personalized messages, skipping dialogue');
+        // Если AI уже готова и диалог не запустился - прекращаем ждать
+        if (aiResultRef.current && !dialogueStartedRef.current) {
+          console.log('[DiscoverV2] ⚠️ AI ready but no dialogue messages, showing AI result');
+          showAIResult(aiResultRef.current);
+          aiResultRef.current = null;
+          return;
         }
+
+        // Продолжаем проверять
+        const t = setTimeout(checkMessages, checkInterval);
+        timeoutsRef.current.push(t);
       };
 
       // Начинаем проверку через 200ms
@@ -428,10 +440,14 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
         // Сохраняем результат
         aiResultRef.current = result;
 
-        // Устанавливаем флаг остановки диалога после текущего сообщения
-        // Это НЕ прерывает текущее набирающееся сообщение!
-        stopDialogueAfterCurrentRef.current = true;
-        console.log('[DiscoverV2] Dialogue will stop after current message completes');
+        // Если диалог УЖЕ запущен - устанавливаем флаг остановки
+        if (dialogueStartedRef.current) {
+          stopDialogueAfterCurrentRef.current = true;
+          console.log('[DiscoverV2] Dialogue running, will stop after current message completes');
+        } else {
+          // Диалог не запущен - результат покажет polling при загрузке сообщений (или сразу если сообщения не загрузятся)
+          console.log('[DiscoverV2] Dialogue not started yet, result saved for polling to handle');
+        }
 
       } catch (err) {
         console.error('[DiscoverV2] Error generating story:', err);
@@ -613,6 +629,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     // Очистка refs для синхронизации AI и диалога
     aiResultRef.current = null;
     stopDialogueAfterCurrentRef.current = false;
+    dialogueStartedRef.current = false;
   }, []);
 
   // Обновляем refs при изменении props (для актуальности в callback'ах)
