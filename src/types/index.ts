@@ -86,6 +86,7 @@ export type NotificationCategory =
   | 'period_confirmed_day1'
   | 'period_confirmed_day2'
   | 'birthday'
+  | 'morning_brief'
   | 'generic';
 
 export interface NotificationItem {

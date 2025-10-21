@@ -478,6 +478,7 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationCategory, string> = {
   period_confirmed_day1: 'Менструация — поддержка',
   period_confirmed_day2: 'Менструация — поддержка',
   birthday: 'День рождения',
+  morning_brief: 'Гороскоп',
   generic: 'Напоминание',
 };
 
