@@ -410,12 +410,11 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             setIsGenerating(false);
 
             // Для ПЕРВОГО сегмента истории делаем красивый скролл
-            // 1. Сначала скроллим вниз (показать всё)
-            // 2. Потом плавно откатываем к началу сообщения Луны
-            setTimeout(() => {
+            // Ждём появления ВСЕХ кнопок в DOM перед откатом
+            const performRevealScroll = () => {
               console.log('[DiscoverV2] Performing reveal scroll for first story segment');
 
-              // Шаг 1: Скролл вниз до конца (показываем всё)
+              // Шаг 1: Скролл вниз до конца (показываем всё, включая кнопки)
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                   requestAnimationFrame(() => {
@@ -424,31 +423,50 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
                       behavior: 'smooth',
                     });
 
-                    // Шаг 2: Через 800ms откатываем к началу сообщения Луны
-                    setTimeout(() => {
-                      // Ищем сообщение Луны (type="moon")
-                      const moonMessage = document.querySelector('[data-message-type="moon"]');
-                      if (moonMessage) {
-                        const rect = moonMessage.getBoundingClientRect();
-                        const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-                        const moonTop = rect.top + currentScroll;
+                    // Шаг 2: Ждём появления ВСЕХ кнопок перед откатом
+                    const waitForButtons = () => {
+                      // Проверяем наличие кнопок выбора в DOM
+                      const choiceButtons = document.querySelectorAll('.historyStoryOptionButton');
 
-                        // Скроллим так, чтобы начало сообщения было под шапкой
-                        // Шапка "История (NEW v2 🧪)" примерно 60px
-                        const headerHeight = 60;
-                        const targetScroll = moonTop - headerHeight;
+                      if (choiceButtons.length > 0) {
+                        console.log('[DiscoverV2] ✅ All choice buttons rendered (', choiceButtons.length, '), scrolling back to moon');
 
-                        console.log('[DiscoverV2] Scrolling back to moon message at', targetScroll);
-                        window.scrollTo({
-                          top: targetScroll,
-                          behavior: 'smooth',
-                        });
+                        // Ждём ещё 500ms чтобы пользователь увидел всё
+                        setTimeout(() => {
+                          // Ищем сообщение Луны (type="moon")
+                          const moonMessage = document.querySelector('[data-message-type="moon"]');
+                          if (moonMessage) {
+                            const rect = moonMessage.getBoundingClientRect();
+                            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+                            const moonTop = rect.top + currentScroll;
+
+                            // Скроллим так, чтобы начало сообщения было под шапкой
+                            // Шапка "История (NEW v2 🧪)" примерно 60px
+                            const headerHeight = 60;
+                            const targetScroll = moonTop - headerHeight;
+
+                            console.log('[DiscoverV2] Scrolling back to moon message at', targetScroll);
+                            window.scrollTo({
+                              top: targetScroll,
+                              behavior: 'smooth',
+                            });
+                          }
+                        }, 500);
+                      } else {
+                        // Кнопки ещё не отрендерились - проверяем ещё раз
+                        requestAnimationFrame(waitForButtons);
                       }
-                    }, 800);
+                    };
+
+                    // Начинаем проверку через 100ms после первого скролла
+                    setTimeout(waitForButtons, 100);
                   });
                 });
               });
-            }, 100);
+            };
+
+            // Запускаем reveal scroll через 100ms после setChoices
+            setTimeout(performRevealScroll, 100);
           }, 500);
         }, 1000);
       }, 1500);
