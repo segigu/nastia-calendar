@@ -163,6 +163,7 @@ localStorage keys used:
 ### Documentation
 - [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md) - Detailed technical documentation
 - [DESIGN_RULES.md](DESIGN_RULES.md) - Critical design rules (DO NOT VIOLATE)
+- [DISCOVER_TAB.md](DISCOVER_TAB.md) - "Узнай себя" tab complete documentation (DiscoverTabV2)
 - [AUTOSCROLL_FIX.md](AUTOSCROLL_FIX.md) - Auto-scroll implementation details
 - [VOICE_RECORDING.md](VOICE_RECORDING.md) - Voice recording functionality ("Свой вариант" button)
 - [CLOUD_SETUP.md](CLOUD_SETUP.md) - User guide for cloud sync setup
@@ -195,6 +196,25 @@ Interactive stories use contracts to avoid repetition:
 3. Automatic sync on app load if cloud is configured
 4. Manual sync button for force refresh
 5. Local storage always maintained as backup
+
+### Discover Tab ("Узнай себя")
+**⚠️ See [DISCOVER_TAB.md](DISCOVER_TAB.md) for complete documentation**
+
+Interactive psychological game with astrology and voice recording:
+1. **Lifecycle**: Idle Screen → Planet Dialogue → Interactive Story (7 arcs) → Finale
+2. **Architecture**: DiscoverTabV2 → ChatManager → ChatChoices (centralized state management)
+3. **Planet Dialogue**: Personalized animated dialogue (based on natal chart) while AI generates story
+4. **Interactive Story**: User makes 7 choices, AI generates segments using psychological contracts
+5. **Finale**: Dual interpretation (human + astrological) of user's choices
+6. **Reveal Scroll**: Special scroll mechanism - show all buttons → scroll back to message start
+7. **Voice Recording**: "Свой вариант" button for recording custom story continuations
+
+**URL for testing v2**: `?newDiscover=true` (старая версия без параметра)
+
+**Critical rules**:
+- Always use `window.scrollTo()`, NOT `container.scrollTo()` (no overflow on container)
+- Reveal scroll timing: 500ms/button animation + 800ms pause before scroll back
+- Padding-bottom: 16px prevents overlap with glass tab bar
 
 ### Voice Recording ("Свой вариант")
 **⚠️ CRITICAL: Props-based architecture - see [VOICE_RECORDING.md](VOICE_RECORDING.md) for full details**
