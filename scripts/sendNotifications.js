@@ -243,7 +243,7 @@ ${narrative}
   }
   return {
     title: truncateWithEllipsis(parsed.title.trim(), 40),
-    body: truncateWithEllipsis(ensureEmojiPresent(parsed.body.trim()), 55),
+    body: ensureEmojiPresent(parsed.body.trim()),
     url: MORNING_BRIEF_URL,
   };
 }
@@ -955,8 +955,8 @@ async function generateMessage(type, context, cache) {
     }
 
     const normalized = {
-      title: truncateWithEllipsis(parsed.title.trim(), 40),
-      body: truncateWithEllipsis(ensureEmojiPresent(parsed.body.trim()), 55),
+      title: parsed.title.trim(),
+      body: ensureEmojiPresent(parsed.body.trim()),
     };
 
     cache.set(type, normalized);
