@@ -8,8 +8,6 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Mic, Loader2, RotateCcw, Square } from 'lucide-react';
 import { ChatManager, type ChatManagerHandle } from './chat/ChatManager';
 import type { HistoryStoryOption } from '../utils/historyStory';
 import {
@@ -108,6 +106,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     option: null,
   });
   const [customRecordingLevel, setCustomRecordingLevel] = useState(0);
+  const [hasChoices, setHasChoices] = useState(false); // Track if choices are available for button visibility
 
   // Рандомные тексты для idle экрана (генерируются один раз)
   const [startPrompt] = useState(() =>
@@ -445,6 +444,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
           setTimeout(() => {
             const options = result.options || [];
             currentChoicesRef.current = options;
+            setHasChoices(options.length > 0); // Update state for button visibility
             chatManagerRef.current?.setChoices(options);
             setIsGenerating(false);
 
@@ -564,6 +564,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
     // Скрываем кнопки и добавляем user message
     currentChoicesRef.current = [];
+    setHasChoices(false); // Hide custom button
+    setCustomOption({ status: 'idle', option: null }); // Reset custom button state
     chatManagerRef.current?.setChoices([]);
 
     setTimeout(async () => {
@@ -697,6 +699,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             setTimeout(() => {
               const options = result.options || [];
               currentChoicesRef.current = options;
+              setHasChoices(options.length > 0); // Update state for button visibility
               chatManagerRef.current?.setChoices(options);
               setIsGenerating(false);
 
@@ -1100,9 +1103,6 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
   const customOptionStatus = customOption.status;
   const customOptionReady = customOption.option;
-  const isCustomOptionProcessing = customOptionStatus === 'transcribing' || customOptionStatus === 'generating';
-  const showCustomOption = currentChoicesRef.current.length > 0;
-  const showLiveRecordingDot = customOptionStatus === 'recording';
 
   const handleCustomOptionClick = useCallback(() => {
     if (customOptionStatus === 'recording') {
@@ -1152,84 +1152,6 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     });
   }, [customOptionStatus]);
 
-  const customButtonClassNames = [styles.historyCustomButton, styles.historyCustomButtonIdle];
-  let customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconIdle}`;
-  let customButtonTitle: React.ReactNode = 'Свой вариант';
-  let customButtonDescription = 'Продиктуй, как бы ты продолжила историю.';
-  let customButtonIcon: React.ReactNode = <Mic size={18} strokeWidth={2.2} />;
-  let customButtonAriaLabel = 'Записать свой вариант голосом';
-  let customButtonDisabled = (isGenerating && customOptionStatus !== 'recording') || isCustomOptionProcessing;
-
-  switch (customOptionStatus) {
-    case 'idle':
-      break;
-    case 'recording':
-      customButtonClassNames.push(styles.historyCustomButtonRecording);
-      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconRecording}`;
-      customButtonTitle = 'Идёт запись…';
-      customButtonDescription = 'Нажмите, чтобы остановить';
-      customButtonIcon = <Square size={12} strokeWidth={2.5} fill="white" />;
-      customButtonAriaLabel = 'Остановить запись';
-      customButtonDisabled = false;
-      break;
-    case 'transcribing':
-      customButtonClassNames.push(styles.historyCustomButtonProcessing);
-      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconProcessing}`;
-      customButtonTitle = 'Обрабатываем запись…';
-      customButtonDescription = 'Перевожу голос в текст.';
-      customButtonIcon = <Loader2 size={18} className={styles.historyCustomLoaderIcon} strokeWidth={2.4} />;
-      customButtonAriaLabel = 'Распознаём аудио';
-      customButtonDisabled = true;
-      break;
-    case 'generating':
-      customButtonClassNames.push(styles.historyCustomButtonProcessing);
-      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconProcessing}`;
-      customButtonTitle = 'Придумываем формулировку…';
-      customButtonDescription = 'Собираю заголовок и описание из твоих слов.';
-      customButtonIcon = <Loader2 size={18} className={styles.historyCustomLoaderIcon} strokeWidth={2.4} />;
-      customButtonAriaLabel = 'Готовим карточку из записи';
-      customButtonDisabled = true;
-      break;
-    case 'error':
-      customButtonClassNames.push(styles.historyCustomButtonError);
-      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconError}`;
-      customButtonTitle = 'Не удалось распознать';
-      customButtonDescription = customOption.error ?? 'Попробуем записать снова?';
-      customButtonIcon = <RotateCcw size={18} strokeWidth={2.4} />;
-      customButtonAriaLabel = 'Попробовать записать ещё раз';
-      customButtonDisabled = false;
-      break;
-    case 'ready':
-      customButtonClassNames.push(styles.historyCustomButtonReady);
-      customIconWrapperClass = `${styles.historyCustomIconCircle} ${styles.historyCustomIconReady}`;
-      customButtonTitle = customOptionReady?.title ?? 'Свой вариант';
-      customButtonDescription =
-        customOptionReady?.description ??
-        customOption.transcript ??
-        'Проверь, всё ли звучит, как тебе хочется.';
-      customButtonIcon = <RotateCcw size={20} strokeWidth={2} />;
-      customButtonAriaLabel = 'Выбрать свой вариант';
-      customButtonDisabled = isGenerating;
-      break;
-    default:
-      break;
-  }
-
-  const customButtonClassName = customButtonClassNames.join(' ');
-  const customButtonStyle: (React.CSSProperties & Record<string, string | number>) = {};
-
-  if (customOptionStatus === 'recording') {
-    const glow = Math.min(0.95, 0.28 + customRecordingLevel * 0.55);
-    const borderAlpha = Math.min(0.95, 0.5 + customRecordingLevel * 0.4);
-    const pulse = Math.min(0.95, 0.4 + customRecordingLevel * 0.6);
-    customButtonStyle['--recording-glow'] = glow;
-    customButtonStyle['--recording-border-alpha'] = borderAlpha;
-    customButtonStyle['--recording-pulse'] = pulse;
-    const borderGradient = `linear-gradient(135deg, rgba(244, 114, 182, ${borderAlpha}), rgba(139, 92, 246, ${borderAlpha}))`;
-    customButtonStyle['--custom-border'] = borderGradient;
-    customButtonStyle['--custom-shadow'] = `rgba(139, 92, 246, ${Math.max(0.2, glow)})`;
-  }
-
   const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
     setFinaleInterpretationMode(mode);
   }, []);
@@ -1275,6 +1197,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setCustomRecordingLevel(0);
     storySegmentsRef.current = [];
     currentChoicesRef.current = [];
+    setHasChoices(false); // Hide custom button on reset
 
     // Очистка refs для синхронизации AI и диалога
     aiResultRef.current = null;
@@ -1373,91 +1296,13 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             ref={chatManagerRef}
             onMessagesChange={handleMessagesChange}
             onChoiceSelect={handleChoiceSelect}
-            onCustomOptionClick={() => {}} // Placeholder - button rendered separately
+            onCustomOptionClick={handleCustomOptionClick}
             isActive={true}
             storyTitle="История"
+            customOption={customOption.option || undefined}
+            customStatus={customOption.status}
+            recordingLevel={customRecordingLevel}
           />
-
-          {/* Custom voice option button - rendered separately from ChatManager */}
-          {showCustomOption && (
-            <div key="custom-history-option" className={styles.historyChatReplyItem}>
-              <motion.button
-                type="button"
-                className={customButtonClassName}
-                onClick={handleCustomOptionClick}
-                disabled={customButtonDisabled}
-                aria-label={customButtonAriaLabel}
-                style={customButtonStyle}
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className={styles.historyCustomButtonLayout}>
-                  <div className={styles.historyCustomButtonTexts}>
-                    <span className={`${styles.historyChatReplyTitle} ${styles.historyCustomTitle}`}>
-                      {showLiveRecordingDot && (
-                        <span
-                          className={styles.historyCustomLiveDot}
-                          aria-hidden="true"
-                        />
-                      )}
-                      {customButtonTitle}
-                    </span>
-                    <span className={`${styles.historyChatReplyDescription} ${styles.historyCustomDescription}`}>
-                      {customButtonDescription}
-                    </span>
-                  </div>
-                  {customButtonIcon && customOptionStatus === 'recording' ? (
-                    <div className={styles.historyCustomRecordingPulseWrapper}>
-                      <div
-                        className={`${styles.historyCustomRecordingPulse} ${styles.historyCustomRecordingPulse1}`}
-                        style={{
-                          transform: `scale(${1 + customRecordingLevel * 1.2})`,
-                          opacity: 0.3 + customRecordingLevel * 0.4,
-                          transition: 'transform 0.2s ease-out, opacity 0.2s ease-out'
-                        }}
-                      />
-                      <div
-                        className={`${styles.historyCustomRecordingPulse} ${styles.historyCustomRecordingPulse2}`}
-                        style={{
-                          transform: `scale(${1 + customRecordingLevel * 1.8})`,
-                          opacity: 0.2 + customRecordingLevel * 0.3,
-                          transition: 'transform 0.25s ease-out, opacity 0.25s ease-out'
-                        }}
-                      />
-                      <div
-                        className={customIconWrapperClass}
-                        style={{
-                          transform: `scale(${1 + customRecordingLevel * 0.15})`,
-                          transition: 'transform 0.2s ease-out'
-                        }}
-                      >
-                        {customButtonIcon}
-                      </div>
-                    </div>
-                  ) : customButtonIcon && customOptionStatus === 'ready' ? (
-                    <motion.div
-                      className={customIconWrapperClass}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void startCustomRecording();
-                      }}
-                      style={{ cursor: 'pointer' }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {customButtonIcon}
-                    </motion.div>
-                  ) : customButtonIcon ? (
-                    <div className={customIconWrapperClass}>
-                      {customButtonIcon}
-                    </div>
-                  ) : null}
-                </div>
-              </motion.button>
-            </div>
-          )}
 
           {/* Finale interpretations block */}
           {finaleInterpretations && !isGenerating && (

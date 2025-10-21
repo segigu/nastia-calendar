@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Mic, Square, Loader2, RotateCcw } from 'lucide-react';
 import type { HistoryStoryOption } from '../../utils/historyStory';
 import styles from '../NastiaApp.module.css';
 
@@ -48,6 +49,10 @@ interface ChatChoicesProps {
    * Флаг отключения кнопок (когда идёт загрузка).
    */
   disabled?: boolean;
+  /**
+   * Показывать ли кнопку "Свой вариант" (по умолчанию true для обратной совместимости).
+   */
+  showCustomButton?: boolean;
 }
 
 /**
@@ -63,8 +68,9 @@ export const ChatChoices: React.FC<ChatChoicesProps> = ({
   visibleCount = 0,
   hiding = false,
   disabled = false,
+  showCustomButton = true, // По умолчанию показываем для обратной совместимости
 }) => {
-  const showCustomOption = options.length > 0;
+  const showCustomOption = showCustomButton && options.length > 0;
   const isCustomProcessing = customOptionStatus === 'transcribing' || customOptionStatus === 'generating';
   const showLiveRecordingDot = customOptionStatus === 'recording';
 
@@ -86,45 +92,58 @@ export const ChatChoices: React.FC<ChatChoicesProps> = ({
     }
   };
 
-  // Определяем иконку и текст для кастомной кнопки
+  // Определяем текст для кастомной кнопки
   const getCustomButtonContent = () => {
     switch (customOptionStatus) {
       case 'recording':
         return {
-          title: 'Говори...',
-          description: 'Нажми ещё раз, чтобы остановить',
-          icon: '🎙️',
+          title: 'Идёт запись…',
+          description: 'Нажмите, чтобы остановить',
         };
       case 'transcribing':
         return {
-          title: 'Обрабатываю...',
-          description: 'Расшифровываем аудио',
-          icon: '⏳',
+          title: 'Обрабатываем запись…',
+          description: 'Перевожу голос в текст.',
         };
       case 'generating':
         return {
-          title: 'Формулирую...',
-          description: 'Создаём вариант',
-          icon: '✨',
+          title: 'Придумываем формулировку…',
+          description: 'Собираю заголовок и описание из твоих слов.',
         };
       case 'ready':
         return {
-          title: customOption?.title ?? 'Готово!',
-          description: customOption?.description ?? 'Нажми, чтобы выбрать',
-          icon: '✓',
+          title: customOption?.title ?? 'Свой вариант',
+          description: customOption?.description ?? 'Проверь, всё ли звучит, как тебе хочется.',
         };
       case 'error':
         return {
-          title: 'Ошибка',
-          description: 'Попробуй ещё раз',
-          icon: '⚠️',
+          title: 'Не удалось распознать',
+          description: 'Попробуем записать снова?',
         };
       default:
         return {
           title: 'Свой вариант',
-          description: 'Скажи голосом, что делать дальше',
-          icon: '🎙️',
+          description: 'Продиктуй, как бы ты продолжила историю.',
         };
+    }
+  };
+
+  // Определяем иконку для кастомной кнопки
+  const getCustomButtonIcon = (): React.ReactNode => {
+    switch (customOptionStatus) {
+      case 'idle':
+        return <Mic size={18} strokeWidth={2.2} />;
+      case 'recording':
+        return <Square size={12} strokeWidth={2.5} fill="white" />;
+      case 'transcribing':
+      case 'generating':
+        return <Loader2 size={18} className={styles.historyCustomLoaderIcon} strokeWidth={2.4} />;
+      case 'ready':
+        return <RotateCcw size={20} strokeWidth={2} />;
+      case 'error':
+        return <RotateCcw size={18} strokeWidth={2.4} />;
+      default:
+        return <Mic size={18} strokeWidth={2.2} />;
     }
   };
 
@@ -184,8 +203,8 @@ export const ChatChoices: React.FC<ChatChoicesProps> = ({
                   {customContent.description}
                 </span>
               </div>
-              {/* Иконка с пульсацией (только для recording) */}
-              {customContent.icon && customOptionStatus === 'recording' ? (
+              {/* Иконка с анимацией */}
+              {customOptionStatus === 'recording' ? (
                 <div className={styles.historyCustomRecordingPulseWrapper}>
                   <div
                     className={`${styles.historyCustomRecordingPulse} ${styles.historyCustomRecordingPulse1}`}
@@ -210,24 +229,36 @@ export const ChatChoices: React.FC<ChatChoicesProps> = ({
                       transition: 'transform 0.2s ease-out',
                     }}
                   >
-                    <span className={styles.historyCustomIconEmoji}>{customContent.icon}</span>
+                    {getCustomButtonIcon()}
                   </div>
                 </div>
-              ) : customContent.icon ? (
+              ) : customOptionStatus === 'ready' ? (
+                <motion.div
+                  className={`${styles.historyCustomIconCircle} ${styles.historyCustomIconReady}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCustomOptionClick(); // Позволяет перезаписать
+                  }}
+                  style={{ cursor: 'pointer' }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {getCustomButtonIcon()}
+                </motion.div>
+              ) : (
                 <div
                   className={`${styles.historyCustomIconCircle} ${
-                    customOptionStatus === 'ready'
-                      ? styles.historyCustomIconReady
-                      : customOptionStatus === 'error'
-                        ? styles.historyCustomIconError
-                        : customOptionStatus === 'transcribing' || customOptionStatus === 'generating'
-                          ? styles.historyCustomIconProcessing
-                          : styles.historyCustomIconIdle
+                    customOptionStatus === 'error'
+                      ? styles.historyCustomIconError
+                      : customOptionStatus === 'transcribing' || customOptionStatus === 'generating'
+                        ? styles.historyCustomIconProcessing
+                        : styles.historyCustomIconIdle
                   }`}
                 >
-                  <span className={styles.historyCustomIconEmoji}>{customContent.icon}</span>
+                  {getCustomButtonIcon()}
                 </div>
-              ) : null}
+              )}
             </div>
           </motion.button>
         </div>

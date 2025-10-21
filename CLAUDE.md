@@ -164,6 +164,7 @@ localStorage keys used:
 - [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md) - Detailed technical documentation
 - [DESIGN_RULES.md](DESIGN_RULES.md) - Critical design rules (DO NOT VIOLATE)
 - [AUTOSCROLL_FIX.md](AUTOSCROLL_FIX.md) - Auto-scroll implementation details
+- [VOICE_RECORDING.md](VOICE_RECORDING.md) - Voice recording functionality ("Свой вариант" button)
 - [CLOUD_SETUP.md](CLOUD_SETUP.md) - User guide for cloud sync setup
 - [PUSH_NOTIFICATIONS_SETUP.md](PUSH_NOTIFICATIONS_SETUP.md) - Push notifications setup
 - [PROJECT_HISTORY.md](PROJECT_HISTORY.md) - Development history
@@ -194,6 +195,17 @@ Interactive stories use contracts to avoid repetition:
 3. Automatic sync on app load if cloud is configured
 4. Manual sync button for force refresh
 5. Local storage always maintained as backup
+
+### Voice Recording ("Свой вариант")
+**⚠️ CRITICAL: Props-based architecture - see [VOICE_RECORDING.md](VOICE_RECORDING.md) for full details**
+
+The "Свой вариант" button allows users to record their own story continuation via voice:
+1. **State ownership**: `DiscoverTabV2` owns `customOption`, `customStatus`, `customRecordingLevel`
+2. **Props flow**: State passed as props → `ChatManager` → `ChatChoices` (NO state in intermediaries!)
+3. **Recording flow**: MediaRecorder API → Whisper transcription → AI generation (title/description)
+4. **States**: idle → recording → transcribing → generating → ready/error
+
+**Common mistake**: Using `setChoices()` in useEffect creates infinite loop. Always pass state via props!
 
 ## Testing Notes
 

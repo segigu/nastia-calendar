@@ -28,6 +28,18 @@ interface ChatManagerProps {
    * Название истории (для отображения в Story сообщениях).
    */
   storyTitle?: string;
+  /**
+   * Текущий custom option (для реактивного обновления кнопки).
+   */
+  customOption?: HistoryStoryOption;
+  /**
+   * Статус custom option (для реактивного обновления кнопки).
+   */
+  customStatus?: CustomOptionStatus;
+  /**
+   * Уровень записи (0-1) для визуализации.
+   */
+  recordingLevel?: number;
 }
 
 export interface ChatManagerHandle {
@@ -58,7 +70,8 @@ export interface ChatManagerHandle {
     choices: HistoryStoryOption[],
     customOption?: HistoryStoryOption,
     customStatus?: CustomOptionStatus,
-    recordingLevel?: number
+    recordingLevel?: number,
+    showCustomButton?: boolean
   ) => void;
   /**
    * Скрыть кнопки выбора (с анимацией fadeOut).
@@ -83,12 +96,19 @@ export interface ChatManagerHandle {
  * Централизует всю логику сообщений, скроллинга, кнопок выбора.
  */
 export const ChatManager = forwardRef<ChatManagerHandle, ChatManagerProps>(
-  ({ onChoiceSelect, onCustomOptionClick, onMessagesChange, isActive = true, storyTitle = 'История' }, ref) => {
+  ({
+    onChoiceSelect,
+    onCustomOptionClick,
+    onMessagesChange,
+    isActive = true,
+    storyTitle = 'История',
+    customOption: customOptionProp,
+    customStatus: customStatusProp = 'idle',
+    recordingLevel: recordingLevelProp = 0,
+  }, ref) => {
     const chat = useChatMessages();
     const [choices, setChoicesState] = useState<HistoryStoryOption[]>([]);
-    const [customOption, setCustomOption] = useState<HistoryStoryOption | undefined>();
-    const [customStatus, setCustomStatus] = useState<CustomOptionStatus>('idle');
-    const [recordingLevel, setRecordingLevel] = useState(0);
+    const [showCustomButtonState, setShowCustomButtonState] = useState(true); // По умолчанию показываем
     const [visibleButtonsCount, setVisibleButtonsCount] = useState(0);
     const [choicesHiding, setChoicesHiding] = useState(false);
     const [highlightedMessageIndex, setHighlightedMessageIndex] = useState(-1);
@@ -186,18 +206,16 @@ export const ChatManager = forwardRef<ChatManagerHandle, ChatManagerProps>(
         clearMessages: () => {
           chat.clearMessages();
           setChoicesState([]);
-          setCustomOption(undefined);
-          setCustomStatus('idle');
+          // customOption/customStatus/recordingLevel now controlled by props
           setVisibleButtonsCount(0);
           setChoicesHiding(false);
           setHighlightedMessageIndex(-1);
           clearButtonAnimationTimers();
         },
-        setChoices: (newChoices, newCustomOption, newCustomStatus, newRecordingLevel) => {
+        setChoices: (newChoices, newCustomOption, newCustomStatus, newRecordingLevel, showCustomButton) => {
           setChoicesState(newChoices);
-          setCustomOption(newCustomOption);
-          setCustomStatus(newCustomStatus ?? 'idle');
-          setRecordingLevel(newRecordingLevel ?? 0);
+          // customOption/customStatus/recordingLevel now controlled by props, ignore parameters
+          setShowCustomButtonState(showCustomButton ?? true); // По умолчанию показываем
           setVisibleButtonsCount(0);
           setChoicesHiding(false);
         },
@@ -281,12 +299,13 @@ export const ChatManager = forwardRef<ChatManagerHandle, ChatManagerProps>(
             options={choices}
             onOptionSelect={onChoiceSelect}
             onCustomOptionClick={onCustomOptionClick}
-            customOption={customOption}
-            customOptionStatus={customStatus}
-            recordingLevel={recordingLevel}
+            customOption={customOptionProp}
+            customOptionStatus={customStatusProp}
+            recordingLevel={recordingLevelProp}
             visibleCount={visibleButtonsCount}
             hiding={choicesHiding}
             disabled={chat.typingAuthor !== null}
+            showCustomButton={showCustomButtonState}
           />
         )}
       </div>
