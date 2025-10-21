@@ -85,6 +85,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   const [currentArc, setCurrentArc] = useState(1);
   const [storyContract, setStoryContract] = useState<string | null>(null);
 
+  // Finale interpretations
+  const [finaleInterpretations, setFinaleInterpretations] = useState<{ human: string; astrological: string } | null>(null);
+  const [finaleInterpretationMode, setFinaleInterpretationMode] = useState<'human' | 'astrological'>('human');
+
   // Рандомные тексты для idle экрана (генерируются один раз)
   const [startPrompt] = useState(() =>
     HISTORY_START_PROMPTS[Math.floor(Math.random() * HISTORY_START_PROMPTS.length)]
@@ -585,26 +589,53 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
               id: generateId(),
             });
 
+            // Сохраняем интерпретации для показа с переключателями
             setTimeout(() => {
-              chatManagerRef.current?.addMessage({
-                type: 'moon',
-                author: 'Луна',
-                content: result.finale!.humanInterpretation,
-                time: getCurrentTime(),
-                id: generateId(),
+              setFinaleInterpretations({
+                human: result.finale!.humanInterpretation,
+                astrological: result.finale!.astrologicalInterpretation,
               });
+              setIsGenerating(false);
 
+              // Reveal scroll для финала - откатываем к началу финального story-сообщения
               setTimeout(() => {
-                chatManagerRef.current?.addMessage({
-                  type: 'planet',
-                  author: 'Меркурий',
-                  content: result.finale!.astrologicalInterpretation,
-                  time: getCurrentTime(),
-                  id: generateId(),
+                console.log('[DiscoverV2] Finale interpretations ready, performing reveal scroll');
+
+                // Шаг 1: Скролл вниз до конца
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      window.scrollTo({
+                        top: document.documentElement.scrollHeight,
+                        behavior: 'smooth',
+                      });
+                      console.log('[DiscoverV2] Scrolled down to show finale interpretations');
+
+                      // Шаг 2: Через 800ms откатываем к началу финального story-сообщения
+                      setTimeout(() => {
+                        const allStoryMessages = document.querySelectorAll('[data-message-type="story"]');
+                        const finaleStoryMessage = allStoryMessages[allStoryMessages.length - 1];
+
+                        if (finaleStoryMessage) {
+                          const rect = finaleStoryMessage.getBoundingClientRect();
+                          const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+                          const storyTop = rect.top + currentScroll;
+
+                          const headerHeight = 60;
+                          const targetScroll = storyTop - headerHeight;
+
+                          console.log('[DiscoverV2] Scrolling back to finale story message at', targetScroll);
+                          window.scrollTo({
+                            top: targetScroll,
+                            behavior: 'smooth',
+                          });
+                        }
+                      }, 800);
+                    });
+                  });
                 });
-                setIsGenerating(false);
-              }, 1500);
-            }, 1000);
+              }, 100);
+            }, 800);
           } else {
             // Обычная дуга
             const arcText = result.node?.scene || 'История продолжается...';
@@ -705,6 +736,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     alert('Голосовой ввод пока не реализован');
   }, []);
 
+  const handleFinaleInterpretationToggle = useCallback((mode: 'human' | 'astrological') => {
+    setFinaleInterpretationMode(mode);
+  }, []);
+
   // ============================================================================
   // RESET
   // ============================================================================
@@ -721,6 +756,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setStoryMeta(null);
     setCurrentArc(1);
     setStoryContract(null);
+    setFinaleInterpretations(null);
+    setFinaleInterpretationMode('human');
     storySegmentsRef.current = [];
 
     // Очистка refs для синхронизации AI и диалога
@@ -824,6 +861,34 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             isActive={true}
             storyTitle="История"
           />
+
+          {/* Finale interpretations block */}
+          {finaleInterpretations && !isGenerating && (
+            <div className={`${styles.historyChatBubble} ${styles.historyFinalSummaryBubble}`}>
+              <div className={styles.historyFinalSummaryHeader}>
+                <div className={styles.historyFinalSummaryLabel}>Что мы о тебе узнали</div>
+                <div className={styles.insightStyleToggle}>
+                  <button
+                    type="button"
+                    className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'human' ? styles.active : ''}`}
+                    onClick={() => handleFinaleInterpretationToggle('human')}
+                  >
+                    На человеческом
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.insightStyleButton} ${finaleInterpretationMode === 'astrological' ? styles.active : ''}`}
+                    onClick={() => handleFinaleInterpretationToggle('astrological')}
+                  >
+                    На астрологическом
+                  </button>
+                </div>
+              </div>
+              <div className={styles.historyFinalSummaryText}>
+                {finaleInterpretationMode === 'human' ? finaleInterpretations.human : finaleInterpretations.astrological}
+              </div>
+            </div>
+          )}
 
           {/* Error display */}
           {error && (
