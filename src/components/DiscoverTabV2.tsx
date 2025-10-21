@@ -109,8 +109,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   // Ref для результата AI генерации (чтобы не прерывать диалог планет)
   const aiResultRef = useRef<any>(null);
 
-  // Флаг завершения диалога планет
-  const dialogueCompleteRef = useRef<boolean>(false);
+  // Флаг для остановки диалога после текущего сообщения
+  const stopDialogueAfterCurrentRef = useRef<boolean>(false);
 
   // История сегментов для передачи в AI
   interface StorySegment {
@@ -224,8 +224,8 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     const startDialogue = (dialogue: Array<{ planet: string; message: string }>) => {
       console.log('[DiscoverV2] Starting planet dialogue with', dialogue.length, 'messages');
 
-      // Сбрасываем флаг завершения диалога
-      dialogueCompleteRef.current = false;
+      // Сбрасываем флаг остановки
+      stopDialogueAfterCurrentRef.current = false;
 
       // Задержка после последнего подключения планет (Нептун: 4800ms) + пауза 600ms
       const startDelay = 5400;
@@ -233,10 +233,18 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
       // Рекурсивная функция для генерации сообщений с индивидуальными паузами
       const generateMessage = (delay: number) => {
+        // Проверяем, не нужно ли остановиться
+        if (stopDialogueAfterCurrentRef.current) {
+          console.log('[DiscoverV2] ⛔ Stopping dialogue as requested, showing AI result');
+          if (aiResultRef.current) {
+            showAIResult(aiResultRef.current);
+            aiResultRef.current = null;
+          }
+          return;
+        }
+
         if (messageIndex >= dialogue.length) {
           console.log('[DiscoverV2] ✅ All personalized messages shown');
-          // Устанавливаем флаг завершения диалога
-          dialogueCompleteRef.current = true;
           // Если AI уже готова - показываем результат
           if (aiResultRef.current) {
             console.log('[DiscoverV2] Dialogue complete, AI result ready, showing now');
@@ -271,6 +279,16 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             time: getCurrentTime(),
             id: generateId(),
           });
+
+          // ПОСЛЕ отображения сообщения - проверяем, не нужно ли остановиться
+          if (stopDialogueAfterCurrentRef.current) {
+            console.log('[DiscoverV2] ⛔ Current message displayed, stopping dialogue, showing AI result');
+            if (aiResultRef.current) {
+              showAIResult(aiResultRef.current);
+              aiResultRef.current = null;
+            }
+            return;
+          }
 
           // Рассчитываем индивидуальную паузу после сообщения для этой планеты
           const pauseAfter = calculatePauseAfter(planet);
@@ -316,8 +334,6 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
           timeoutsRef.current.push(t);
         } else {
           console.log('[DiscoverV2] Timeout waiting for personalized messages, skipping dialogue');
-          // Устанавливаем флаг, что диалога не будет
-          dialogueCompleteRef.current = true;
         }
       };
 
@@ -327,8 +343,6 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     } else {
       // Не загружаются и не загружены - пропускаем диалог
       console.log('[DiscoverV2] No personalized messages available, skipping dialogue');
-      // Устанавливаем флаг, что диалога не будет
-      dialogueCompleteRef.current = true;
     }
 
     // 4. Запускаем AI генерацию ПАРАЛЛЕЛЬНО (но НЕ прерываем диалог!)
@@ -411,16 +425,13 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
         console.log('[DiscoverV2] AI generation completed!');
 
-        // НЕ прерываем диалог планет! Проверяем, закончился ли он
-        if (dialogueCompleteRef.current) {
-          // Диалог уже закончился (или не было диалога) - показываем сразу
-          console.log('[DiscoverV2] Dialogue already complete, showing AI result immediately');
-          showAIResult(result);
-        } else {
-          // Диалог еще идет - сохраняем результат, он покажется когда диалог закончится
-          console.log('[DiscoverV2] Dialogue still running, saving AI result for later');
-          aiResultRef.current = result;
-        }
+        // Сохраняем результат
+        aiResultRef.current = result;
+
+        // Устанавливаем флаг остановки диалога после текущего сообщения
+        // Это НЕ прерывает текущее набирающееся сообщение!
+        stopDialogueAfterCurrentRef.current = true;
+        console.log('[DiscoverV2] Dialogue will stop after current message completes');
 
       } catch (err) {
         console.error('[DiscoverV2] Error generating story:', err);
@@ -601,7 +612,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
     // Очистка refs для синхронизации AI и диалога
     aiResultRef.current = null;
-    dialogueCompleteRef.current = false;
+    stopDialogueAfterCurrentRef.current = false;
   }, []);
 
   // Обновляем refs при изменении props (для актуальности в callback'ах)
