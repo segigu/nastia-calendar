@@ -153,21 +153,26 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     timeoutsRef.current.forEach(t => clearTimeout(t));
     timeoutsRef.current = [];
 
-    // Очистка чата и установка фазы
+    // Очистка чата
     chatManagerRef.current?.clearMessages();
-    chatManagerRef.current?.setPhase('dialogue');
 
     console.log('[DiscoverV2] Starting planet dialogue animation...');
 
-    // 1. Первое сообщение от Луны - сразу
+    // ВАЖНО: Устанавливаем фазу и добавляем первое сообщение с задержкой
+    // чтобы гарантировать, что React успел обновить state после clearMessages
     setTimeout(() => {
-      chatManagerRef.current?.addMessage({
-        type: 'planet',
-        author: 'Луна',
-        content: 'Так, коллеги, собираемся! Сейчас обсудим нашу героиню.',
-        time: getCurrentTime(),
-        id: generateId(),
-      });
+      chatManagerRef.current?.setPhase('dialogue');
+
+      // Добавляем первое сообщение сразу после установки фазы
+      setTimeout(() => {
+        chatManagerRef.current?.addMessage({
+          type: 'planet',
+          author: 'Луна',
+          content: 'Так, коллеги, собираемся! Сейчас обсудим нашу героиню.',
+          time: getCurrentTime(),
+          id: generateId(),
+        });
+      }, 50);
     }, 100);
 
     // 2. Планеты "подключаются" (системные сообщения)
