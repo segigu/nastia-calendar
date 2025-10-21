@@ -11,6 +11,11 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChatManager, type ChatManagerHandle } from './chat/ChatManager';
 import type { HistoryStoryOption } from '../utils/historyStory';
 import { generateHistoryStoryChunk, type HistoryStoryMeta } from '../utils/historyStory';
+import {
+  calculateTypingDuration,
+  calculatePauseBefore,
+  calculatePauseAfter,
+} from '../utils/planetMessages';
 import styles from './NastiaApp.module.css';
 
 // Константы для рандомных промптов
@@ -172,7 +177,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
         chatManagerRef.current?.addMessage({
           type: 'planet',
           author: 'Луна',
-          content: 'Так, коллеги, собираемся! Сейчас обсудим нашу героиню.',
+          content: 'Так, коллеги, собираемся! Сейчас обсудим, какую историю для Насти придумать...',
           time: getCurrentTime(),
           id: generateId(),
         });
@@ -180,36 +185,66 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     }, 100);
 
     // 2. Планеты "подключаются" (системные сообщения)
-    const planets = ['Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн'];
-    let connectionDelay = 600;
-    planets.forEach((planet) => {
+    // Индивидуальные задержки отражают характер каждой планеты
+    const planetsWithDelays = [
+      { planet: 'Меркурий', delay: 600 },   // Самый быстрый - первый
+      { planet: 'Марс', delay: 900 },       // Быстрый, решительный
+      { planet: 'Венера', delay: 1300 },    // Легкая, но не спешит
+      { planet: 'Уран', delay: 1500 },      // Непредсказуемый - может и быстро
+      { planet: 'Плутон', delay: 2200 },    // Медленный, тяжеловесный
+      { planet: 'Юпитер', delay: 2700 },    // Философский, неторопливый
+      { planet: 'Сатурн', delay: 3300 },    // Строгий, размеренный
+      { planet: 'Хирон', delay: 4000 },     // Задумчивый, медленный
+      { planet: 'Нептун', delay: 4800 },    // Самый медленный - последний
+    ];
+
+    planetsWithDelays.forEach(({ planet, delay }) => {
       const t = setTimeout(() => {
         chatManagerRef.current?.addMessage({
           type: 'system',
-          author: 'system',
-          content: `${planet} подключился к чату...`,
+          author: planet as any,
+          content: 'подключился к чату...',
           time: getCurrentTime(),
           id: generateId(),
         });
-      }, connectionDelay);
+      }, delay);
       timeoutsRef.current.push(t);
-      connectionDelay += 400;
     });
 
     // 3. Диалог планет (показывается ПОКА грузится AI)
     // Используем ТОЛЬКО персонализированные сообщения (без fallback!)
 
-    // Функция для запуска диалога
+    // Функция для запуска диалога с вариативными паузами
     const startDialogue = (dialogue: Array<{ planet: string; message: string }>) => {
       console.log('[DiscoverV2] Starting planet dialogue with', dialogue.length, 'messages');
-      let dialogueDelay = 2800;
 
-      dialogue.forEach(({ planet, message }) => {
+      // Задержка после последнего подключения планет (Нептун: 4800ms) + пауза 600ms
+      const startDelay = 5400;
+      let messageIndex = 0;
+
+      // Рекурсивная функция для генерации сообщений с индивидуальными паузами
+      const generateMessage = (delay: number) => {
+        if (messageIndex >= dialogue.length) {
+          console.log('[DiscoverV2] ✅ All personalized messages shown');
+          return;
+        }
+
+        const { planet, message } = dialogue[messageIndex];
+        messageIndex++;
+
+        // Рассчитываем индивидуальную паузу перед началом печати для этой планеты
+        const pauseBefore = calculatePauseBefore(planet);
+
+        // Показываем индикатор печати с индивидуальной задержкой
         const t1 = setTimeout(() => {
           chatManagerRef.current?.setTyping(planet as any);
-        }, dialogueDelay);
+        }, delay + pauseBefore);
         timeoutsRef.current.push(t1);
 
+        // Рассчитываем индивидуальную длительность печати на основе длины сообщения и скорости планеты
+        const typingDuration = calculateTypingDuration(message, planet);
+
+        // Добавляем сообщение после typing
         const t2 = setTimeout(() => {
           chatManagerRef.current?.setTyping(null);
           chatManagerRef.current?.addMessage({
@@ -219,11 +254,16 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
             time: getCurrentTime(),
             id: generateId(),
           });
-        }, dialogueDelay + 1200);
-        timeoutsRef.current.push(t2);
 
-        dialogueDelay += 2000; // Следующее сообщение через 2 секунды
-      });
+          // Рассчитываем индивидуальную паузу после сообщения для этой планеты
+          const pauseAfter = calculatePauseAfter(planet);
+          generateMessage(pauseAfter);
+        }, delay + pauseBefore + typingDuration);
+        timeoutsRef.current.push(t2);
+      };
+
+      // Запускаем первое сообщение через начальную задержку
+      generateMessage(startDelay - dialogue.length * 100); // Небольшая компенсация для старта
     };
 
     // Проверяем, загружены ли персонализированные сообщения
