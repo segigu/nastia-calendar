@@ -89,6 +89,10 @@ export interface ChatManagerHandle {
    * Получить текущий Arc (из последнего Story сообщения).
    */
   getCurrentArc: () => number;
+  /**
+   * Получить текущие варианты выбора.
+   */
+  getChoices: () => HistoryStoryOption[];
 }
 
 /**
@@ -230,8 +234,9 @@ export const ChatManager = forwardRef<ChatManagerHandle, ChatManagerProps>(
         getPhase: () => chat.phase,
         getMessages: () => chat.messages,
         getCurrentArc: () => currentArc,
+        getChoices: () => choices,
       }),
-      [chat, currentArc, clearButtonAnimationTimers]
+      [chat, currentArc, choices, clearButtonAnimationTimers]
     );
 
     return (

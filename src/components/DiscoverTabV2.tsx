@@ -21,6 +21,11 @@ import {
   calculatePauseBefore,
   calculatePauseAfter,
 } from '../utils/planetMessages';
+import {
+  loadDiscoverTabState,
+  saveDiscoverTabState,
+  clearDiscoverTabState,
+} from '../utils/discoverTabStorage';
 import styles from './NastiaApp.module.css';
 
 // Константы для рандомных промптов
@@ -160,8 +165,149 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   // Ref для текущих choices (чтобы можно было обновить только customOption)
   const currentChoicesRef = useRef<HistoryStoryOption[]>([]);
 
+  // Флаг для отслеживания, было ли уже загружено состояние
+  const stateLoadedRef = useRef(false);
+
   // ============================================================================
-  // AUTOSCROLL
+  // STATE LOADING (MOUNT)
+  // ============================================================================
+
+  // Загружаем сохраненное состояние при монтировании компонента
+  useEffect(() => {
+    // Предотвращаем повторную загрузку
+    if (stateLoadedRef.current) {
+      console.log('[DiscoverV2] State already loaded, skipping');
+      return;
+    }
+
+    // Предотвращаем загрузку, если история уже запущена (не сбрасываем текущее состояние)
+    if (isStarted) {
+      console.log('[DiscoverV2] Story already started, skipping state load');
+      stateLoadedRef.current = true;
+      return;
+    }
+
+    const savedState = loadDiscoverTabState();
+
+    if (savedState && savedState.isStarted) {
+      console.log('[DiscoverV2] Loading saved state:', {
+        phase: savedState.phase,
+        messagesCount: savedState.messages.length,
+        currentArc: savedState.currentArc,
+        choicesCount: savedState.choices.length,
+      });
+
+      // Восстанавливаем основные состояния
+      setIsStarted(savedState.isStarted);
+      setCurrentArc(savedState.currentArc);
+      setStoryContract(savedState.storyMeta?.contract || null);
+
+      if (savedState.storyMeta) {
+        setStoryMeta({
+          author: savedState.storyMeta.author,
+          title: savedState.storyMeta.title,
+          genre: savedState.storyMeta.genre,
+          moonSummary: savedState.storyMeta.moonSummary,
+          arcLimit: savedState.storyMeta.arcLimit,
+          contract: savedState.storyMeta.contract,
+        });
+      }
+
+      // Восстанавливаем сегменты истории
+      storySegmentsRef.current = savedState.storySegments;
+
+      // Восстанавливаем финальные интерпретации
+      if (savedState.finaleInterpretations) {
+        setFinaleInterpretations(savedState.finaleInterpretations);
+        setFinaleInterpretationMode(savedState.finaleInterpretationMode);
+      }
+
+      // Восстанавливаем сообщения и фазу через ChatManager
+      // Делаем это асинхронно, чтобы дать React время на рендер
+      setTimeout(() => {
+        if (savedState.phase) {
+          chatManagerRef.current?.setPhase(savedState.phase);
+        }
+
+        if (savedState.messages.length > 0) {
+          chatManagerRef.current?.addMessages(savedState.messages);
+        }
+
+        // Восстанавливаем choices
+        if (savedState.choices.length > 0) {
+          currentChoicesRef.current = savedState.choices;
+          setHasChoices(true);
+          chatManagerRef.current?.setChoices(savedState.choices);
+        }
+      }, 100);
+
+      console.log('[DiscoverV2] ✅ State restored successfully');
+      stateLoadedRef.current = true;
+    } else {
+      console.log('[DiscoverV2] No saved state to restore');
+      stateLoadedRef.current = true;
+    }
+  }, []); // Запускаем только при монтировании
+
+  // ============================================================================
+  // STATE SAVING (AUTO)
+  // ============================================================================
+
+  // Автоматически сохраняем состояние при изменении ключевых данных
+  useEffect(() => {
+    // Не сохраняем, если еще не началось или еще не загрузилось состояние
+    if (!isStarted || !stateLoadedRef.current) {
+      return;
+    }
+
+    // Получаем текущее состояние из ChatManager
+    const currentPhase = chatManagerRef.current?.getPhase();
+    const currentMessages = chatManagerRef.current?.getMessages() || [];
+    const currentChoices = chatManagerRef.current?.getChoices() || [];
+
+    // Определяем, есть ли непрочитанные варианты
+    const hasUnreadChoices = currentChoices.length > 0 && currentPhase === 'story';
+
+    const stateToSave = {
+      isStarted,
+      phase: currentPhase || null,
+      messages: currentMessages,
+      storyMeta: storyMeta ? {
+        author: storyMeta.author,
+        title: storyMeta.title,
+        genre: storyMeta.genre,
+        moonSummary: storyMeta.moonSummary,
+        arcLimit: storyMeta.arcLimit,
+        contract: storyMeta.contract || storyContract || '',
+      } : null,
+      currentArc,
+      storySegments: storySegmentsRef.current,
+      choices: currentChoices,
+      finaleInterpretations,
+      finaleInterpretationMode,
+      hasUnreadChoices,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    saveDiscoverTabState(stateToSave);
+
+    // Уведомляем родителя, если есть непрочитанные варианты
+    if (hasUnreadChoices && onNewStoryMessage) {
+      onNewStoryMessage();
+    }
+
+  }, [
+    isStarted,
+    currentArc,
+    storyMeta,
+    storyContract,
+    finaleInterpretations,
+    finaleInterpretationMode,
+    onNewStoryMessage,
+  ]);
+
+  // ============================================================================
+  // AUTOSCROLL & STATE SYNC
   // ============================================================================
 
   const handleMessagesChange = useCallback(() => {
@@ -178,7 +324,37 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
         });
       });
     });
-  }, []);
+
+    // Сохраняем состояние при каждом изменении сообщений (если история уже началась)
+    if (isStarted && stateLoadedRef.current) {
+      const currentPhase = chatManagerRef.current?.getPhase();
+      const currentMessages = chatManagerRef.current?.getMessages() || [];
+      const currentChoices = chatManagerRef.current?.getChoices() || [];
+
+      const stateToSave = {
+        isStarted: true,
+        phase: currentPhase || null,
+        messages: currentMessages,
+        storyMeta: storyMeta ? {
+          author: storyMeta.author,
+          title: storyMeta.title,
+          genre: storyMeta.genre,
+          moonSummary: storyMeta.moonSummary,
+          arcLimit: storyMeta.arcLimit,
+          contract: storyMeta.contract || storyContract || '',
+        } : null,
+        currentArc,
+        storySegments: storySegmentsRef.current,
+        choices: currentChoices,
+        finaleInterpretations,
+        finaleInterpretationMode,
+        hasUnreadChoices: currentChoices.length > 0 && currentPhase === 'story',
+        lastUpdated: new Date().toISOString(),
+      };
+
+      saveDiscoverTabState(stateToSave);
+    }
+  }, [isStarted, storyMeta, storyContract, currentArc, finaleInterpretations, finaleInterpretationMode]);
 
   // ============================================================================
   // UTILITY FUNCTIONS
@@ -202,6 +378,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     setIsGenerating(true);
     setError(null);
     setIsStarted(true);
+    stateLoadedRef.current = true; // Новая история началась - разрешаем сохранение
 
     // Очистка предыдущих таймеров
     timeoutsRef.current.forEach(t => clearTimeout(t));
@@ -211,6 +388,25 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     chatManagerRef.current?.clearMessages();
 
     console.log('[DiscoverV2] Starting planet dialogue animation...');
+
+    // Сохраняем состояние сразу после начала, чтобы при переключении вкладок не сбрасывалось
+    setTimeout(() => {
+      const stateToSave = {
+        isStarted: true,
+        phase: 'dialogue' as const,
+        messages: chatManagerRef.current?.getMessages() || [],
+        storyMeta: null,
+        currentArc: 1,
+        storySegments: [],
+        choices: [],
+        finaleInterpretations: null,
+        finaleInterpretationMode: 'human' as const,
+        hasUnreadChoices: false,
+        lastUpdated: new Date().toISOString(),
+      };
+      saveDiscoverTabState(stateToSave);
+      console.log('[DiscoverV2] Initial state saved after start');
+    }, 200);
 
     // ВАЖНО: Устанавливаем фазу и добавляем первое сообщение с задержкой
     // чтобы гарантировать, что React успел обновить state после clearMessages
@@ -1203,6 +1399,10 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     aiResultRef.current = null;
     stopDialogueAfterCurrentRef.current = false;
     dialogueStartedRef.current = false;
+
+    // Очистка сохраненного состояния
+    clearDiscoverTabState();
+    console.log('[DiscoverV2] State cleared from storage');
   }, [cancelCustomOptionProcessing, cleanupCustomOptionResources]);
 
   // Обновляем refs при изменении props (для актуальности в callback'ах)

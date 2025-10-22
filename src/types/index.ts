@@ -63,6 +63,43 @@ export interface FertileWindow {
   fertileEnd: Date;
 }
 
+// Discover Tab (Узнай себя) state
+// Импортируем тип сообщения из chat.ts для совместимости
+import type { ChatMessage, ChatPhase } from './chat';
+
+export interface DiscoverTabState {
+  isStarted: boolean;
+  phase: ChatPhase | null;
+  messages: ChatMessage[];
+  storyMeta: {
+    author: string;
+    title: string;
+    genre: string;
+    moonSummary: string;
+    arcLimit: number;
+    contract: string;
+  } | null;
+  currentArc: number;
+  storySegments: Array<{
+    text: string;
+    arc: number;
+    optionTitle?: string;
+    optionDescription?: string;
+  }>;
+  choices: Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>;
+  finaleInterpretations: {
+    human: string;
+    astrological: string;
+  } | null;
+  finaleInterpretationMode: 'human' | 'astrological';
+  hasUnreadChoices: boolean; // Флаг для badge
+  lastUpdated: string; // ISO timestamp
+}
+
 export interface NastiaData {
   cycles: CycleData[];
   settings: {
@@ -72,6 +109,7 @@ export interface NastiaData {
   };
   horoscopeMemory?: HoroscopeMemoryEntry[];
   psychContractHistory?: PsychContractHistory;
+  discoverTabState?: DiscoverTabState;
 }
 
 export type NotificationCategory =

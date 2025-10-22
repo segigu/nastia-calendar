@@ -40,6 +40,7 @@ import {
   isOvulationDay
 } from '../utils/cycleUtils';
 import { saveData, loadData } from '../utils/storage';
+import { hasUnreadChoices, markChoicesAsRead } from '../utils/discoverTabStorage';
 import { cloudSync } from '../utils/cloudSync';
 import CycleLengthChart from './CycleLengthChart';
 import {
@@ -2122,6 +2123,8 @@ const ModernNastiaApp: React.FC = () => {
     if (activeTab === 'discover') {
       // Сбрасываем badge при переходе на вкладку "Узнай себя"
       setHasNewStoryMessage(false);
+      // Помечаем варианты выбора как прочитанные
+      markChoicesAsRead();
 
       // НЕ скроллим, если мы в фазе ready, generating или clearing -
       // в этих фазах за скролл отвечают специализированные эффекты выше
@@ -3058,6 +3061,12 @@ const ModernNastiaApp: React.FC = () => {
     initNotifications();
 
     loadInitialData();
+
+    // Загружаем badge для вкладки "Узнай себя"
+    if (hasUnreadChoices()) {
+      setHasNewStoryMessage(true);
+      console.log('[ModernNastiaApp] Badge loaded: has unread choices');
+    }
   }, []);
 
   // Подготавливаем текст модалки при выборе даты; ключ берём из GitHub-конфига или из env.
@@ -4536,7 +4545,8 @@ const ModernNastiaApp: React.FC = () => {
         )}
 
         {/* Вкладка: Узнай себя (интерактивная история) */}
-        {activeTab === 'discover' && (
+        {/* ВАЖНО: Рендерим всегда, но скрываем через CSS, чтобы процесс продолжался в фоне */}
+        <div style={{ display: activeTab === 'discover' ? 'block' : 'none' }}>
           <DiscoverTabV2
             hasAiCredentials={hasAiCredentials}
             effectiveClaudeKey={effectiveClaudeKey}
@@ -4547,7 +4557,7 @@ const ModernNastiaApp: React.FC = () => {
             isLoadingPersonalizedMessages={isLoadingPersonalizedMessages}
             onNewStoryMessage={() => setHasNewStoryMessage(true)}
           />
-        )}
+        </div>
 
         {/* Вкладка: Циклы */}
         {activeTab === 'cycles' && (
