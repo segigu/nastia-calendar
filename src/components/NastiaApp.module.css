@@ -2185,8 +2185,8 @@ html {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
+  gap: 0;
+  padding: 0; /* Убираем padding - MiniCalendar сам управляет отступами */
   background: #ffffff;
   border-radius: 1rem;
   border: 1px solid rgba(138, 89, 237, 0.14);
@@ -2196,6 +2196,7 @@ html {
   transition: opacity 0.45s ease-out, transform 0.45s ease-out, box-shadow 0.2s ease-out;
   width: 100%;
   margin-bottom: 0;
+  overflow: hidden; /* Картинка не выходит за border-radius */
 }
 
 .cycleItem::before {

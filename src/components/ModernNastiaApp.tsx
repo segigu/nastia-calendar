@@ -4584,19 +4584,19 @@ const ModernNastiaApp: React.FC = () => {
                       : null;
                     const isVisible = visibleCycleIds.includes(cycle.id);
 
+                    // Определяем картинку по номеру месяца (01-12)
+                    const cycleDate = new Date(cycle.startDate);
+                    const monthNumber = (cycleDate.getMonth() + 1).toString().padStart(2, '0'); // 01-12
+                    const monthImageUrl = `${process.env.PUBLIC_URL}/images/calendar-months/${monthNumber}.png`;
+
                     return (
                       <React.Fragment key={cycle.id}>
                         <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
-                          <MiniCalendar date={new Date(cycle.startDate)} />
-                          <div className={styles.cycleActions}>
-                            <button
-                              onClick={() => deleteCycle(cycle.id)}
-                              className={styles.cycleActionButton}
-                              title="Удалить цикл"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                          <MiniCalendar
+                            date={cycleDate}
+                            imageUrl={monthImageUrl}
+                            onDelete={() => deleteCycle(cycle.id)}
+                          />
                         </div>
                         {daysBetween !== null && (
                           <div className={`${styles.timelineGap} ${isVisible ? styles.timelineGapVisible : ''}`}>
