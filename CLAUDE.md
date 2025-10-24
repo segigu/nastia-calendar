@@ -13,10 +13,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Следуй универсальной методологии работы из глобального руководства: [~/.claude/docs/CLAUDE_WORKFLOW.md](~/.claude/docs/CLAUDE_WORKFLOW.md)
 
 **Глобальные команды доступны в этом проекте:**
-- `/formattask` - Форматирование неформальных задач в структурированный вид
-- `/plan` - Создание детального плана реализации с TodoList
-- `/review` - Комплексная проверка кода перед коммитом
-- `/doc` - Автоматическое обновление документации
+- `/format-task` - Форматирование неформальных задач в структурированный вид
+- `/make-plan` - Создание детального плана реализации с TodoList
+- `/code-review` - Комплексная проверка кода перед коммитом
+- `/update-docs` - Автоматическое обновление документации
+
+**Системные команды Claude Code:**
+- `/review` - встроенная команда code review
+- `/help` - встроенная справка Claude Code
 
 ## Development Commands
 
