@@ -85,14 +85,14 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   width: 140%;
   height: 140%;
+  margin-left: -70%; /* Центрируем вместо transform */
+  margin-top: -70%;  /* Центрируем вместо transform */
   pointer-events: none;
-  z-index: 10; /* Поверх текста даты (у .targetDay z-index: 1) */
+  z-index: 10;
   opacity: 0.8;
-  -webkit-animation: drawCircle 0.6s ease-out;
-  animation: drawCircle 0.6s ease-out;
+  /* Убрали анимацию для Safari */
 }
 
 @-webkit-keyframes drawCircle {

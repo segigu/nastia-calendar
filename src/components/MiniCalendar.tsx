@@ -91,15 +91,21 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ date, imageUrl, onDelete })
             >
               {dayInfo.day}
               {dayInfo.isTarget && (
-                <svg className={styles.handDrawnCircle} viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13 T 45,25 Q 45.5,35 38,42 T 28,45 Q 18,45.5 11,38 T 8,28"
+                <svg
+                  className={styles.handDrawnCircle}
+                  viewBox="0 0 50 50"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ display: 'block' }}
+                >
+                  <circle
+                    cx="25"
+                    cy="25"
+                    r="20"
                     fill="none"
                     stroke="#ff6b9d"
-                    strokeWidth="2.3"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
+                    opacity="0.8"
                   />
                 </svg>
               )}
