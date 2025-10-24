@@ -2196,7 +2196,8 @@ html {
   transition: opacity 0.45s ease-out, transform 0.45s ease-out, box-shadow 0.2s ease-out;
   width: 100%;
   margin-bottom: 0;
-  /* НЕ используем overflow: hidden - обрезает кнопку удаления */
+  /* НЕ используем overflow: hidden - обрезает кружок и кнопку удаления */
+  /* border-radius применяется к дочерним элементам */
 }
 
 .cycleItem::before {
