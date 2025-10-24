@@ -2,29 +2,35 @@
   display: flex; /* Двухзонный layout: календарь + картинка */
   align-items: stretch; /* Элементы растягиваются на всю высоту */
   width: 100%;
+  max-width: 100%; /* Не выходит за пределы родителя */
   background: transparent;
   border-radius: 0;
   box-shadow: none;
   flex-shrink: 0;
+  overflow: hidden; /* Обрезаем всё, что вылезает */
 }
 
 /* Контейнер для календарной сетки (слева) */
 .calendarContent {
-  flex: 0 0 66.67%; /* 2/3 ширины (≈245px от 368px) */
-  padding: 1rem 1.25rem; /* Как было у .cycleItem */
+  flex: 1; /* Занимает всё доступное пространство */
+  padding: 0.75rem 1rem; /* Уменьшен padding для мобильных */
   display: flex;
   flex-direction: column;
-  flex-shrink: 0; /* Не сжимается */
+  flex-shrink: 1; /* Может сжиматься */
+  min-width: 0; /* Позволяет flex-элементу сжиматься меньше контента */
   border-top-left-radius: 1rem; /* Скругление левого верхнего угла */
   border-bottom-left-radius: 1rem; /* Скругление левого нижнего угла */
 }
 
 .monthName {
-  font-size: 14px;
+  font-size: 13px; /* Уменьшен для мобильных (было: 14px) */
   font-weight: 700;
   color: #000000; /* Чёрный цвет (было: #8B008B фиолетовый) */
-  margin-bottom: 8px;
+  margin-bottom: 6px; /* Уменьшен отступ */
   text-align: left;
+  white-space: nowrap; /* Не переносится на новую строку */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Обрезается с ... */
 }
 
 .weekDays {
@@ -35,11 +41,11 @@
 }
 
 .weekDay {
-  font-size: 9px;
+  font-size: 8px; /* Уменьшен для мобильных (было: 9px) */
   font-weight: 500;
   color: #999;
   text-align: center;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
 .daysGrid {
@@ -53,13 +59,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px; /* Уменьшен для мобильных (было: 11px) */
   font-weight: 500;
   color: var(--nastia-dark);
   position: relative;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: background-color 0.2s;
-  min-width: 26px;
+  min-width: 22px; /* Уменьшен для мобильных (было: 26px) */
 }
 
 .day.otherMonth {
@@ -108,12 +114,13 @@
 /* Контейнер для картинки (справа) */
 .imageContainer {
   position: relative; /* Для абсолютного позиционирования кнопки */
-  flex: 0 0 33.33%; /* 1/3 ширины (≈125px от 368px) */
-  min-width: 125px; /* Минимальная ширина */
+  flex: 0 0 110px; /* Фиксированная ширина 110px (было: 33.33%) */
+  width: 110px;
   padding: 0; /* Без паддинга - картинка до края */
   overflow: hidden;
   border-top-right-radius: 1rem; /* Скругление правого верхнего угла */
   border-bottom-right-radius: 1rem; /* Скругление правого нижнего угла */
+  flex-shrink: 0; /* Не сжимается */
   /* align-self: stretch автоматически от родителя */
 }
 
