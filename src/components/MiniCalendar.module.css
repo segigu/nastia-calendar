@@ -89,10 +89,23 @@
   width: 140%;
   height: 140%;
   pointer-events: none;
-  color: var(--nastia-red);
   z-index: 10; /* Поверх текста даты (у .targetDay z-index: 1) */
   opacity: 0.8;
+  -webkit-animation: drawCircle 0.6s ease-out;
   animation: drawCircle 0.6s ease-out;
+}
+
+@-webkit-keyframes drawCircle {
+  from {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    opacity: 0;
+  }
+  to {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 0;
+    opacity: 0.8;
+  }
 }
 
 @keyframes drawCircle {
@@ -117,13 +130,17 @@
 .imageContainer {
   position: relative; /* Для абсолютного позиционирования кнопки */
   flex: 0 0 33.33%; /* 1/3 ширины */
-  padding: 0; /* Без паддинга - картинка до края */
-  overflow: hidden;
+  padding: 0 !important; /* Без паддинга - картинка до края */
+  margin: 0 !important; /* Без отступов */
+  overflow: hidden; /* Скругляем углы */
   border-top-right-radius: 1rem; /* Скругление правого верхнего угла */
   border-bottom-right-radius: 1rem; /* Скругление правого нижнего угла */
   flex-shrink: 0; /* Не сжимается */
   box-sizing: border-box; /* Padding включён в ширину */
   align-self: stretch; /* ВАЖНО: Растягивается на всю высоту родителя */
+  min-height: 100%; /* Гарантируем минимальную высоту */
+  display: flex; /* Делаем flex контейнером */
+  align-items: stretch; /* Растягиваем картинку */
 }
 
 /* Картинка внутри контейнера */
@@ -133,9 +150,13 @@
   object-fit: cover !important; /* Заполняет весь блок, обрезая лишнее с сохранением пропорций */
   object-position: center center !important; /* Центрирование по обеим осям */
   display: block !important;
+  flex: 1 1 auto; /* Растягивается во flex контейнере */
   vertical-align: top; /* Убирает возможный inline отступ */
-  margin: 0; /* Убирает возможные отступы */
-  padding: 0; /* Убирает возможные паддинги */
+  margin: 0 !important; /* Убирает возможные отступы */
+  padding: 0 !important; /* Убирает возможные паддинги */
+  border: 0 !important; /* Убираем border если есть */
+  border-top-right-radius: 1rem; /* Скругление переносим на саму картинку */
+  border-bottom-right-radius: 1rem; /* Скругление переносим на саму картинку */
 }
 
 /* Кнопка удаления поверх картинки */
