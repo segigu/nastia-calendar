@@ -86,55 +86,251 @@ nastia-simple/
 Дизайн и анимации реализованы в `NastiaApp.module.css` (`historyCustomButton*`, `historyCustomIconCircle*`, `historyCustomLiveDot`). Все состояния выводят текст чёрным цветом (`#111827` / `#1f2937`) и не содержат дополнительного «мелкого» текста — только заголовок и описание.
 
 ### MiniCalendar.tsx
-**Назначение**: Компактный визуальный календарь месяца для отображения в списке циклов
+**Назначение**: Компактный визуальный календарь месяца с картинкой для отображения в списке циклов
+
 **Props**:
-- `date: Date` - дата, для которой отображается календарь (целевой день будет выделен)
-
-**Архитектура**:
-Компонент генерирует полную сетку дней месяца (7 столбцов × до 5 строк) с выделением целевой даты. Показывает дни из предыдущего/следующего месяца для заполнения сетки. Использует SVG-обводку с hand-drawn эффектом для визуального выделения даты начала цикла.
-
-**Визуальные элементы**:
-- **Шапка**: Название месяца и год слева (`.monthName` - фиолетовый #8B008B, жирный шрифт 14px)
-- **Дни недели**: Короткие названия Пн-Вс (`.weekDay` - серый, 9px)
-- **Сетка дней** (`.daysGrid`):
-  - Дни текущего месяца: фиолетовый цвет `var(--nastia-dark)`, 11px
-  - Дни других месяцев: серые полупрозрачные (`opacity: 0.5`)
-  - Целевой день: красный `var(--nastia-red)`, жирный шрифт (700)
-- **Hand-drawn обводка**: SVG path с анимацией появления
-
-**Технические детали**:
-```tsx
-// Коррекция дня недели: воскресенье = 7 (не 0)
-firstDayOfWeek = firstDayOfWeek === 0 ? 7 : firstDayOfWeek;
-
-// Максимум 35 дней в сетке (5 недель)
-const remainingDays = 35 - days.length;
-
-// Hand-drawn SVG path использует квадратичные кривые Безье (Q, T)
-<path d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13..."
-      stroke-width="2.3" />
+```typescript
+interface MiniCalendarProps {
+  date: Date;           // Дата цикла (целевой день будет выделен)
+  imageUrl?: string;    // URL картинки для правой зоны
+  onDelete?: () => void; // Коллбэк для кнопки удаления
+}
 ```
 
-**CSS модули** ([src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css)):
-- `.miniCalendar` - контейнер (max-width: 240px, прозрачный фон)
-- `.monthName` - заголовок месяца (left-aligned)
-- `.weekDays`, `.weekDay` - ряд с днями недели
-- `.daysGrid`, `.day` - grid сетка дней (7 столбцов, gap: 2px)
-- `.targetDay` - модификатор для выделенного дня
-- `.handDrawnCircle` - SVG обводка (анимация `drawCircle` 0.6s ease-out)
+**Архитектура: Двухзонный layout**
 
-**Интеграция в список циклов**:
+Компонент разделён на две зоны в соотношении 2:1:
+1. **Левая зона (66.67% ширины)** - календарная сетка
+2. **Правая зона (33.33% ширины)** - картинка месяца + кнопка удаления
+
+**Структура компонента**:
 ```tsx
-// В ModernNastiaApp.tsx:4590
-<div className={styles.cycleItem}>
-  <MiniCalendar date={new Date(cycle.startDate)} />
-  <div className={styles.cycleActions}>
-    <button onClick={() => deleteCycle(cycle.id)}>...</button>
+<div className={styles.miniCalendar}>
+  {/* Левая зона: календарная сетка */}
+  <div className={styles.calendarContent}>
+    <div className={styles.monthName}>Январь 2025</div>
+    <div className={styles.weekDays}>Пн Вт Ср Чт Пт Сб Вс</div>
+    <div className={styles.daysGrid}>
+      {days.map((dayInfo, index) => (
+        <div className={styles.day}>
+          {dayInfo.day}
+          {/* Hand-drawn кружок для целевой даты */}
+          {dayInfo.isTarget && (
+            <svg className={styles.handDrawnCircle}>...</svg>
+          )}
+        </div>
+      ))}
+    </div>
   </div>
+
+  {/* Правая зона: картинка + кнопка */}
+  {imageUrl && (
+    <div className={styles.imageContainer}>
+      <img src={imageUrl} className={styles.image} />
+      {onDelete && (
+        <button className={styles.deleteButton}>
+          <TrashIcon />
+        </button>
+      )}
+    </div>
+  )}
 </div>
 ```
 
-**Layout**: Календарик занимает левую часть `.cycleItem`, кнопка удаления справа с `align-self: flex-start` для выравнивания с названием месяца.
+**Визуальные элементы**:
+
+- **Название месяца** (`.monthName`):
+  - Шрифт: 13px, жирный (700)
+  - Цвет: #000000 (чёрный) - обеспечивает максимальную читаемость
+  - Выравнивание: слева
+
+- **Дни недели** (`.weekDays`, `.weekDay`):
+  - Шрифт: 8px, средний (500)
+  - Цвет: #999 (серый)
+  - Grid layout: 7 столбцов
+
+- **Сетка дней** (`.daysGrid`, `.day`):
+  - Grid layout: 7 столбцов, gap 2px
+  - Дни текущего месяца: `var(--nastia-dark)`, 10px
+  - Дни других месяцев: серые полупрозрачные (`opacity: 0.5`)
+  - **Целевой день** (`.targetDay`): красный `var(--nastia-red)`, жирный шрифт (700)
+  - Максимум 35 дней в сетке (5 недель)
+
+- **Hand-drawn обводка** (`.handDrawnCircle`):
+  - SVG path с квадратичными кривыми Безье (Q, T)
+  - Размер: 140% от ячейки дня (выходит за границы!)
+  - Анимация: `drawCircle` 0.6s ease-out (stroke-dasharray)
+  - Цвет: `var(--nastia-red)`, opacity: 0.8
+
+- **Картинка** (`.image`):
+  - `width: 100%; height: 100%` - заполняет весь контейнер
+  - `object-fit: cover` - обрезает лишнее, сохраняя пропорции
+  - `object-position: center center` - центрирование
+  - Fallback: при ошибке загрузки подставляется `default.png`
+
+- **Кнопка удаления** (`.deleteButton`):
+  - Position: absolute, top: 8px, right: 8px
+  - Размер: 32×32px, круглая
+  - Фон: `rgba(255, 255, 255, 0.95)` + `backdrop-filter: blur(8px)`
+  - Цвет иконки: #666 (серый)
+  - Наложена поверх картинки (z-index: 10)
+
+**Технические детали**:
+
+```typescript
+// Коррекция дня недели: воскресенье = 7 (не 0)
+let firstDayOfWeek = firstDay.getDay();
+firstDayOfWeek = firstDayOfWeek === 0 ? 7 : firstDayOfWeek;
+
+// Генерация массива дней (включая соседние месяцы)
+const days: Array<{ day: number; isCurrentMonth: boolean; isTarget: boolean }> = [];
+
+// Дни из предыдущего месяца (заполнение начала сетки)
+for (let i = firstDayOfWeek - 1; i > 0; i--) {
+  days.push({ day: daysInPrevMonth - i + 1, isCurrentMonth: false, isTarget: false });
+}
+
+// Дни текущего месяца
+for (let i = 1; i <= daysInMonth; i++) {
+  days.push({ day: i, isCurrentMonth: true, isTarget: i === targetDay });
+}
+
+// Дни следующего месяца (заполнение конца сетки до 35 дней)
+const remainingDays = 35 - days.length;
+for (let i = 1; i <= remainingDays; i++) {
+  days.push({ day: i, isCurrentMonth: false, isTarget: false });
+}
+```
+
+**Hand-drawn SVG path**:
+```tsx
+<svg className={styles.handDrawnCircle} viewBox="0 0 50 50">
+  <path
+    d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13 T 45,25 Q 45.5,35 38,42 T 28,45 Q 18,45.5 11,38 T 8,28"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+</svg>
+```
+
+**CSS модули** ([src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css)):
+
+```css
+.miniCalendar {
+  display: flex;
+  align-items: stretch;  /* Обе зоны одинаковой высоты */
+  width: 100%;
+  max-width: 100%;
+  /* overflow: hidden убран - обрезает кружок */
+}
+
+.calendarContent {
+  flex: 0 0 66.67%;  /* Ровно 2/3 ширины */
+  padding: 0.75rem 1rem;
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+  box-sizing: border-box;
+}
+
+.imageContainer {
+  position: relative;
+  flex: 0 0 33.33%;  /* Ровно 1/3 ширины */
+  padding: 0;
+  border-top-right-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+  overflow: hidden;  /* Только здесь - для скругления углов картинки */
+  box-sizing: border-box;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
+.handDrawnCircle {
+  position: absolute;
+  width: 140%;  /* Выходит за границы ячейки! */
+  height: 140%;
+  transform: translate(-50%, -50%);
+  color: var(--nastia-red);
+  opacity: 0.8;
+  animation: drawCircle 0.6s ease-out;
+}
+
+@keyframes drawCircle {
+  from {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    opacity: 0;
+  }
+  to {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 0;
+    opacity: 0.8;
+  }
+}
+```
+
+**Интеграция в список циклов** ([src/components/ModernNastiaApp.tsx](src/components/ModernNastiaApp.tsx)):
+
+```tsx
+// Генерация URL картинки по месяцу цикла
+const cycleDate = new Date(cycle.startDate);
+const monthNumber = (cycleDate.getMonth() + 1).toString().padStart(2, '0');
+const monthImageUrl = `${process.env.PUBLIC_URL}/images/calendar-months/${monthNumber}.png`;
+
+// Использование компонента
+<div className={styles.cycleItem}>
+  <MiniCalendar
+    date={cycleDate}
+    imageUrl={monthImageUrl}
+    onDelete={() => deleteCycle(cycle.id)}
+  />
+</div>
+```
+
+**Автоматическая подстановка картинок**:
+
+Структура папки [public/images/calendar-months/](public/images/calendar-months/):
+```
+01.png - Январь
+02.png - Февраль
+03.png - Март
+...
+12.png - Декабрь
+default.png - Заглушка (если картинка не загрузилась)
+```
+
+**Требования к картинкам**:
+- Формат: только PNG (не JPG!)
+- Рекомендуемый размер: ~500×1000px (вертикальная ориентация)
+- Максимальный вес: 500KB на картинку
+- Поддержка прозрачности: да
+
+**Fallback при ошибке загрузки**:
+```tsx
+<img
+  src={imageUrl}
+  onError={(e) => {
+    const target = e.target as HTMLImageElement;
+    target.src = `${process.env.PUBLIC_URL}/images/calendar-months/default.png`;
+  }}
+/>
+```
+
+**Критические правила дизайна**:
+- ⚠️ НЕ добавлять `overflow: hidden` на `.miniCalendar` или `.cycleItem` - обрежет кружок!
+- ⚠️ НЕ менять пропорции 66.67% / 33.33% - оптимизированы для мобильных
+- ⚠️ НЕ менять цвет месяца на фиолетовый - чёрный обеспечивает лучшую читаемость
+- ⚠️ НЕ использовать JPG формат - только PNG
+
+**Подробнее**: См. [DESIGN_RULES.md](DESIGN_RULES.md) - раздел "Двухзонный дизайн мини-календаря"
 
 ### NastiaApp.module.css
 **Назначение**: Изолированные стили компонента  

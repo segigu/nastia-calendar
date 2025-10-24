@@ -122,7 +122,7 @@
   border-bottom-right-radius: 1rem; /* Скругление правого нижнего угла */
   flex-shrink: 0; /* Не сжимается */
   box-sizing: border-box; /* Padding включён в ширину */
-  /* align-self: stretch автоматически от родителя */
+  align-self: stretch; /* ВАЖНО: Растягивается на всю высоту родителя */
 }
 
 /* Картинка внутри контейнера */

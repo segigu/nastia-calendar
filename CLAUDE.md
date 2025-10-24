@@ -149,55 +149,188 @@ All modals follow this pattern:
 - Header with close button (`.closeButton`, `.closeButtonLight` for light backgrounds)
 - Scrollable content area inside modal body
 
-### Cycle List Mini Calendar Design
+### Cycle List Mini Calendar Design (Two-Zone Layout)
 **Files**:
 - [src/components/MiniCalendar.tsx](src/components/MiniCalendar.tsx)
 - [src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css)
-- [src/components/NastiaApp.module.css](src/components/NastiaApp.module.css) (`.cycleItem`, `.cycleActions`)
+- [src/components/NastiaApp.module.css](src/components/NastiaApp.module.css) (`.cycleItem`)
+- [public/images/calendar-months/](public/images/calendar-months/) - month images directory
 
-**NEVER change these design parameters** without explicit approval:
+**NEVER change these design parameters** without explicit approval (see [DESIGN_RULES.md](DESIGN_RULES.md)):
+
+#### Two-Zone Layout Structure
+
+```tsx
+// MiniCalendar.tsx structure
+<div className={styles.miniCalendar}>
+  {/* Left zone: Calendar grid (2/3 width) */}
+  <div className={styles.calendarContent}>
+    <div className={styles.monthName}>Январь 2025</div>
+    <div className={styles.weekDays}>...</div>
+    <div className={styles.daysGrid}>...</div>
+  </div>
+
+  {/* Right zone: Month image (1/3 width) */}
+  {imageUrl && (
+    <div className={styles.imageContainer}>
+      <img src={imageUrl} className={styles.image} />
+      {onDelete && (
+        <button className={styles.deleteButton}>
+          {/* Trash icon */}
+        </button>
+      )}
+    </div>
+  )}
+</div>
+```
+
+#### Critical CSS Parameters
 
 ```css
 /* MiniCalendar.module.css */
 .miniCalendar {
-  max-width: 240px;  /* Maintains mobile layout */
-  padding: 8px;
+  display: flex;
+  align-items: stretch;  /* Both zones same height */
+  width: 100%;
+  max-width: 100%;
+  /* NO overflow: hidden - clips hand-drawn circle */
+}
+
+.calendarContent {
+  flex: 0 0 66.67%;  /* Exactly 2/3 width */
+  padding: 0.75rem 1rem;
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+  box-sizing: border-box;
 }
 
 .monthName {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: #8B008B;  /* Bright purple for visibility */
+  color: #000000;  /* Black, NOT purple */
   text-align: left;
+}
+
+.imageContainer {
+  position: relative;  /* For absolute delete button */
+  flex: 0 0 33.33%;  /* Exactly 1/3 width */
+  padding: 0;
+  border-top-right-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+  overflow: hidden;  /* ONLY here, rounds image corners */
+  box-sizing: border-box;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;  /* Fills entire container */
+  object-position: center center;
+  display: block;
+}
+
+.deleteButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  color: #666;  /* Gray, NOT blue */
+  z-index: 10;
 }
 ```
 
-**Hand-drawn circle SVG path**:
+#### Hand-drawn Circle SVG
+
 ```tsx
-<path
-  d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13 T 45,25 Q 45.5,35 38,42 T 28,45 Q 18,45.5 11,38 T 8,28"
-  stroke-width="2.3"
+// Appears on target day only
+{dayInfo.isTarget && (
+  <svg className={styles.handDrawnCircle} viewBox="0 0 50 50">
+    <path
+      d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13 T 45,25 Q 45.5,35 38,42 T 28,45 Q 18,45.5 11,38 T 8,28"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)}
+```
+
+**Circle styling**:
+```css
+.handDrawnCircle {
+  position: absolute;
+  width: 140%;  /* Overflows cell */
+  height: 140%;
+  transform: translate(-50%, -50%);
+  color: var(--nastia-red);
+  opacity: 0.8;
+  animation: drawCircle 0.6s ease-out;
+}
+```
+
+#### Auto-loading Month Images
+
+**Integration** (ModernNastiaApp.tsx:~4590):
+```tsx
+const cycleDate = new Date(cycle.startDate);
+const monthNumber = (cycleDate.getMonth() + 1).toString().padStart(2, '0');
+const monthImageUrl = `${process.env.PUBLIC_URL}/images/calendar-months/${monthNumber}.png`;
+
+<MiniCalendar
+  date={cycleDate}
+  imageUrl={monthImageUrl}
+  onDelete={() => deleteCycle(cycle.id)}
 />
 ```
 
-**Rationale**:
-- Quadratic Bézier curves (Q, T) create organic hand-drawn aesthetic
-- Slight irregularities simulate human drawing
-- 240px max-width ensures mobile compatibility
-- Purple month name (#8B008B) provides strong visual hierarchy
-- Animation (0.6s ease-out) gives satisfying visual feedback
-
-**Layout structure**:
-```tsx
-<div className={styles.cycleItem}>
-  <MiniCalendar date={cycle.startDate} />
-  <div className={styles.cycleActions}>
-    <button>Delete</button>
-  </div>
-</div>
+**Image directory structure**:
+```
+public/images/calendar-months/
+├── 01.png  - January
+├── 02.png  - February
+├── ...
+├── 12.png  - December
+└── default.png  - Fallback if image fails to load
 ```
 
-**Critical alignment**: Delete button uses `align-self: flex-start` to align with month name, NOT calendar grid center.
+**Fallback logic** (MiniCalendar.tsx):
+```tsx
+<img
+  src={imageUrl}
+  onError={(e) => {
+    const target = e.target as HTMLImageElement;
+    target.src = `${process.env.PUBLIC_URL}/images/calendar-months/default.png`;
+  }}
+/>
+```
+
+**Image requirements**:
+- Format: PNG only (not JPG)
+- Recommended size: ~500×1000px (vertical orientation)
+- Max file size: 500KB per image
+- Transparency: Supported
+
+#### Rationale
+
+1. **66.67% / 33.33% proportions**: Optimal balance for mobile (iPhone 375px width) - calendar remains readable, image provides visual interest without dominating
+2. **Black month name**: Maximum contrast on light backgrounds, doesn't compete with red circle
+3. **Image fills 100% of container**: No visual gaps, professional look with `object-fit: cover`
+4. **overflow: hidden ONLY on imageContainer**: Allows hand-drawn circle (140% size) to overflow cell without clipping
+5. **Delete button over image**: Space-efficient, intuitive placement for deleting entire cycle
+6. **Hand-drawn circle**: Quadratic Bézier curves (Q, T) create organic aesthetic, animation (0.6s ease-out) provides satisfying feedback
+7. **Auto-mapping by month**: `startDate` month → `{01-12}.png`, seamless integration without manual configuration
+
+#### Common Mistakes
+
+❌ **Don't add `overflow: hidden` to `.miniCalendar` or `.cycleItem`** - clips the hand-drawn circle
+❌ **Don't use fixed pixel widths** - breaks on different screen sizes
+❌ **Don't change month name color back to purple** - reduces contrast
+❌ **Don't use JPG format for images** - PNG required for consistency
 
 ## Environment Variables
 
