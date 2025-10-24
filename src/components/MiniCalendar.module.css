@@ -15,6 +15,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0; /* Не сжимается */
+  border-top-left-radius: 1rem; /* Скругление левого верхнего угла */
+  border-bottom-left-radius: 1rem; /* Скругление левого нижнего угла */
 }
 
 .monthName {
@@ -110,6 +112,8 @@
   min-width: 125px; /* Минимальная ширина */
   padding: 0; /* Без паддинга - картинка до края */
   overflow: hidden;
+  border-top-right-radius: 1rem; /* Скругление правого верхнего угла */
+  border-bottom-right-radius: 1rem; /* Скругление правого нижнего угла */
   /* align-self: stretch автоматически от родителя */
 }
 
@@ -130,7 +134,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   border: none;
   display: flex;
@@ -139,9 +143,16 @@
   cursor: pointer;
   transition: all 0.2s ease;
   z-index: 10;
+  color: #666; /* Серый цвет иконки (было: синий currentColor) */
+  padding: 0;
 }
 
 .deleteButton:hover {
   background: rgba(255, 255, 255, 1);
-  transform: scale(1.1);
+  transform: scale(1.05);
+  color: #333;
+}
+
+.deleteButton:active {
+  transform: scale(0.95);
 }
