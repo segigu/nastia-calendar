@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { GlassTabBar, type TabId } from './GlassTabBar';
 import { DiscoverTabV2 } from './DiscoverTabV2';
+import MiniCalendar from './MiniCalendar';
 import {
   CycleData,
   type HoroscopeMemoryEntry,
@@ -4586,14 +4587,7 @@ const ModernNastiaApp: React.FC = () => {
                     return (
                       <React.Fragment key={cycle.id}>
                         <div className={`${styles.cycleItem} ${isVisible ? styles.cycleItemVisible : ''}`}>
-                          <div className={styles.cycleInfo}>
-                            <div className={styles.cycleDateRow}>
-                              <span className={styles.cycleDateMarker} aria-hidden="true" />
-                              <span className={styles.cycleDateText}>
-                                {formatDate(new Date(cycle.startDate))}
-                              </span>
-                            </div>
-                          </div>
+                          <MiniCalendar date={new Date(cycle.startDate)} />
                           <div className={styles.cycleActions}>
                             <button
                               onClick={() => deleteCycle(cycle.id)}

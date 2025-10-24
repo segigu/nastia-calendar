@@ -85,6 +85,57 @@ nastia-simple/
 
 Дизайн и анимации реализованы в `NastiaApp.module.css` (`historyCustomButton*`, `historyCustomIconCircle*`, `historyCustomLiveDot`). Все состояния выводят текст чёрным цветом (`#111827` / `#1f2937`) и не содержат дополнительного «мелкого» текста — только заголовок и описание.
 
+### MiniCalendar.tsx
+**Назначение**: Компактный визуальный календарь месяца для отображения в списке циклов
+**Props**:
+- `date: Date` - дата, для которой отображается календарь (целевой день будет выделен)
+
+**Архитектура**:
+Компонент генерирует полную сетку дней месяца (7 столбцов × до 5 строк) с выделением целевой даты. Показывает дни из предыдущего/следующего месяца для заполнения сетки. Использует SVG-обводку с hand-drawn эффектом для визуального выделения даты начала цикла.
+
+**Визуальные элементы**:
+- **Шапка**: Название месяца и год слева (`.monthName` - фиолетовый #8B008B, жирный шрифт 14px)
+- **Дни недели**: Короткие названия Пн-Вс (`.weekDay` - серый, 9px)
+- **Сетка дней** (`.daysGrid`):
+  - Дни текущего месяца: фиолетовый цвет `var(--nastia-dark)`, 11px
+  - Дни других месяцев: серые полупрозрачные (`opacity: 0.5`)
+  - Целевой день: красный `var(--nastia-red)`, жирный шрифт (700)
+- **Hand-drawn обводка**: SVG path с анимацией появления
+
+**Технические детали**:
+```tsx
+// Коррекция дня недели: воскресенье = 7 (не 0)
+firstDayOfWeek = firstDayOfWeek === 0 ? 7 : firstDayOfWeek;
+
+// Максимум 35 дней в сетке (5 недель)
+const remainingDays = 35 - days.length;
+
+// Hand-drawn SVG path использует квадратичные кривые Безье (Q, T)
+<path d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13..."
+      stroke-width="2.3" />
+```
+
+**CSS модули** ([src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css)):
+- `.miniCalendar` - контейнер (max-width: 240px, прозрачный фон)
+- `.monthName` - заголовок месяца (left-aligned)
+- `.weekDays`, `.weekDay` - ряд с днями недели
+- `.daysGrid`, `.day` - grid сетка дней (7 столбцов, gap: 2px)
+- `.targetDay` - модификатор для выделенного дня
+- `.handDrawnCircle` - SVG обводка (анимация `drawCircle` 0.6s ease-out)
+
+**Интеграция в список циклов**:
+```tsx
+// В ModernNastiaApp.tsx:4590
+<div className={styles.cycleItem}>
+  <MiniCalendar date={new Date(cycle.startDate)} />
+  <div className={styles.cycleActions}>
+    <button onClick={() => deleteCycle(cycle.id)}>...</button>
+  </div>
+</div>
+```
+
+**Layout**: Календарик занимает левую часть `.cycleItem`, кнопка удаления справа с `align-self: flex-start` для выравнивания с названием месяца.
+
 ### NastiaApp.module.css
 **Назначение**: Изолированные стили компонента  
 **Основные классы**:

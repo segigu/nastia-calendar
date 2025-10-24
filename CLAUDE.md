@@ -8,6 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Live app**: https://segigu.github.io/nastia-calendar/
 
+## Workflow Methodology
+
+Следуй универсальной методологии работы из глобального руководства: [~/.claude/docs/CLAUDE_WORKFLOW.md](~/.claude/docs/CLAUDE_WORKFLOW.md)
+
+**Глобальные команды доступны в этом проекте:**
+- `/formattask` - Форматирование неформальных задач в структурированный вид
+- `/plan` - Создание детального плана реализации с TodoList
+- `/review` - Комплексная проверка кода перед коммитом
+- `/doc` - Автоматическое обновление документации
+
 ## Development Commands
 
 ### Core Commands
@@ -78,6 +88,7 @@ git add . && git commit -m "your message" && git push && npm run deploy
 - **Main app**: [src/components/ModernNastiaApp.tsx](src/components/ModernNastiaApp.tsx) + [src/components/NastiaApp.module.css](src/components/NastiaApp.module.css)
 - **Tab navigation**: [src/components/GlassTabBar.tsx](src/components/GlassTabBar.tsx) - Glass morphism bottom tab bar
 - **Chart**: [src/components/CycleLengthChart.tsx](src/components/CycleLengthChart.tsx) - Uses Recharts for cycle visualization
+- **Mini calendar**: [src/components/MiniCalendar.tsx](src/components/MiniCalendar.tsx) + [src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css) - Compact month calendar widget for cycle list items
 
 ## Critical Design Rules (DO NOT MODIFY)
 
@@ -133,6 +144,56 @@ All modals follow this pattern:
 - Include `animation: slideUpSettings 0.3s ease-out;` for bottom-up entrance
 - Header with close button (`.closeButton`, `.closeButtonLight` for light backgrounds)
 - Scrollable content area inside modal body
+
+### Cycle List Mini Calendar Design
+**Files**:
+- [src/components/MiniCalendar.tsx](src/components/MiniCalendar.tsx)
+- [src/components/MiniCalendar.module.css](src/components/MiniCalendar.module.css)
+- [src/components/NastiaApp.module.css](src/components/NastiaApp.module.css) (`.cycleItem`, `.cycleActions`)
+
+**NEVER change these design parameters** without explicit approval:
+
+```css
+/* MiniCalendar.module.css */
+.miniCalendar {
+  max-width: 240px;  /* Maintains mobile layout */
+  padding: 8px;
+}
+
+.monthName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8B008B;  /* Bright purple for visibility */
+  text-align: left;
+}
+```
+
+**Hand-drawn circle SVG path**:
+```tsx
+<path
+  d="M 8,25 Q 7,15 15,8 T 25,6 Q 35,5.5 42,13 T 45,25 Q 45.5,35 38,42 T 28,45 Q 18,45.5 11,38 T 8,28"
+  stroke-width="2.3"
+/>
+```
+
+**Rationale**:
+- Quadratic Bézier curves (Q, T) create organic hand-drawn aesthetic
+- Slight irregularities simulate human drawing
+- 240px max-width ensures mobile compatibility
+- Purple month name (#8B008B) provides strong visual hierarchy
+- Animation (0.6s ease-out) gives satisfying visual feedback
+
+**Layout structure**:
+```tsx
+<div className={styles.cycleItem}>
+  <MiniCalendar date={cycle.startDate} />
+  <div className={styles.cycleActions}>
+    <button>Delete</button>
+  </div>
+</div>
+```
+
+**Critical alignment**: Delete button uses `align-self: flex-start` to align with month name, NOT calendar grid center.
 
 ## Environment Variables
 
