@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Activity, Sparkles, Settings } from 'lucide-react';
+import { Calendar, Activity, Settings } from 'lucide-react';
 import styles from './GlassTabBar.module.css';
 
 export type TabId = 'calendar' | 'cycles' | 'discover' | 'settings';
@@ -32,7 +32,7 @@ const tabs: Tab[] = [
   {
     id: 'discover',
     label: 'Узнай себя',
-    icon: <Sparkles size={24} />,
+    icon: <span style={{ fontSize: '24px' }}>🔮</span>,
   },
   {
     id: 'settings',
