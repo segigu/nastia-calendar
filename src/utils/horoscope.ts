@@ -691,12 +691,13 @@ export async function fetchSergeyLoadingMessages(
   const prompt = `Сгенерируй 10 язвительных статусов для загрузки гороскопа Серёжи.
 Правила для КАЖДОГО статуса:
 - начинается с одного подходящего эмодзи и пробела;
-- одно ёмкое предложение (12–20 слов), без точек внутри;
+- одно ёмкое предложение (12–20 слов), БЕЗ точек внутри, БЕЗ переносов строк;
 - саркастично намекает, что Серёжа снова притворяется продуктивным (с отсылками к планетам, космосу, небесной бюрократии);
 - допускается лёгкий мат типа «нахрена», но избегай жёсткой брани;
-- все статусы различаются смыслом и образами.
+- все статусы различаются смыслом и образами;
+- ВАЖНО: весь текст в одну строку, БЕЗ переносов, все кавычки внутри текста должны быть экранированы.
 
-Верни строго JSON-массив объектов вида [{"emoji":"✨","text":"..."}] без пояснений.`;
+Верни ТОЛЬКО валидный JSON-массив вида [{"emoji":"✨","text":"..."}] БЕЗ markdown, БЕЗ пояснений, БЕЗ переносов строк внутри text.`;
 
   try {
     const { callAI } = await import('./aiClient');
@@ -708,15 +709,19 @@ export async function fetchSergeyLoadingMessages(
           content: prompt,
         },
       ],
-      temperature: 0.8,
-      maxTokens: 520,
+      temperature: 0.7,
+      maxTokens: 600,
       signal,
       claudeApiKey,
       claudeProxyUrl,
       openAIApiKey,
     });
 
-    const cleaned = response.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    let cleaned = response.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+    // Дополнительная очистка: убрать переносы строк внутри JSON
+    cleaned = cleaned.replace(/\n/g, ' ').replace(/\r/g, '');
+
     const parsed = JSON.parse(cleaned) as HoroscopeLoadingMessage[];
 
     if (!Array.isArray(parsed) || parsed.length === 0) {
