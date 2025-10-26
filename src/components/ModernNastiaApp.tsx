@@ -4978,20 +4978,31 @@ const ModernNastiaApp: React.FC = () => {
             <div className={styles.dailyHoroscopeBody} ref={dailyHoroscopeBodyRef}>
               {dailyHoroscopeStatus === 'loading' ? (
                 <div className={styles.dailyHoroscopeLoading}>
-                  <div className={styles.starsBackground}>
-                    {Array.from({ length: 50 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className={styles.star}
-                        style={{
-                          left: `${Math.random() * 100}%`,
-                          top: `${Math.random() * 100}%`,
-                          '--duration': `${2 + Math.random() * 3}s`,
-                          '--delay': `${Math.random() * 3}s`,
-                          '--max-opacity': Math.random() * 0.5 + 0.3,
-                        } as React.CSSProperties}
-                      />
-                    ))}
+                  <div className={styles.blobsBackground}>
+                    {Array.from({ length: 8 }).map((_, index) => {
+                      const colors = ['#FFB6C1', '#DDA0DD', '#ff6b9d', '#8B008B', '#c084fc', '#f472b6'];
+                      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                      const size = 120 + Math.random() * 200;
+
+                      return (
+                        <div
+                          key={index}
+                          className={styles.blob}
+                          style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                            width: `${size}px`,
+                            height: `${size}px`,
+                            background: randomColor,
+                            '--duration': `${8 + Math.random() * 6}s`,
+                            '--rotate-duration': `${20 + Math.random() * 15}s`,
+                            '--delay': `${Math.random() * 5}s`,
+                            '--x-offset': `${-30 + Math.random() * 60}px`,
+                            '--y-offset': `${-30 + Math.random() * 60}px`,
+                          } as React.CSSProperties}
+                        />
+                      );
+                    })}
                   </div>
                   <div
                     key={`daily-loading-${dailyLoadingIndex}-${currentDailyLoadingMessage.text}`}
