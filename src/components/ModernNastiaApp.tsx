@@ -4964,6 +4964,35 @@ const ModernNastiaApp: React.FC = () => {
       {showDailyHoroscopeModal && (
         <div className={styles.modal}>
           <div className={`${styles.modalContent} ${styles.dailyHoroscopeModal}`}>
+            {/* Постоянный фон с цветными пятнами - всегда виден */}
+            <div className={styles.blobsBackground}>
+              {Array.from({ length: 8 }).map((_, index) => {
+                const colors = ['#FFB6C1', '#DDA0DD', '#ff6b9d', '#8B008B', '#c084fc', '#f472b6'];
+                const colorIndex = index % colors.length;
+                const size = 150 + (index * 30);
+
+                return (
+                  <div
+                    key={`blob-${index}`}
+                    className={styles.blob}
+                    style={{
+                      left: `${(index * 12.5) % 100}%`,
+                      top: `${(index * 15) % 100}%`,
+                      width: `${size}px`,
+                      height: `${size}px`,
+                      '--duration': `${10 + index * 2}s`,
+                      '--delay': `${index * 1.5}s`,
+                      '--color-1': colors[colorIndex],
+                      '--color-2': colors[(colorIndex + 1) % colors.length],
+                      '--color-3': colors[(colorIndex + 2) % colors.length],
+                      '--x-offset': `${-50 + (index * 15)}px`,
+                      '--y-offset': `${-40 + (index * 12)}px`,
+                    } as React.CSSProperties}
+                  />
+                );
+              })}
+            </div>
+
             <div className={styles.dailyHoroscopeHeader}>
               <h3 className={styles.dailyHoroscopeHeading}>Гороскоп на сегодня</h3>
               <button
@@ -4978,32 +5007,6 @@ const ModernNastiaApp: React.FC = () => {
             <div className={styles.dailyHoroscopeBody} ref={dailyHoroscopeBodyRef}>
               {dailyHoroscopeStatus === 'loading' ? (
                 <div className={styles.dailyHoroscopeLoading}>
-                  <div className={styles.blobsBackground}>
-                    {Array.from({ length: 8 }).map((_, index) => {
-                      const colors = ['#FFB6C1', '#DDA0DD', '#ff6b9d', '#8B008B', '#c084fc', '#f472b6'];
-                      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                      const size = 120 + Math.random() * 200;
-
-                      return (
-                        <div
-                          key={index}
-                          className={styles.blob}
-                          style={{
-                            left: `${Math.random() * 100}%`,
-                            top: `${Math.random() * 100}%`,
-                            width: `${size}px`,
-                            height: `${size}px`,
-                            background: randomColor,
-                            '--duration': `${8 + Math.random() * 6}s`,
-                            '--rotate-duration': `${20 + Math.random() * 15}s`,
-                            '--delay': `${Math.random() * 5}s`,
-                            '--x-offset': `${-30 + Math.random() * 60}px`,
-                            '--y-offset': `${-30 + Math.random() * 60}px`,
-                          } as React.CSSProperties}
-                        />
-                      );
-                    })}
-                  </div>
                   <div
                     key={`daily-loading-${dailyLoadingIndex}-${currentDailyLoadingMessage.text}`}
                     className={styles.dailyHoroscopeLoadingContent}
