@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: claude/fix-duplicate-reminders-011CUidmKWFqjdU21fS7FefP
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
