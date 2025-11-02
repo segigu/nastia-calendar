@@ -12,10 +12,14 @@ const fetch = (...args) => {
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const CLAUDE_API_KEY_ENV = process.env.CLAUDE_API_KEY || '';
+const OPENAI_API_KEY_ENV = process.env.OPENAI_API_KEY || '';
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const OPENAI_MODEL = 'gpt-4o-mini';
+
+// These will be set in main() after loading config
+let CLAUDE_API_KEY = CLAUDE_API_KEY_ENV;
+let OPENAI_API_KEY = OPENAI_API_KEY_ENV;
 
 const CONFIG_FILE = 'nastia-config.json';
 const PREVIEW_MODE = process.argv.includes('--preview-morning-brief');
@@ -1176,7 +1180,32 @@ async function main() {
     const userData = await userResponse.json();
     const username = userData.login;
 
-    const trimmedClaudeKey = (CLAUDE_API_KEY || '').trim();
+    // Load API keys from config if not provided via environment
+    const currentConfig = await loadConfig(username);
+
+    if (!CLAUDE_API_KEY && currentConfig?.claude?.apiKey) {
+      CLAUDE_API_KEY = currentConfig.claude.apiKey.trim();
+      console.log('✅ Using CLAUDE_API_KEY from nastia-config.json');
+    } else if (CLAUDE_API_KEY) {
+      console.log('✅ Using CLAUDE_API_KEY from environment');
+    } else {
+      console.warn('⚠️  No CLAUDE_API_KEY found - will use fallback messages');
+    }
+
+    if (!OPENAI_API_KEY && currentConfig?.openai?.apiKey) {
+      OPENAI_API_KEY = currentConfig.openai.apiKey.trim();
+      console.log('✅ Using OPENAI_API_KEY from nastia-config.json (fallback)');
+    } else if (OPENAI_API_KEY) {
+      console.log('✅ Using OPENAI_API_KEY from environment (fallback)');
+    }
+
+    if (!CLAUDE_API_KEY && !OPENAI_API_KEY) {
+      console.warn('❌ CRITICAL: No AI API keys available!');
+      console.warn('   All notifications will use IDENTICAL fallback messages every day');
+      console.warn('   Solution: Add CLAUDE_API_KEY to GitHub Secrets');
+    }
+
+    const trimmedClaudeKey = (CLAUDE_API_KEY_ENV || '').trim();
     const { schedule } = await prepareConfigAndSchedule(username, trimmedClaudeKey);
 
     const berlinNow = getBerlinNow();
