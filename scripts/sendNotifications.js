@@ -310,7 +310,30 @@ if (PREVIEW_MODE) {
 }
 
 function toZonedDate(date, timeZone) {
-  return new Date(date.toLocaleString('en-US', { timeZone }));
+  // More reliable timezone conversion using Intl API
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = dtf.formatToParts(date);
+  const get = (type) => parts.find(p => p.type === type)?.value || '0';
+
+  // Create date in local time (which will be interpreted as UTC in Date.UTC)
+  return new Date(
+    parseInt(get('year')),
+    parseInt(get('month')) - 1,
+    parseInt(get('day')),
+    parseInt(get('hour')),
+    parseInt(get('minute')),
+    parseInt(get('second'))
+  );
 }
 
 function getZonedNow(timeZone) {
@@ -392,12 +415,24 @@ function getLatestNotificationForDay(log, dayKey, filterType) {
     if (!entry?.sentAt) {
       continue;
     }
-    const entryKey = getBerlinDayKey(new Date(entry.sentAt));
-    if (entryKey === dayKey && (!filterType || entry.type === filterType)) {
-      return entry;
+    try {
+      const entryKey = getBerlinDayKey(new Date(entry.sentAt));
+      if (entryKey === dayKey && (!filterType || entry.type === filterType)) {
+        return entry;
+      }
+    } catch (error) {
+      console.warn('Failed to parse notification sentAt:', entry.sentAt, error.message);
+      continue;
     }
   }
   return null;
+}
+
+function hasNotificationById(log, notificationId) {
+  if (!log || !Array.isArray(log.notifications)) {
+    return false;
+  }
+  return log.notifications.some(entry => entry?.id === notificationId);
 }
 
 function startOfDay(date) {
@@ -1265,29 +1300,36 @@ async function main() {
     if ((FORCE_MORNING_BRIEF || berlinMinutesNow >= morningBriefMinutes) && !todaysMorningNotification) {
       console.log('Generating morning brief notification...');
       const morningMessage = await generateMorningBrief(context);
-      const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
-        type: 'morning_brief',
-        context,
-        subscriptions: subscriptionsData.subscriptions,
-        messageCache: new Map(),
-        today,
-        prebuiltMessage: morningMessage,
-      });
 
-      if (morningSent > 0 && morningLogEntry) {
-        notificationsLog.notifications.unshift(morningLogEntry);
-        notificationsLog.notifications = notificationsLog.notifications.slice(0, 200);
-        notificationsLog.lastUpdated = new Date().toISOString();
-        try {
-          await saveNotificationsLog(username, notificationsLog);
-        } catch (error) {
-          console.error('Failed to persist notifications log after morning brief:', error.message);
+      // Double-check by ID to prevent duplicates
+      const morningBriefId = `${today.toISOString()}-morning_brief`;
+      if (hasNotificationById(notificationsLog, morningBriefId)) {
+        console.log(`Morning brief already exists with ID ${morningBriefId}, skipping`);
+      } else {
+        const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
+          type: 'morning_brief',
+          context,
+          subscriptions: subscriptionsData.subscriptions,
+          messageCache: new Map(),
+          today,
+          prebuiltMessage: morningMessage,
+        });
+
+        if (morningSent > 0 && morningLogEntry) {
+          notificationsLog.notifications.unshift(morningLogEntry);
+          notificationsLog.notifications = notificationsLog.notifications.slice(0, 200);
+          notificationsLog.lastUpdated = new Date().toISOString();
+          try {
+            await saveNotificationsLog(username, notificationsLog);
+            console.log(`Morning brief notifications sent: ${morningSent}, ID: ${morningLogEntry.id}`);
+          } catch (error) {
+            console.error('Failed to persist notifications log after morning brief:', error.message);
+          }
         }
       }
-      console.log(`Morning brief notifications sent: ${morningSent}`);
     } else if (todaysMorningNotification) {
       const sentClock = formatBerlinClockFromIso(todaysMorningNotification.sentAt);
-      console.log(`Morning brief already sent today at ${sentClock} (${BERLIN_TZ})`);
+      console.log(`Morning brief already sent today at ${sentClock} (${BERLIN_TZ}), ID: ${todaysMorningNotification.id}`);
     } else {
       console.log(`Too early for morning brief, waiting until ${morningBriefTime} Berlin time.`);
     }
@@ -1305,7 +1347,14 @@ async function main() {
     const todaysNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, type);
     if (todaysNotification) {
       const sentClock = formatBerlinClockFromIso(todaysNotification.sentAt);
-      console.log(`Notification already sent today at ${sentClock} (${BERLIN_TZ}), skipping`);
+      console.log(`Notification already sent today at ${sentClock} (${BERLIN_TZ}), ID: ${todaysNotification.id}, skipping`);
+      return;
+    }
+
+    // Double-check by ID to prevent duplicates
+    const notificationId = `${today.toISOString()}-${type}`;
+    if (hasNotificationById(notificationsLog, notificationId)) {
+      console.log(`Notification already exists with ID ${notificationId}, skipping`);
       return;
     }
 
@@ -1323,12 +1372,13 @@ async function main() {
       notificationsLog.lastUpdated = new Date().toISOString();
       try {
         await saveNotificationsLog(username, notificationsLog);
+        console.log(`Total notifications sent: ${sent}, ID: ${logEntry.id}`);
       } catch (error) {
         console.error('Failed to persist notifications log:', error.message);
       }
+    } else {
+      console.log(`Total notifications sent: ${sent}`);
     }
-
-    console.log(`Total notifications sent: ${sent}`);
   } catch (error) {
     console.error('Error in notification job:', error);
     process.exit(1);
