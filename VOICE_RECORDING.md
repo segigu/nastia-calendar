@@ -212,16 +212,27 @@ const recorder = new MediaRecorder(stream, {
 
 **OpenAI Whisper API** ([src/utils/audioTranscription.ts](src/utils/audioTranscription.ts)):
 ```typescript
-const transcript = await transcribeAudioBlob(audioBlob, openAIApiKey, openAIProxyUrl);
+const transcript = await transcribeAudioBlob(audioBlob, {
+  openAIApiKey,
+  openAIProxyUrl, // NOT USED for audio - proxy doesn't support FormData
+  language: 'ru',
+});
 ```
 
 **Формат**:
 - Вход: `Blob` (audio/webm или audio/mp4)
 - Выход: `string` (распознанный текст)
-- Модель: `whisper-1`
+- Модель: `whisper-1` (исправлено с `gpt-4o-mini-transcribe`)
+
+**ВАЖНО: Требования к API**:
+- **Прокси НЕ используется** для audio transcription - он поддерживает только JSON для chat completions, не multipart/form-data
+- **Всегда используется прямой OpenAI API**: `https://api.openai.com/v1/audio/transcriptions`
+- **Требуется валидный `REACT_APP_OPENAI_API_KEY`** в `.env` файле или в remote config
+- Получить ключ: https://platform.openai.com/api-keys
 
 **Error handling**:
 - Пустой текст → "Не удалось распознать аудио"
+- 401 Unauthorized → "Incorrect API key" - нужно обновить `REACT_APP_OPENAI_API_KEY`
 - Network errors → отображаются в `customOption.error`
 
 ---

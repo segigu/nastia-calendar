@@ -52,19 +52,11 @@ export async function transcribeAudioBlob(
 
   const candidates: EndpointCandidate[] = [];
 
-  if (baseUrl) {
-    let proxyEndpoint: string;
-    if (/audio\/transcriptions$/i.test(baseUrl)) {
-      proxyEndpoint = baseUrl;
-    } else if (/chat\/completions$/i.test(baseUrl)) {
-      proxyEndpoint = baseUrl.replace(/chat\/completions$/i, 'audio/transcriptions');
-    } else {
-      proxyEndpoint = `${baseUrl}/audio/transcriptions`;
-    }
-    candidates.push({ url: proxyEndpoint, kind: 'proxy' });
-  }
+  // IMPORTANT: Audio transcription requires multipart/form-data, which most proxies
+  // (like nastia-openai-proxy) don't support. They're designed for JSON-only chat completions.
+  // Therefore, we ALWAYS use direct OpenAI API for audio transcriptions, never the proxy.
 
-  if (!baseUrl || trimmedKey.length > 0) {
+  if (trimmedKey.length > 0) {
     candidates.push({
       url: 'https://api.openai.com/v1/audio/transcriptions',
       kind: 'direct',
@@ -77,7 +69,7 @@ export async function transcribeAudioBlob(
 
   const createFormData = () => {
     const form = new FormData();
-    form.append('model', 'gpt-4o-mini-transcribe');
+    form.append('model', 'whisper-1');
     form.append('temperature', '0');
     form.append('response_format', 'json');
     if (language) {
@@ -111,13 +103,6 @@ export async function transcribeAudioBlob(
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
         const message = `Ошибка распознавания аудио (${response.status}): ${errorBody || 'пустой ответ'}`;
-
-        if (kind === 'proxy' && trimmedKey.length > 0 && index < candidates.length - 1) {
-          console.warn('[AudioTranscription] Proxy failed, falling back to direct API:', message);
-          lastError = message;
-          continue;
-        }
-
         throw new Error(message);
       }
 
