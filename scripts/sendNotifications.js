@@ -874,6 +874,8 @@ function getDaysWord(value) {
 }
 
 async function callAIWithFallback(prompt, systemPrompt) {
+  let claudeError = null;
+
   // Try Claude first
   if (CLAUDE_API_KEY) {
     try {
@@ -910,8 +912,9 @@ async function callAIWithFallback(prompt, systemPrompt) {
 
       console.log('Generated notification using Claude API');
       return raw;
-    } catch (claudeError) {
-      console.warn('Claude API failed, trying OpenAI:', claudeError.message);
+    } catch (error) {
+      claudeError = error;
+      console.warn('Claude API failed, trying OpenAI:', error.message);
     }
   }
 
