@@ -165,6 +165,15 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   // Ref для текущих choices (чтобы можно было обновить только customOption)
   const currentChoicesRef = useRef<HistoryStoryOption[]>([]);
 
+  // Ref для контекста последней генерации (для retry без потери прогресса)
+  const lastGenerationContextRef = useRef<{
+    type: 'story' | 'dialogue';
+    choice?: HistoryStoryOption;
+    nextArc?: number;
+    arcLimit?: number;
+    isFinaleTime?: boolean;
+  } | null>(null);
+
   // Флаг для отслеживания, было ли уже загружено состояние
   const stateLoadedRef = useRef(false);
 
@@ -383,6 +392,11 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
     // Очистка предыдущих таймеров
     timeoutsRef.current.forEach(t => clearTimeout(t));
     timeoutsRef.current = [];
+
+    // Сохраняем контекст генерации для возможного retry
+    lastGenerationContextRef.current = {
+      type: 'dialogue',
+    };
 
     // Очистка чата
     chatManagerRef.current?.clearMessages();
@@ -750,6 +764,133 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
   ]);
 
   // ============================================================================
+  // RETRY LOGIC (БЕЗ ПОТЕРИ ПРОГРЕССА)
+  // ============================================================================
+
+  const retryCurrentAction = useCallback(async () => {
+    const context = lastGenerationContextRef.current;
+
+    if (!context) {
+      console.warn('[DiscoverV2] No generation context to retry');
+      setError('Нет контекста для повтора. Начните заново.');
+      return;
+    }
+
+    console.log('[DiscoverV2] Retrying last action:', context.type);
+
+    // Если ошибка была в диалоге планет - начинаем заново
+    if (context.type === 'dialogue') {
+      await startPlanetDialogue();
+      return;
+    }
+
+    // Если ошибка была в генерации истории - повторяем БЕЗ очистки чата
+    if (context.type === 'story' && context.choice) {
+      setIsGenerating(true);
+      setError(null);
+
+      // НЕ очищаем чат! НЕ добавляем user message повторно!
+      // Просто повторяем генерацию
+
+      chatManagerRef.current?.setTyping('История');
+
+      try {
+        const recentSegments = storySegmentsRef.current.slice(-4);
+
+        const result = await generateHistoryStoryChunk({
+          segments: recentSegments,
+          currentChoice: context.choice,
+          summary: undefined,
+          author: {
+            name: storyMeta?.author || 'История',
+            stylePrompt: 'Пиши простым, современным языком. Используй короткие предложения. Избегай штампов.',
+            genre: storyMeta?.genre || 'психологическая драма',
+          },
+          arcLimit: context.arcLimit || 7,
+          mode: context.isFinaleTime ? 'finale' : 'arc',
+          currentArc: context.nextArc || currentArc + 1,
+          contract: storyContract || undefined,
+          signal: undefined,
+          claudeApiKey: effectiveClaudeKey || undefined,
+          claudeProxyUrl: effectiveClaudeProxyUrl || undefined,
+          openAIApiKey: effectiveOpenAIKey || undefined,
+          openAIProxyUrl: effectiveOpenAIProxyUrl || undefined,
+        });
+
+        chatManagerRef.current?.setTyping(null);
+
+        if (context.isFinaleTime && result.finale) {
+          // Показываем финал
+          chatManagerRef.current?.setPhase('finale');
+
+          chatManagerRef.current?.addMessage({
+            type: 'story',
+            author: 'История',
+            content: result.finale.resolution,
+            time: getCurrentTime(),
+            id: generateId(),
+          });
+
+          // Сохраняем интерпретации для показа с переключателями
+          setTimeout(() => {
+            setFinaleInterpretations({
+              human: result.finale!.humanInterpretation,
+              astrological: result.finale!.astrologicalInterpretation,
+            });
+            setFinaleInterpretationMode('human');
+            setError(null);
+            setIsGenerating(false);
+          }, 500);
+        } else {
+          // Обычный arc
+          const arcText = result.node?.scene || 'История продолжается...';
+
+          chatManagerRef.current?.addMessage({
+            type: 'story',
+            author: 'История',
+            content: arcText,
+            time: getCurrentTime(),
+            id: generateId(),
+          });
+
+          // Сохраняем сегмент
+          storySegmentsRef.current.push({
+            text: arcText,
+            arc: context.nextArc || currentArc + 1,
+            optionTitle: context.choice.title,
+            optionDescription: context.choice.description,
+          });
+
+          setCurrentArc(context.nextArc || currentArc + 1);
+
+          // Показываем choices
+          const options = result.options || [];
+          currentChoicesRef.current = options;
+          setHasChoices(options.length > 0);
+          chatManagerRef.current?.setChoices(options);
+
+          setError(null);
+          setIsGenerating(false);
+        }
+      } catch (err) {
+        console.error('[DiscoverV2] Retry failed:', err);
+        setError(err instanceof Error ? err.message : 'Ошибка при повторной попытке');
+        setIsGenerating(false);
+        chatManagerRef.current?.setTyping(null);
+      }
+    }
+  }, [
+    currentArc,
+    storyMeta,
+    storyContract,
+    effectiveClaudeKey,
+    effectiveClaudeProxyUrl,
+    effectiveOpenAIKey,
+    effectiveOpenAIProxyUrl,
+    startPlanetDialogue,
+  ]);
+
+  // ============================================================================
   // INTERACTIVE STORY
   // ============================================================================
 
@@ -787,6 +928,15 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
 
           // Проверяем, нужен ли финал
           const isFinaleTime = nextArc > arcLimit;
+
+          // Сохраняем контекст генерации для возможного retry
+          lastGenerationContextRef.current = {
+            type: 'story',
+            choice,
+            nextArc,
+            arcLimit,
+            isFinaleTime,
+          };
 
           const result = await generateHistoryStoryChunk({
             segments: recentSegments,
@@ -1536,7 +1686,7 @@ export const DiscoverTabV2: React.FC<DiscoverTabV2Props> = ({
               <button
                 type="button"
                 className={styles.historyStoryRetry}
-                onClick={startPlanetDialogue}
+                onClick={retryCurrentAction}
                 disabled={isGenerating}
               >
                 Попробовать снова

@@ -39,6 +39,53 @@ function aggressiveJsonCleanup(jsonText: string): string {
     .replace(/\[\s+/g, '[');
 }
 
+/**
+ * Попытка исправить незакрытые кавычки и обрезанный JSON
+ */
+function fixTruncatedJson(jsonText: string): string {
+  let result = jsonText.trim();
+
+  // Подсчитываем кавычки вне escape-последовательностей
+  let quoteCount = 0;
+  let inEscape = false;
+  for (let i = 0; i < result.length; i++) {
+    if (result[i] === '\\' && !inEscape) {
+      inEscape = true;
+    } else if (result[i] === '"' && !inEscape) {
+      quoteCount++;
+    } else {
+      inEscape = false;
+    }
+  }
+
+  // Если нечетное количество кавычек - закрываем последнюю строку
+  if (quoteCount % 2 !== 0) {
+    result += '"';
+  }
+
+  // Закрываем незакрытые объекты и массивы
+  let openBraces = 0;
+  let openBrackets = 0;
+  for (let i = 0; i < result.length; i++) {
+    if (result[i] === '{') openBraces++;
+    if (result[i] === '}') openBraces--;
+    if (result[i] === '[') openBrackets++;
+    if (result[i] === ']') openBrackets--;
+  }
+
+  // Закрываем все открытые структуры
+  while (openBraces > 0) {
+    result += '}';
+    openBraces--;
+  }
+  while (openBrackets > 0) {
+    result += ']';
+    openBrackets--;
+  }
+
+  return result;
+}
+
 export interface JsonRecoveryResult<T = any> {
   parsed: T;
   cleanText: string;
@@ -53,6 +100,7 @@ export function parseJsonWithRecovery<T = any>(rawText: string, label: string): 
     console.error(`[PromptRecovery] JSON parse error (${label}):`, parseError);
     console.error(`[PromptRecovery] Raw text (first 500 chars):`, cleanText.slice(0, 500));
 
+    // Стратегия 1: Исправить переносы строк внутри строковых значений
     try {
       const fixedText = fixSmartNewlines(cleanText);
       return { parsed: JSON.parse(fixedText) as T, cleanText: fixedText };
@@ -60,6 +108,7 @@ export function parseJsonWithRecovery<T = any>(rawText: string, label: string): 
       console.error(`[PromptRecovery] Smart newline fix failed (${label}):`, fixError);
     }
 
+    // Стратегия 2: Агрессивная очистка пробелов
     try {
       const aggressiveText = aggressiveJsonCleanup(cleanText);
       return { parsed: JSON.parse(aggressiveText) as T, cleanText: aggressiveText };
@@ -67,15 +116,32 @@ export function parseJsonWithRecovery<T = any>(rawText: string, label: string): 
       console.error(`[PromptRecovery] Aggressive cleanup failed (${label}):`, aggressiveError);
     }
 
+    // Стратегия 3: Исправление незакрытых кавычек и скобок
+    try {
+      const truncatedFixed = fixTruncatedJson(cleanText);
+      return { parsed: JSON.parse(truncatedFixed) as T, cleanText: truncatedFixed };
+    } catch (truncFixError) {
+      console.error(`[PromptRecovery] Truncated JSON fix failed (${label}):`, truncFixError);
+    }
+
+    // Стратегия 4: Комбинация агрессивной очистки + исправление обрезанного JSON
+    try {
+      const combinedFix = fixTruncatedJson(aggressiveJsonCleanup(cleanText));
+      return { parsed: JSON.parse(combinedFix) as T, cleanText: combinedFix };
+    } catch (combinedError) {
+      console.error(`[PromptRecovery] Combined fix failed (${label}):`, combinedError);
+    }
+
+    // Стратегия 5: Обрезать до последней закрывающей скобки
     try {
       const lastBrace = cleanText.lastIndexOf('}');
       if (lastBrace > 0) {
         const truncated = cleanText.substring(0, lastBrace + 1);
-        const fixedTruncated = aggressiveJsonCleanup(truncated);
+        const fixedTruncated = fixTruncatedJson(aggressiveJsonCleanup(truncated));
         return { parsed: JSON.parse(fixedTruncated) as T, cleanText: fixedTruncated };
       }
     } catch (truncatedError) {
-      console.error(`[PromptRecovery] Truncated recovery failed (${label}):`, truncatedError);
+      console.error(`[PromptRecovery] Final truncated recovery failed (${label}):`, truncatedError);
     }
 
     throw parseError;
