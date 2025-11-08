@@ -1158,7 +1158,6 @@ async function main() {
     } else {
       console.log(`Morning brief planned time: ${morningBriefTime} (${BERLIN_TZ})`);
     }
-    console.log(`Planned notification time: ${schedule.targetTime} (${BERLIN_TZ})`);
     const notificationsLog = await loadNotificationsLog(username);
 
     const todaysMorningNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, 'morning_brief');
@@ -1297,11 +1296,7 @@ async function main() {
       return;
     }
 
-    if (berlinMinutesNow < schedule.targetMinutes) {
-      console.log('Main notification window not reached yet, skipping this run');
-      return;
-    }
-
+    // Отправляем primary notification сразу утром (без ожидания случайного времени)
     const todaysNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, type);
     if (todaysNotification) {
       const sentClock = formatBerlinClockFromIso(todaysNotification.sentAt);
