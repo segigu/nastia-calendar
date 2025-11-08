@@ -19,6 +19,7 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 
 const CONFIG_FILE = 'nastia-config.json';
 const PREVIEW_MODE = process.argv.includes('--preview-morning-brief');
+const TEST_PRIMARY_NOTIFICATION = process.env.TEST_PRIMARY_NOTIFICATION === 'true';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://segigu.github.io/nastia-calendar/';
 const MORNING_BRIEF_URL = new URL('?open=daily-horoscope', APP_BASE_URL).toString();
 
@@ -662,6 +663,20 @@ function computeCycleStats(cycles) {
 }
 
 function pickNotificationType(today, stats) {
+  // Тестовый режим: всегда возвращаем period_forecast
+  if (TEST_PRIMARY_NOTIFICATION) {
+    const predictedStart = startOfDay(stats.nextPeriod);
+    const daysUntilPeriod = diffInDays(today, predictedStart);
+    console.log('[TEST MODE] Forcing period_forecast notification');
+    return {
+      type: 'period_forecast',
+      metadata: {
+        daysUntilPeriod: Math.max(1, Math.abs(daysUntilPeriod) > 10 ? 3 : daysUntilPeriod),
+        predictedDateIso: predictedStart.toISOString(),
+      },
+    };
+  }
+
   if (isNastiaBirthday(today)) {
     return {
       type: 'birthday',
@@ -1261,7 +1276,7 @@ async function main() {
       isBirthday: isNastiaBirthday(today),
     };
 
-    if ((FORCE_MORNING_BRIEF || berlinMinutesNow >= morningBriefMinutes) && !todaysMorningNotification) {
+    if (FORCE_MORNING_BRIEF || (berlinMinutesNow >= morningBriefMinutes && !todaysMorningNotification)) {
       console.log('Generating morning brief notification...');
       const morningMessage = await generateMorningBrief(context);
       const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
@@ -1298,7 +1313,7 @@ async function main() {
 
     // Отправляем primary notification сразу утром (без ожидания случайного времени)
     const todaysNotification = getLatestNotificationForDay(notificationsLog, schedule.dayKey, type);
-    if (todaysNotification) {
+    if (todaysNotification && !TEST_PRIMARY_NOTIFICATION) {
       const sentClock = formatBerlinClockFromIso(todaysNotification.sentAt);
       console.log(`Notification already sent today at ${sentClock} (${BERLIN_TZ}), skipping`);
       return;
