@@ -41,7 +41,6 @@ export async function transcribeAudioBlob(
     throw new Error('Пустая аудиозапись — нечего распознавать.');
   }
 
-  const baseUrl = (openAIProxyUrl || '').trim().replace(/\/$/, '');
   const trimmedKey =
     (openAIApiKey || '').trim() || (process.env.REACT_APP_OPENAI_API_KEY || '').trim();
 
