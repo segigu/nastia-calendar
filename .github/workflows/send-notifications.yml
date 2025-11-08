@@ -31,6 +31,4 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          FORCE_MORNING_BRIEF: '1'
-          TEST_PRIMARY_NOTIFICATION: 'true'
         run: node scripts/sendNotifications.js
