@@ -3711,6 +3711,17 @@ html {
   background: radial-gradient(circle at top left, #1e1b4b 0%, #0f0d29 50%, #0a0815 100%);
 }
 
+.topGradientOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 15vh;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.7) 40%, rgba(0, 0, 0, 0) 100%);
+}
+
 .blob {
   position: absolute;
   border-radius: 50%;
