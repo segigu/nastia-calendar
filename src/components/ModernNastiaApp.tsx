@@ -4993,6 +4993,9 @@ const ModernNastiaApp: React.FC = () => {
               })}
             </div>
 
+            {/* Градиентный переход для плавного растворения верхней черной области */}
+            <div className={styles.topGradientOverlay} />
+
             <div className={styles.dailyHoroscopeHeader}>
               <h3 className={styles.dailyHoroscopeHeading}>Гороскоп на сегодня</h3>
               <button
