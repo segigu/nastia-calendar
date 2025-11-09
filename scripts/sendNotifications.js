@@ -1188,8 +1188,60 @@ async function main() {
 
     console.log(`Subscriptions loaded: ${subscriptionsData.subscriptions.length}`);
 
+    // Morning brief отправляется ВСЕГДА, независимо от наличия циклов
+    const today = getMoscowToday();
+
+    if (FORCE_MORNING_BRIEF || (berlinMinutesNow >= morningBriefMinutes && !todaysMorningNotification)) {
+      console.log('Generating morning brief notification...');
+      // Минимальный контекст для гороскопа (не требует циклов)
+      const morningContext = {
+        todayHuman: formatRussianDate(today),
+        periodHuman: formatRussianDate(today), // заглушка
+        daysUntilPeriod: 0,
+        daysUntilPeriodWord: 'дней',
+        daysUntilOvulation: 0,
+        daysWord: 'дней',
+        daysPastPrediction: 0,
+        daysPastPredictionWord: 'дней',
+        periodStartHuman: formatRussianDate(today),
+        daysSincePeriodStart: 0,
+        daysSincePeriodStartWord: 'дней',
+        birthdayHuman: formatRussianDate(today),
+        birthdayAge: getNastiaAgeOn(today),
+        isBirthday: isNastiaBirthday(today),
+      };
+
+      const morningMessage = await generateMorningBrief(morningContext);
+      const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
+        type: 'morning_brief',
+        context: morningContext,
+        subscriptions: subscriptionsData.subscriptions,
+        messageCache: new Map(),
+        today,
+        prebuiltMessage: morningMessage,
+      });
+
+      if (morningSent > 0 && morningLogEntry) {
+        notificationsLog.notifications.unshift(morningLogEntry);
+        notificationsLog.notifications = notificationsLog.notifications.slice(0, 200);
+        notificationsLog.lastUpdated = new Date().toISOString();
+        try {
+          await saveNotificationsLog(username, notificationsLog);
+        } catch (error) {
+          console.error('Failed to persist notifications log after morning brief:', error.message);
+        }
+      }
+      console.log(`Morning brief notifications sent: ${morningSent}`);
+    } else if (todaysMorningNotification) {
+      const sentClock = formatBerlinClockFromIso(todaysMorningNotification.sentAt);
+      console.log(`Morning brief already sent today at ${sentClock} (${BERLIN_TZ})`);
+    } else {
+      console.log(`Too early for morning brief, waiting until ${morningBriefTime} Berlin time.`);
+    }
+
+    // Проверка циклов только для primary notifications (период/овуляция)
     if (!nastiaData || !nastiaData.cycles || nastiaData.cycles.length === 0) {
-      console.log('No cycles available, skipping notifications');
+      console.log('No cycles available, skipping primary notification');
       return;
     }
 
@@ -1268,36 +1320,7 @@ async function main() {
       isBirthday: isNastiaBirthday(today),
     };
 
-    if (FORCE_MORNING_BRIEF || (berlinMinutesNow >= morningBriefMinutes && !todaysMorningNotification)) {
-      console.log('Generating morning brief notification...');
-      const morningMessage = await generateMorningBrief(context);
-      const { sent: morningSent, logEntry: morningLogEntry } = await dispatchNotificationToSubscriptions({
-        type: 'morning_brief',
-        context,
-        subscriptions: subscriptionsData.subscriptions,
-        messageCache: new Map(),
-        today,
-        prebuiltMessage: morningMessage,
-      });
-
-      if (morningSent > 0 && morningLogEntry) {
-        notificationsLog.notifications.unshift(morningLogEntry);
-        notificationsLog.notifications = notificationsLog.notifications.slice(0, 200);
-        notificationsLog.lastUpdated = new Date().toISOString();
-        try {
-          await saveNotificationsLog(username, notificationsLog);
-        } catch (error) {
-          console.error('Failed to persist notifications log after morning brief:', error.message);
-        }
-      }
-      console.log(`Morning brief notifications sent: ${morningSent}`);
-    } else if (todaysMorningNotification) {
-      const sentClock = formatBerlinClockFromIso(todaysMorningNotification.sentAt);
-      console.log(`Morning brief already sent today at ${sentClock} (${BERLIN_TZ})`);
-    } else {
-      console.log(`Too early for morning brief, waiting until ${morningBriefTime} Berlin time.`);
-    }
-
+    // Morning brief уже отправлен выше, теперь только primary notification
     if (!type) {
       console.log('No primary notification planned for today');
       return;
