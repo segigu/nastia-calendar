@@ -1251,7 +1251,6 @@ async function main() {
       return;
     }
 
-    const today = getMoscowToday();
     console.log('Today (Moscow):', today.toISOString());
     console.log('Next period:', stats.nextPeriod.toISOString(), 'Ovulation:', stats.ovulationDay.toISOString(), 'Fertile start:', stats.fertileStart.toISOString());
 
