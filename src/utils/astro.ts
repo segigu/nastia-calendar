@@ -225,15 +225,15 @@ function findAspectsBetween(transits: PlanetPosition[], natal: PlanetPosition[])
 function describeRelationshipImpact(aspect: AspectName): string {
   switch (aspect) {
     case 'conjunction':
-      return 'С Серёжей может накрыть волной близости и взаимных требований одновременно.';
+      return 'В отношениях может накрыть волной близости и взаимных требований одновременно.';
     case 'sextile':
-      return 'Есть шанс спокойно договориться с Серёжей, если не заорёте друг на друга первыми.';
+      return 'Есть шанс спокойно договориться, если не заорёте друг на друга первыми.';
     case 'square':
-      return 'Готовься к перепалке с Серёжей — искры летят, но можно выговориться по-честному.';
+      return 'Готовься к домашней перепалке — искры летят, но можно выговориться по-честному.';
     case 'trine':
-      return 'С Серёжей получится поймать общий вайб и даже расслабиться вместе.';
+      return 'Получится поймать общий вайб и даже расслабиться вместе с близким человеком.';
     case 'opposition':
-      return 'Придётся балансировать с Серёжей: вас тянет в разные стороны, но договориться можно.';
+      return 'Придётся балансировать в отношениях: вас тянет в разные стороны, но договориться можно.';
     default:
       return '';
   }
@@ -258,16 +258,16 @@ function describeAspect(match: AspectMatch, target: 'nastia' | 'sergey'): string
   }
 
   // target === 'sergey'
-  const base = `${transitDef.transitLabel} ${ASPECT_TONES[aspect]} ${natalAccusative} Серёжи. ${ASPECT_EFFECTS[aspect]}`;
+  const base = `${transitDef.transitLabel} ${ASPECT_TONES[aspect]} ${natalAccusative} партнёра. ${ASPECT_EFFECTS[aspect]}`;
 
   if (
     RELATIONSHIP_PLANETS.includes(transitPlanet) ||
     RELATIONSHIP_PLANETS.includes(natalPlanet)
   ) {
-    return `${base} Это прямой триггер для ваших отношений — учитывай настроение Серёжи.`;
+    return `${base} Это прямой триггер для ваших отношений — учитывай его настроение.`;
   }
 
-  return `${base} Это фон, который влияет и на Серёжу, и на вас двоих опосредованно.`;
+  return `${base} Это фон, который влияет на вас двоих опосредованно.`;
 }
 
 export function buildAstroHighlights(isoDate: string, maxPerPerson = 4): string[] {
