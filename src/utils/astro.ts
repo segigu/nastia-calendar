@@ -282,12 +282,13 @@ export function buildAstroHighlights(isoDate: string, maxPerPerson = 4): string[
       .map(match => describeAspect(match, 'nastia'));
 
     const sergeyNatal = getNatalPositions('sergey');
+    // Аспекты партнёра: только для планет отношений, опционально (может быть 0)
     const sergeyAspects = findAspectsBetween(transits, sergeyNatal)
       .filter(match =>
         RELATIONSHIP_PLANETS.includes(match.transitPlanet) ||
         RELATIONSHIP_PLANETS.includes(match.natalPlanet)
       )
-      .slice(0, Math.max(1, Math.floor(maxPerPerson / 2)))
+      .slice(0, Math.floor(maxPerPerson / 2))
       .map(match => describeAspect(match, 'sergey'));
 
     highlights = [...nastiaAspects, ...sergeyAspects];
