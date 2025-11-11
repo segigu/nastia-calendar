@@ -222,39 +222,14 @@ function findAspectsBetween(transits: PlanetPosition[], natal: PlanetPosition[])
   return matches.sort((a, b) => a.orb - b.orb);
 }
 
-function describeRelationshipImpact(aspect: AspectName): string {
-  switch (aspect) {
-    case 'conjunction':
-      return 'В отношениях может накрыть волной близости и взаимных требований одновременно.';
-    case 'sextile':
-      return 'Есть шанс спокойно договориться, если не заорёте друг на друга первыми.';
-    case 'square':
-      return 'Готовься к домашней перепалке — искры летят, но можно выговориться по-честному.';
-    case 'trine':
-      return 'Получится поймать общий вайб и даже расслабиться вместе с близким человеком.';
-    case 'opposition':
-      return 'Придётся балансировать в отношениях: вас тянет в разные стороны, но договориться можно.';
-    default:
-      return '';
-  }
-}
-
 function describeAspect(match: AspectMatch, target: 'nastia' | 'sergey'): string {
   const { transitPlanet, natalPlanet, aspect } = match;
   const transitDef = PLANETS.find(p => p.id === transitPlanet)!;
   const natalAccusative = PLANETS.find(p => p.id === natalPlanet)!.natalAccusative;
 
   if (target === 'nastia') {
-    const base = `${transitDef.transitLabel} ${ASPECT_TONES[aspect]} твою ${natalAccusative} — ${PLANET_THEMES[natalPlanet]}. ${ASPECT_EFFECTS[aspect]}`;
-
-    if (
-      RELATIONSHIP_PLANETS.includes(transitPlanet) ||
-      RELATIONSHIP_PLANETS.includes(natalPlanet)
-    ) {
-      return `${base} ${describeRelationshipImpact(aspect)}`;
-    }
-
-    return base;
+    // Для Насти: только базовое описание аспекта, без упоминаний про отношения
+    return `${transitDef.transitLabel} ${ASPECT_TONES[aspect]} твою ${natalAccusative} — ${PLANET_THEMES[natalPlanet]}. ${ASPECT_EFFECTS[aspect]}`;
   }
 
   // target === 'sergey'
